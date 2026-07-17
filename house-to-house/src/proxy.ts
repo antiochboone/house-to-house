@@ -24,6 +24,21 @@ export async function proxy(request: NextRequest) {
     },
   });
 
+  // A sign-in code can land on ANY path (Supabase falls back to the Site URL
+  // when a redirect isn't allowlisted). Catch it wherever it shows up.
+  const code = request.nextUrl.searchParams.get("code");
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const url = request.nextUrl.clone();
+    url.searchParams.delete("code");
+    url.pathname = error ? "/login" : "/map";
+    if (error) url.searchParams.set("error", "link");
+    const redirect = NextResponse.redirect(url);
+    // Carry over the session cookies set during the exchange.
+    response.cookies.getAll().forEach((c) => redirect.cookies.set(c.name, c.value, c));
+    return redirect;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();

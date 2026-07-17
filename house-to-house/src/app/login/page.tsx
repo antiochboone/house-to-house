@@ -1,21 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "verifying" | "error">("idle");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
-  const [codeError, setCodeError] = useState("");
+  const [linkError, setLinkError] = useState(false);
+
+  useEffect(() => {
+    // Surface a failed/expired sign-in link, and let the browser client pick up
+    // any auth state landing in the URL.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error")) setLinkError(true);
+    if (isSupabaseConfigured) {
+      const supabase = supabaseBrowser();
+      void supabase.auth.getSession().then(({ data }) => {
+        if (data.session) window.location.replace("/map");
+      });
+    }
+  }, []);
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     setState("sending");
+    setLinkError(false);
     const supabase = supabaseBrowser();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
@@ -26,25 +39,6 @@ export default function LoginPage() {
       setState("error");
     } else {
       setState("sent");
-    }
-  };
-
-  const verifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) return;
-    setState("verifying");
-    setCodeError("");
-    const supabase = supabaseBrowser();
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code.trim(),
-      type: "email",
-    });
-    if (error) {
-      setCodeError(error.message);
-      setState("sent");
-    } else {
-      window.location.href = "/map";
     }
   };
 
@@ -80,49 +74,29 @@ export default function LoginPage() {
             Continue to the demo
           </Link>
         </div>
-      ) : state === "sent" || state === "verifying" ? (
+      ) : state === "sent" ? (
         <div className="rounded-[14px] border border-line bg-surface p-6 text-center shadow-card">
           <p className="font-display mb-1.5 text-xl">Check your email</p>
-          <p className="mb-4 text-[13.5px] leading-relaxed text-muted">
-            We sent a sign-in link to <strong>{email}</strong>. Click it — or type the
-            6-digit code from the email here:
+          <p className="text-[13.5px] leading-relaxed text-muted">
+            We sent a sign-in link to <strong>{email}</strong>. Open it in this same
+            browser and you&apos;ll land in the app, signed in. Links expire after a few
+            minutes and work once.
           </p>
-          <form onSubmit={verifyCode}>
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-              placeholder="123456"
-              className="mb-3 w-full rounded-xl border-[1.5px] border-line bg-bg px-3.5 py-2.5 text-center text-[22px] tracking-[0.4em] outline-none focus:border-accent"
-            />
-            <button
-              type="submit"
-              disabled={state === "verifying" || code.length < 6}
-              className="w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-cta-ink disabled:opacity-50"
-            >
-              {state === "verifying" ? "Signing in…" : "Sign in with code"}
-            </button>
-          </form>
-          {codeError && (
-            <p className="mt-3 text-[13px] text-ember">
-              That code didn&apos;t work: {codeError}. Codes expire quickly — request a new
-              one if needed.
-            </p>
-          )}
           <button
-            onClick={() => {
-              setState("idle");
-              setCode("");
-            }}
-            className="mt-3 text-[12.5px] text-muted underline-offset-2 hover:underline"
+            onClick={() => setState("idle")}
+            className="mt-4 text-[12.5px] text-muted underline-offset-2 hover:underline"
           >
             use a different email
           </button>
         </div>
       ) : (
         <form onSubmit={send} className="rounded-[14px] border border-line bg-surface p-6 shadow-card">
+          {linkError && (
+            <p className="mb-4 rounded-lg bg-ember-soft px-3 py-2 text-[13px] text-ember">
+              That sign-in link didn&apos;t work — it may have expired or been used already.
+              Request a fresh one below.
+            </p>
+          )}
           <label htmlFor="email" className="label mb-2 block">
             Your email
           </label>
