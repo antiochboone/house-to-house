@@ -443,9 +443,6 @@ export const LINEAGE: Lane[] = [
   },
 ];
 
-/** Timeline domain: first month shown, last month shown, "today". */
-export const LINEAGE_RANGE = { from: "2021-07", to: "2026-12", today: "2026-07" };
-
 /* ---------------- Constants ---------------- */
 
 export const SEASON_META: Record<Season, { label: string; chip: string }> = {
@@ -478,61 +475,8 @@ export const PULSE_WORDS = [
 export const LEADER_HOME = "king";
 export const LEADER_NAME = "Sam Caldwell";
 
-/* ---------------- Derivations (the "insights, not verdicts" engine) ---------------- */
-
-const byId = new Map(PEOPLE.map((p) => [p.id, p]));
-const kids = new Map<string, Person[]>();
-for (const p of PEOPLE) {
-  if (p.discipledBy) {
-    const list = kids.get(p.discipledBy) ?? [];
-    list.push(p);
-    kids.set(p.discipledBy, list);
-  }
-}
-
-export const personById = (id: string) => byId.get(id);
-export const disciplesOf = (id: string): Person[] => kids.get(id) ?? [];
-export const inRelationship = (p: Person) => p.discipledBy !== null || disciplesOf(p.id).length > 0;
-
-export const groupById = (id: string) => GROUPS.find((g) => g.id === id);
-export const groupPeople = (groupId: string) => PEOPLE.filter((p) => p.groupId === groupId);
-export const groupLeaders = (groupId: string) =>
-  groupPeople(groupId).filter((p) => p.role === "leader");
-
-/** Everyone in a lifegroup. */
-export const placedPeople = () => PEOPLE.filter((p) => p.groupId !== null);
-/** In the church, not staff, not in any lifegroup. */
-export const unplacedPeople = () =>
-  PEOPLE.filter((p) => p.groupId === null && p.role !== "staff");
-
-export const engagementTier = (p: Person): EngagementTier => {
-  if (p.role === "leader" || p.role === "intern" || p.role === "worship" || p.role === "staff")
-    return "lead";
-  if (inRelationship(p)) return "core";
-  if (p.status === "open" || p.status === "invited" || p.status === "wants") return "consistent";
-  return "fringe";
-};
-
-export const descendantCount = (id: string): number =>
-  disciplesOf(id).reduce((sum, k) => sum + 1 + descendantCount(k.id), 0);
-
-/** Roots of the discipleship forest: people who disciple others but aren't discipled themselves. */
-export const treeRoots = () =>
-  PEOPLE.filter(
-    (p) => disciplesOf(p.id).length > 0 && (!p.discipledBy || !byId.has(p.discipledBy)),
-  );
-
-export const churchStats = () => {
-  const placed = placedPeople();
-  const inD = placed.filter(inRelationship);
-  return {
-    groups: GROUPS.filter((g) => g.status === "active").length,
-    people: placed.length,
-    inDiscipleship: inD.length,
-    unplaced: unplacedPeople().length,
-    preparingToPlant: GROUPS.filter((g) => g.season === "plant").length,
-  };
-};
+/* ---------------- Tiny formatting helpers ---------------- */
+// Derivations over the data (tree, tiers, stats) live in store.tsx → makeHelpers.
 
 export const firstName = (name: string) => name.split(" ")[0];
 

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { PULSE_WORDS } from "@/lib/data";
-import { useRole } from "@/components/role-context";
+import { useData } from "@/lib/store";
 
 const STEPS = 6;
 
@@ -39,7 +39,7 @@ function Opt({
 }
 
 export default function CheckInPage() {
-  const { role } = useRole();
+  const { role, realMode } = useData();
   const [step, setStep] = useState(0);
   const [rhythm, setRhythm] = useState(0);
   const [moods, setMoods] = useState<number[]>([]);
@@ -263,8 +263,9 @@ export default function CheckInPage() {
         </div>
       </div>
       <p className="mt-4 text-center text-[12.5px] text-faint">
-        Diligent leaders can also log attendance and prayer answers any time — but this is
-        the only ask.
+        {realMode
+          ? "This is a preview with sample prompts — real check-ins that save to the database arrive in Milestone 3."
+          : "Diligent leaders can also log attendance and prayer answers any time — but this is the only ask."}
       </p>
     </>
   );

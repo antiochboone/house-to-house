@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { RoleProvider } from "@/components/role-context";
+import { DataProvider } from "@/lib/store";
 import { Shell } from "@/components/shell";
 
 export const metadata: Metadata = {
@@ -15,9 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full">
-        <RoleProvider>
+        <DataProvider>
           <Shell>{children}</Shell>
-        </RoleProvider>
+        </DataProvider>
       </body>
     </html>
   );

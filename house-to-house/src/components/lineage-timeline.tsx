@@ -2,10 +2,10 @@
 
 // The web of lifegroups over time: each group is a horizontal line; lines branch at
 // plants, flow into each other at merges, fade while dormant, and resume at replants.
-// Renders the LINEAGE data (the future group_events ledger) as one SVG.
+// Lanes come from the store (demo seed, or the group_events ledger in real mode).
 
-import { useState } from "react";
-import { LINEAGE, LINEAGE_RANGE, type Lane, type LaneEvent } from "@/lib/data";
+import { useMemo, useState } from "react";
+import type { Lane, LaneEvent } from "@/lib/data";
 
 const LANE_H = 52;
 const PAD_L = 16;
@@ -17,12 +17,6 @@ const monthIndex = (ym: string) => {
   const [y, m] = ym.split("-").map(Number);
   return y * 12 + (m - 1);
 };
-const M0 = monthIndex(LINEAGE_RANGE.from);
-const M1 = monthIndex(LINEAGE_RANGE.to);
-const X = (ym: string) =>
-  PAD_L + 120 + ((monthIndex(ym) - M0) / (M1 - M0)) * (W - PAD_L - PAD_R - 120);
-
-const laneY = new Map(LINEAGE.map((l, i) => [l.id, PAD_T + i * LANE_H + LANE_H / 2]));
 
 const SEG_STYLE: Record<string, { stroke: string; dash?: string; opacity: number; width: number }> = {
   active: { stroke: "var(--accent)", opacity: 1, width: 3.5 },
@@ -40,17 +34,43 @@ const EVENT_DOT: Record<LaneEvent["kind"], { fill: string; r: number }> = {
   milestone: { fill: "var(--gold)", r: 3.5 },
 };
 
-function laneEnd(lane: Lane): string {
-  const last = lane.segments[lane.segments.length - 1];
-  return last.to ?? LINEAGE_RANGE.today;
-}
-
-export function LineageTimeline() {
+export function LineageTimeline({ lanes }: { lanes: Lane[] }) {
   const [hover, setHover] = useState<{ x: number; y: number; text: string } | null>(null);
 
-  const H = PAD_T + LINEAGE.length * LANE_H + 30;
-  const years = [];
-  for (let y = 2022; y <= 2026; y++) years.push(y);
+  const { X, laneY, years, H, todayYM } = useMemo(() => {
+    const now = new Date();
+    const todayYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const months = lanes.flatMap((l) => [
+      ...l.segments.flatMap((s) => [s.from, s.to ?? todayYM]),
+      ...l.events.map((e) => e.date),
+    ]);
+    const minM = months.length ? Math.min(...months.map(monthIndex)) - 2 : monthIndex(todayYM) - 12;
+    const maxM = Math.max(monthIndex(todayYM) + 5, ...(months.length ? months.map(monthIndex) : [0]));
+    const X = (ym: string) =>
+      PAD_L + 120 + ((monthIndex(ym) - minM) / Math.max(1, maxM - minM)) * (W - PAD_L - PAD_R - 120);
+    const laneY = new Map(lanes.map((l, i) => [l.id, PAD_T + i * LANE_H + LANE_H / 2]));
+    const years: number[] = [];
+    for (let y = Math.ceil(minM / 12); y * 12 <= maxM; y++) years.push(y);
+    const H = PAD_T + Math.max(1, lanes.length) * LANE_H + 30;
+    return { X, laneY, years: years.filter((y) => y * 12 >= minM), H, todayYM };
+  }, [lanes]);
+
+  const laneEnd = (lane: Lane): string => {
+    const last = lane.segments[lane.segments.length - 1];
+    return last.to ?? todayYM;
+  };
+
+  if (lanes.length === 0) {
+    return (
+      <div className="rise rounded-[14px] border border-line bg-surface p-8 text-center shadow-card">
+        <p className="font-display mb-1 text-lg">No history yet</p>
+        <p className="text-[13.5px] text-muted">
+          As lifegroups are added and their plants, merges, and replants get recorded, the
+          family tree of the church grows here.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rise rounded-[14px] border border-line bg-surface p-5 shadow-card">
@@ -72,7 +92,6 @@ export function LineageTimeline() {
       <div className="overflow-x-auto">
         <div className="relative min-w-[900px]">
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Lifegroup lineage timeline">
-            {/* year gridlines */}
             {years.map((y) => (
               <g key={y}>
                 <line
@@ -84,20 +103,18 @@ export function LineageTimeline() {
                 </text>
               </g>
             ))}
-            {/* today marker */}
             <line
-              x1={X(LINEAGE_RANGE.today)} x2={X(LINEAGE_RANGE.today)} y1={PAD_T - 14} y2={H - 20}
+              x1={X(todayYM)} x2={X(todayYM)} y1={PAD_T - 14} y2={H - 20}
               stroke="var(--ember)" strokeWidth="1" strokeDasharray="2 4" opacity="0.6"
             />
-            <text x={X(LINEAGE_RANGE.today)} y={H - 6} textAnchor="middle" fontSize="10" fill="var(--ember)">
+            <text x={X(todayYM)} y={H - 6} textAnchor="middle" fontSize="10" fill="var(--ember)">
               today
             </text>
 
-            {/* branch + merge connectors (drawn under lanes) */}
-            {LINEAGE.map((lane) => {
+            {lanes.map((lane) => {
               const y = laneY.get(lane.id)!;
               const parts: React.ReactNode[] = [];
-              if (lane.parentId) {
+              if (lane.parentId && laneY.has(lane.parentId)) {
                 const px = X(lane.segments[0].from);
                 const py = laneY.get(lane.parentId)!;
                 parts.push(
@@ -108,7 +125,7 @@ export function LineageTimeline() {
                   />,
                 );
               }
-              if (lane.mergedIntoId) {
+              if (lane.mergedIntoId && laneY.has(lane.mergedIntoId)) {
                 const mx = X(laneEnd(lane));
                 const my = laneY.get(lane.mergedIntoId)!;
                 parts.push(
@@ -122,25 +139,21 @@ export function LineageTimeline() {
               return parts;
             })}
 
-            {/* lanes */}
-            {LINEAGE.map((lane) => {
+            {lanes.map((lane) => {
               const y = laneY.get(lane.id)!;
               return (
                 <g key={lane.id}>
                   {lane.segments.map((seg, i) => {
                     const s = SEG_STYLE[seg.kind];
-                    const x1 = X(seg.from);
-                    const x2 = X(seg.to ?? LINEAGE_RANGE.today);
                     return (
                       <line
                         key={i}
-                        x1={x1} x2={x2} y1={y} y2={y}
+                        x1={X(seg.from)} x2={X(seg.to ?? todayYM)} y1={y} y2={y}
                         stroke={s.stroke} strokeWidth={s.width}
                         strokeDasharray={s.dash} opacity={s.opacity} strokeLinecap="round"
                       />
                     );
                   })}
-                  {/* label at line start */}
                   <text
                     x={X(lane.segments[0].from) - 8} y={y + 4}
                     textAnchor="end" fontSize="12.5" fill="var(--ink)"
@@ -148,7 +161,6 @@ export function LineageTimeline() {
                   >
                     {lane.name}
                   </text>
-                  {/* rename note for replants */}
                   {lane.segments.length > 1 && lane.segments[0].name !== lane.name && (
                     <text
                       x={X(lane.segments[0].from) + 4} y={y - 9}
@@ -157,12 +169,11 @@ export function LineageTimeline() {
                       {lane.segments[0].name}
                     </text>
                   )}
-                  {/* event dots */}
                   {lane.events.map((ev) => {
                     const d = EVENT_DOT[ev.kind];
                     return (
                       <circle
-                        key={ev.date + ev.kind}
+                        key={ev.date + ev.kind + ev.label}
                         cx={X(ev.date)} cy={y} r={d.r} fill={d.fill}
                         stroke="var(--surface)" strokeWidth="1.5"
                         className="cursor-pointer"
@@ -184,7 +195,7 @@ export function LineageTimeline() {
               className="pointer-events-none absolute z-10 max-w-[260px] rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[12px] leading-snug shadow-card"
               style={{
                 left: `${(hover.x / W) * 100}%`,
-                top: `${((hover.y - 34) / (PAD_T + LINEAGE.length * LANE_H + 30)) * 100}%`,
+                top: `${((hover.y - 34) / H) * 100}%`,
                 transform: "translateX(-50%)",
               }}
             >
@@ -193,11 +204,6 @@ export function LineageTimeline() {
           )}
         </div>
       </div>
-      <p className="mt-2 text-[12.5px] italic text-muted">
-        Three groups in 2021 became eight today — one wound down and its people were
-        received, one slept a winter and woke with a new name, and Hardin Creek is about
-        to make it nine.
-      </p>
     </div>
   );
 }

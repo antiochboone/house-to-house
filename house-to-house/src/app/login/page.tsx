@@ -7,8 +7,10 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [code, setCode] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "verifying" | "error">("idle");
   const [error, setError] = useState("");
+  const [codeError, setCodeError] = useState("");
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +26,25 @@ export default function LoginPage() {
       setState("error");
     } else {
       setState("sent");
+    }
+  };
+
+  const verifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setState("verifying");
+    setCodeError("");
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code.trim(),
+      type: "email",
+    });
+    if (error) {
+      setCodeError(error.message);
+      setState("sent");
+    } else {
+      window.location.href = "/map";
     }
   };
 
@@ -59,13 +80,46 @@ export default function LoginPage() {
             Continue to the demo
           </Link>
         </div>
-      ) : state === "sent" ? (
+      ) : state === "sent" || state === "verifying" ? (
         <div className="rounded-[14px] border border-line bg-surface p-6 text-center shadow-card">
           <p className="font-display mb-1.5 text-xl">Check your email</p>
-          <p className="text-[13.5px] leading-relaxed text-muted">
-            We sent a sign-in link to <strong>{email}</strong>. Click it and you&apos;ll land
-            right back here, signed in. (You only do this once per device.)
+          <p className="mb-4 text-[13.5px] leading-relaxed text-muted">
+            We sent a sign-in link to <strong>{email}</strong>. Click it — or type the
+            6-digit code from the email here:
           </p>
+          <form onSubmit={verifyCode}>
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              placeholder="123456"
+              className="mb-3 w-full rounded-xl border-[1.5px] border-line bg-bg px-3.5 py-2.5 text-center text-[22px] tracking-[0.4em] outline-none focus:border-accent"
+            />
+            <button
+              type="submit"
+              disabled={state === "verifying" || code.length < 6}
+              className="w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-cta-ink disabled:opacity-50"
+            >
+              {state === "verifying" ? "Signing in…" : "Sign in with code"}
+            </button>
+          </form>
+          {codeError && (
+            <p className="mt-3 text-[13px] text-ember">
+              That code didn&apos;t work: {codeError}. Codes expire quickly — request a new
+              one if needed.
+            </p>
+          )}
+          <button
+            onClick={() => {
+              setState("idle");
+              setCode("");
+            }}
+            className="mt-3 text-[12.5px] text-muted underline-offset-2 hover:underline"
+          >
+            use a different email
+          </button>
         </div>
       ) : (
         <form onSubmit={send} className="rounded-[14px] border border-line bg-surface p-6 shadow-card">

@@ -1,8 +1,8 @@
 "use client";
 
 import type { Guest } from "@/lib/types";
-import { GUESTS, MILESTONES } from "@/lib/data";
-import { useRole } from "@/components/role-context";
+import { MILESTONES } from "@/lib/data";
+import { useData } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
 
 function AttendingChip({ a }: { a: Guest["attending"] }) {
@@ -45,7 +45,7 @@ function MilestoneRoad({ guest }: { guest: Guest }) {
 }
 
 export default function FollowUpPage() {
-  const { role } = useRole();
+  const { role, realMode, guests } = useData();
 
   if (role !== "staff") {
     return (
@@ -59,8 +59,8 @@ export default function FollowUpPage() {
     );
   }
 
-  const inMotion = GUESTS.filter((g) => !g.steps.lifegroup).length;
-  const landed = GUESTS.filter((g) => g.steps.lifegroup).length;
+  const inMotion = guests.filter((g) => !g.steps.lifegroup).length;
+  const landed = guests.filter((g) => g.steps.lifegroup).length;
 
   return (
     <>
@@ -73,13 +73,24 @@ export default function FollowUpPage() {
       </div>
 
       <div className="mb-5 flex flex-wrap gap-5">
-        <Stat num={GUESTS.length} label="guests in the pipeline" />
+        <Stat num={guests.length} label="guests in the pipeline" />
         <Stat num={inMotion} label="still in motion" />
         <Stat num={landed} label="landed in a lifegroup this year" />
       </div>
 
+      {guests.length === 0 && (
+        <div className="mx-auto mt-10 max-w-md rounded-[14px] border border-line bg-surface p-8 text-center shadow-card">
+          <p className="font-display mb-2 text-lg">No guests in the pipeline</p>
+          <p className="text-[13.5px] text-muted">
+            {realMode
+              ? "When someone visits on a Sunday, they'll start their journey here. Adding guests arrives with the follow-up milestone."
+              : "Demo guests were cleared."}
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3.5">
-        {GUESTS.map((g) => (
+        {guests.map((g) => (
           <div key={g.id} className="rise rounded-[14px] border border-line bg-surface px-5 py-[18px] shadow-card">
             <div className="flex flex-wrap items-start gap-3">
               <Avatar name={g.name} gender={g.gender} />

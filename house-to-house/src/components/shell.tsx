@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRole } from "./role-context";
+import { useData } from "@/lib/store";
 import { Avatar } from "./ui";
 import { LEADER_NAME } from "@/lib/data";
 
@@ -65,7 +65,7 @@ function Wordmark() {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { role, setRole } = useRole();
+  const { role, demoRole, setDemoRole, realMode, userEmail } = useData();
   const pathname = usePathname();
 
   // Auth pages stand alone — no app chrome.
@@ -112,38 +112,62 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="flex-1 max-md:hidden" />
         <div className="border-t border-line pt-3.5 max-md:ml-auto max-md:border-0 max-md:pt-0">
-          <span className="label max-md:hidden">Viewing as</span>
-          <div
-            role="group"
-            aria-label="Role switcher"
-            className="my-2 flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:my-0"
-          >
-            {(["staff", "leader"] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRole(r)}
-                className={`flex-1 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold capitalize ${
-                  role === r ? "bg-surface text-ink shadow-card" : "text-muted"
-                }`}
+          {realMode ? (
+            <>
+              <div className="flex items-center gap-2 px-2 py-1 max-md:hidden">
+                <Avatar name={userEmail ?? "?"} gender={undefined} />
+                <div className="min-w-0 leading-tight">
+                  <div className="truncate text-[13px] font-semibold">
+                    {userEmail ?? "Signed in"}
+                  </div>
+                  <div className="text-[11.5px] capitalize text-muted">{role}</div>
+                </div>
+              </div>
+              <form method="post" action="/auth/signout" className="px-2 pt-1">
+                <button
+                  type="submit"
+                  className="text-[12px] text-muted underline-offset-2 hover:underline"
+                >
+                  Sign out
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <span className="label max-md:hidden">Viewing as</span>
+              <div
+                role="group"
+                aria-label="Role switcher"
+                className="my-2 flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:my-0"
               >
-                {r}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 px-2 py-1 max-md:hidden">
-            <Avatar name={role === "staff" ? "Hunter R" : LEADER_NAME} gender="M" />
-            <div className="leading-tight">
-              <div className="text-[13px] font-semibold">
-                {role === "staff" ? "Hunter" : "Sam Caldwell"}
+                {(["staff", "leader"] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setDemoRole(r)}
+                    className={`flex-1 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold capitalize ${
+                      demoRole === r ? "bg-surface text-ink shadow-card" : "text-muted"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
               </div>
-              <div className="text-[11.5px] text-muted">
-                {role === "staff" ? "Staff · full access" : "Leader · King Street"}
+              <div className="flex items-center gap-2 px-2 py-1 max-md:hidden">
+                <Avatar name={demoRole === "staff" ? "Hunter R" : LEADER_NAME} gender="M" />
+                <div className="leading-tight">
+                  <div className="text-[13px] font-semibold">
+                    {demoRole === "staff" ? "Hunter" : "Sam Caldwell"}
+                  </div>
+                  <div className="text-[11.5px] text-muted">
+                    {demoRole === "staff" ? "Staff · full access" : "Leader · King Street"}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="px-2 pt-2 text-[10.5px] leading-relaxed text-faint max-md:hidden">
-            Milestone 1 · sample data. Real sign-in and your real people arrive in Milestone 2.
-          </div>
+              <div className="px-2 pt-2 text-[10.5px] leading-relaxed text-faint max-md:hidden">
+                Demo mode · sample data. Connect Supabase to switch to the real church.
+              </div>
+            </>
+          )}
         </div>
       </aside>
       <main className="min-w-0 flex-1 px-8 pb-20 pt-7 max-md:px-4 max-md:pt-5">{children}</main>

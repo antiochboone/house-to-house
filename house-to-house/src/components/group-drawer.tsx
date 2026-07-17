@@ -2,11 +2,8 @@
 
 import { useEffect } from "react";
 import type { Group, Person } from "@/lib/types";
-import {
-  STATUS_LABEL,
-  groupPeople,
-  inRelationship,
-} from "@/lib/data";
+import { STATUS_LABEL } from "@/lib/data";
+import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Insight, SeasonChip } from "./ui";
 
 const ROLE_NAME: Partial<Record<Person["role"], string>> = {
@@ -32,9 +29,33 @@ function statusChip(p: Person) {
   );
 }
 
-function RosterRow({ p, showDetail }: { p: Person; showDetail: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5 py-1.5">
+export function GroupDrawer({
+  group,
+  showDetail,
+  onClose,
+  onAddPerson,
+}: {
+  group: Group | null;
+  showDetail: boolean;
+  onClose: () => void;
+  onAddPerson?: () => void;
+}) {
+  const { people } = useData();
+  const h = makeHelpers(people);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const open = group !== null;
+  const ppl = group ? h.groupPeople(group.id) : [];
+  const leadership = ppl.filter((p) => ["leader", "intern", "worship"].includes(p.role));
+  const members = ppl.filter((p) => p.role === "member");
+
+  const row = (p: Person) => (
+    <div key={p.id} className="flex items-center gap-2.5 py-1.5">
       <Avatar name={p.name} gender={p.gender} />
       <div>
         <div className="text-sm">{p.name}</div>
@@ -44,7 +65,7 @@ function RosterRow({ p, showDetail }: { p: Person; showDetail: boolean }) {
       </div>
       <div className="ml-auto flex items-center gap-1.5">
         {showDetail &&
-          (inRelationship(p) ? (
+          (h.inRelationship(p) ? (
             <span
               title="in a discipleship relationship"
               className="inline-block h-2.5 w-2.5 rounded-full bg-accent"
@@ -55,27 +76,6 @@ function RosterRow({ p, showDetail }: { p: Person; showDetail: boolean }) {
       </div>
     </div>
   );
-}
-
-export function GroupDrawer({
-  group,
-  showDetail,
-  onClose,
-}: {
-  group: Group | null;
-  showDetail: boolean;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  const open = group !== null;
-  const ppl = group ? groupPeople(group.id) : [];
-  const leadership = ppl.filter((p) => ["leader", "intern", "worship"].includes(p.role));
-  const members = ppl.filter((p) => p.role === "member");
 
   return (
     <>
@@ -107,7 +107,7 @@ export function GroupDrawer({
               {group.lineage ? ` · ${group.lineage}` : ""}
             </div>
 
-            {showDetail && (
+            {showDetail && group.insights.length > 0 && (
               <section className="mt-5">
                 <span className="label mb-2 block">Insights</span>
                 <div className="flex flex-col gap-1.5">
@@ -135,7 +135,17 @@ export function GroupDrawer({
             )}
 
             <section className="mt-5">
-              <span className="label mb-2 block">Leadership team</span>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="label">Leadership team</span>
+                {onAddPerson && (
+                  <button
+                    onClick={onAddPerson}
+                    className="text-[12px] font-semibold text-accent-ink hover:underline"
+                  >
+                    ＋ add person
+                  </button>
+                )}
+              </div>
               <div className="mb-1.5 flex gap-3 text-[11.5px] text-faint">
                 <span className="flex items-center gap-1.5">
                   <span className="inline-block h-3 w-3 rounded-full bg-men-soft ring-1 ring-men/40" /> men
@@ -144,21 +154,23 @@ export function GroupDrawer({
                   <span className="inline-block h-3 w-3 rounded-full bg-women-soft ring-1 ring-women/40" /> women
                 </span>
               </div>
-              {leadership.map((p) => (
-                <RosterRow key={p.id} p={p} showDetail={showDetail} />
-              ))}
+              {leadership.length === 0 && (
+                <p className="text-[12.5px] italic text-muted">No leadership recorded yet.</p>
+              )}
+              {leadership.map(row)}
             </section>
 
             <hr className="my-2 border-line" />
 
             <section className="mt-2.5">
               <span className="label mb-2 block">Members</span>
-              {members.map((p) => (
-                <RosterRow key={p.id} p={p} showDetail={showDetail} />
-              ))}
+              {members.length === 0 && (
+                <p className="text-[12.5px] italic text-muted">No members yet.</p>
+              )}
+              {members.map(row)}
             </section>
 
-            {showDetail && (
+            {showDetail && group.dgroups !== "—" && (
               <section className="mt-5">
                 <span className="label mb-2 block">Discipleship groups</span>
                 <div className="text-sm">
@@ -172,7 +184,7 @@ export function GroupDrawer({
               </section>
             )}
 
-            {showDetail && (
+            {showDetail && group.history.length > 0 && (
               <section className="mt-5">
                 <span className="label mb-2 block">Story</span>
                 <div className="relative flex flex-col gap-3 pl-[18px] before:absolute before:bottom-1.5 before:left-1 before:top-1.5 before:w-0.5 before:rounded before:bg-line">
