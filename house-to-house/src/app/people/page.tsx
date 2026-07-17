@@ -6,7 +6,7 @@ import type { Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
-import { AddPersonForm, Modal } from "@/components/forms";
+import { AddPersonForm, EditPersonForm, Modal } from "@/components/forms";
 
 type Filter = "all" | "unplaced" | "kids" | "staff";
 
@@ -24,6 +24,7 @@ export default function PeoplePage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [groupFilter, setGroupFilter] = useState<string>("");
   const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState<Person | null>(null);
 
   if (role !== "staff") {
     return (
@@ -139,20 +140,26 @@ export default function PeoplePage() {
             key={p.id}
             className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-b-0"
           >
-            <Avatar name={p.name} gender={p.gender} />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[14px]">
-                <span className="truncate">{p.name}</span>
-                {p.isChild && (
-                  <span className="rounded-full bg-gold-soft px-1.5 py-px text-[10px] font-semibold text-gold">
-                    child
-                  </span>
+            <button
+              onClick={() => setEditing(p)}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 text-left hover:opacity-70"
+              title={`Edit ${p.name}`}
+            >
+              <Avatar name={p.name} gender={p.gender} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[14px]">
+                  <span className="truncate">{p.name}</span>
+                  {p.isChild && (
+                    <span className="rounded-full bg-gold-soft px-1.5 py-px text-[10px] font-semibold text-gold">
+                      child
+                    </span>
+                  )}
+                </div>
+                {ROLE_LABEL[p.role] && (
+                  <div className="text-[11px] text-faint">{ROLE_LABEL[p.role]}</div>
                 )}
               </div>
-              {ROLE_LABEL[p.role] && (
-                <div className="text-[11px] text-faint">{ROLE_LABEL[p.role]}</div>
-              )}
-            </div>
+            </button>
             <div className="ml-auto flex shrink-0 items-center gap-2.5">
               {!p.isChild &&
                 p.role !== "staff" &&
@@ -182,6 +189,11 @@ export default function PeoplePage() {
       {showAdd && (
         <Modal title="Add a person" onClose={() => setShowAdd(false)}>
           <AddPersonForm onDone={() => setShowAdd(false)} />
+        </Modal>
+      )}
+      {editing && (
+        <Modal title={`Edit ${editing.firstName}`} onClose={() => setEditing(null)}>
+          <EditPersonForm person={editing} onDone={() => setEditing(null)} />
         </Modal>
       )}
     </>

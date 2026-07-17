@@ -74,6 +74,16 @@ interface DataApi {
   addRelationship: (disciplerId: string, discipleId: string) => Promise<string | null>;
   setStatus: (personId: string, status: DiscipleshipStatus) => Promise<string | null>;
   setGroupTags: (groupId: string, labels: string[]) => Promise<string | null>;
+  updatePerson: (id: string, input: AddPersonInput) => Promise<string | null>;
+  deletePerson: (id: string) => Promise<string | null>;
+  endDiscipleship: (discipleId: string) => Promise<string | null>;
+  updateGroup: (id: string, input: AddGroupInput) => Promise<string | null>;
+  deleteGroup: (id: string) => Promise<string | null>;
+  setGroupOrigin: (
+    id: string,
+    plantedMonth: string,
+    parentGroupId: string | null,
+  ) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -181,6 +191,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return {
           id: row.id,
           name: `${row.first_name} ${row.last_name}`.trim(),
+          firstName: row.first_name,
+          lastName: row.last_name,
           gender: (row.gender ?? "M") as Gender,
           groupId: mem?.group_id ?? null,
           role: (mem?.role ?? "member") as MemberRole,
@@ -293,6 +305,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           {
             id,
             name: `${input.firstName} ${input.lastName}`.trim(),
+            firstName: input.firstName,
+            lastName: input.lastName,
             gender: input.gender,
             groupId: input.groupId ?? null,
             role: input.role ?? "member",
@@ -451,6 +465,219 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, refresh],
   );
 
+  const updatePerson = useCallback(
+    async (id: string, input: AddPersonInput): Promise<string | null> => {
+      const current = people.find((p) => p.id === id);
+      if (!current) return "Person not found.";
+      if (!realMode) {
+        setPeople((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  name: `${input.firstName} ${input.lastName}`.trim(),
+                  firstName: input.firstName,
+                  lastName: input.lastName,
+                  gender: input.gender,
+                  isChild: input.isChild,
+                  groupId: input.groupId ?? null,
+                  role: input.role ?? "member",
+                  status: input.status ?? p.status,
+                }
+              : p,
+          ),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase
+        .from("people")
+        .update({
+          first_name: input.firstName,
+          last_name: input.lastName,
+          gender: input.gender,
+          email: input.email || null,
+          phone: input.phone || null,
+          discipleship_status: input.status ?? "none",
+          is_child: input.isChild ?? false,
+        })
+        .eq("id", id);
+      if (error) return error.message;
+
+      const groupChanged = (input.groupId ?? null) !== current.groupId;
+      const roleChanged = (input.role ?? "member") !== current.role;
+      if (groupChanged || roleChanged) {
+        const { error: endErr } = await supabase
+          .from("memberships")
+          .update({ left_at: new Date().toISOString().slice(0, 10) })
+          .eq("person_id", id)
+          .is("left_at", null);
+        if (endErr) return endErr.message;
+        if (input.groupId) {
+          const { data: church } = await supabase.from("churches").select("id").single();
+          const { error: memErr } = await supabase.from("memberships").insert({
+            church_id: church!.id,
+            person_id: id,
+            group_id: input.groupId,
+            role: input.role ?? "member",
+          });
+          if (memErr) return memErr.message;
+        }
+      }
+      await refresh();
+      return null;
+    },
+    [people, realMode, refresh],
+  );
+
+  const deletePerson = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (!realMode) {
+        setPeople((prev) =>
+          prev
+            .filter((p) => p.id !== id)
+            .map((p) => (p.discipledBy === id ? { ...p, discipledBy: null } : p)),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.from("people").delete().eq("id", id);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
+  const endDiscipleship = useCallback(
+    async (discipleId: string): Promise<string | null> => {
+      if (!realMode) {
+        setPeople((prev) =>
+          prev.map((p) => (p.id === discipleId ? { ...p, discipledBy: null } : p)),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase
+        .from("discipleship_relationships")
+        .update({ ended_at: new Date().toISOString().slice(0, 10) })
+        .eq("disciple_id", discipleId)
+        .is("ended_at", null);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
+  const updateGroup = useCallback(
+    async (id: string, input: AddGroupInput): Promise<string | null> => {
+      if (!realMode) {
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === id
+              ? {
+                  ...g,
+                  name: input.name,
+                  season: input.season,
+                  meet:
+                    [input.meetingDay, input.meetingTime, input.meetingPlace]
+                      .filter(Boolean)
+                      .join(" · ") || "meeting time TBD",
+                }
+              : g,
+          ),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase
+        .from("groups")
+        .update({
+          name: input.name,
+          season: input.season,
+          meeting_day: input.meetingDay || null,
+          meeting_time: input.meetingTime || null,
+          meeting_place: input.meetingPlace || null,
+        })
+        .eq("id", id);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
+  const deleteGroup = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (!realMode) {
+        setGroups((prev) => prev.filter((g) => g.id !== id));
+        setPeople((prev) => prev.map((p) => (p.groupId === id ? { ...p, groupId: null } : p)));
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.from("groups").delete().eq("id", id);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
+  const setGroupOrigin = useCallback(
+    async (
+      id: string,
+      plantedMonth: string,
+      parentGroupId: string | null,
+    ): Promise<string | null> => {
+      if (!realMode) {
+        setLanes((prev) =>
+          prev.map((l) =>
+            l.id === id
+              ? {
+                  ...l,
+                  parentId: parentGroupId ?? undefined,
+                  segments: [{ ...l.segments[0], from: plantedMonth }, ...l.segments.slice(1)],
+                }
+              : l,
+          ),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+      const happenedOn = `${plantedMonth}-01`;
+      const { data: existing } = await supabase
+        .from("group_events")
+        .select("id")
+        .eq("group_id", id)
+        .eq("kind", "planted")
+        .maybeSingle();
+      const parentName = parentGroupId
+        ? groups.find((g) => g.id === parentGroupId)?.name
+        : null;
+      const notes = parentName ? `Planted from ${parentName}` : "Planted";
+      const { error } = existing
+        ? await supabase
+            .from("group_events")
+            .update({ happened_on: happenedOn, related_group_id: parentGroupId, notes })
+            .eq("id", existing.id)
+        : await supabase.from("group_events").insert({
+            church_id: church.id,
+            group_id: id,
+            kind: "planted",
+            happened_on: happenedOn,
+            related_group_id: parentGroupId,
+            notes,
+          });
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [groups, realMode, refresh],
+  );
+
   const value = useMemo<DataApi>(
     () => ({
       ready,
@@ -470,8 +697,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addRelationship,
       setStatus,
       setGroupTags,
+      updatePerson,
+      deletePerson,
+      endDiscipleship,
+      updateGroup,
+      deleteGroup,
+      setGroupOrigin,
     }),
-    [ready, realMode, role, demoRole, userEmail, people, groups, wins, guests, lanes, refresh, addPerson, addGroup, addRelationship, setStatus, setGroupTags],
+    [ready, realMode, role, demoRole, userEmail, people, groups, wins, guests, lanes, refresh, addPerson, addGroup, addRelationship, setStatus, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

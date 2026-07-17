@@ -22,6 +22,8 @@ export type AppRole = "staff" | "leader";
 export interface Person {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
   gender: Gender;
   /** null = not in any lifegroup (staff, or unplaced). */
   groupId: string | null;

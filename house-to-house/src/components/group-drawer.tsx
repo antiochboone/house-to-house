@@ -5,7 +5,7 @@ import type { Group, Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Insight, SeasonChip } from "./ui";
-import { TagsInput } from "./forms";
+import { EditGroupForm, EditPersonForm, Modal, TagsInput } from "./forms";
 
 const ROLE_NAME: Partial<Record<Person["role"], string>> = {
   leader: "Leader",
@@ -31,7 +31,7 @@ function statusChip(p: Person) {
 }
 
 export function GroupDrawer({
-  group,
+  group: groupProp,
   showDetail,
   onClose,
   onAddPerson,
@@ -43,8 +43,14 @@ export function GroupDrawer({
 }) {
   const { people, groups, role, setGroupTags } = useData();
   const h = makeHelpers(people);
+  // Always render the live group from the store so edits reflect immediately;
+  // fall back to the passed snapshot while closing.
+  const group = groupProp ? (groups.find((g) => g.id === groupProp.id) ?? groupProp) : null;
   const [editingTags, setEditingTags] = useState(false);
   const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [editPerson, setEditPerson] = useState<Person | null>(null);
+  const [editGroup, setEditGroup] = useState(false);
+  const staff = role === "staff";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -57,6 +63,14 @@ export function GroupDrawer({
     if (group) setDraftTags(group.tags);
   }, [group]);
 
+  // If the open group was deleted, close the drawer.
+  useEffect(() => {
+    if (groupProp && !groups.some((g) => g.id === groupProp.id)) {
+      setEditGroup(false);
+      onClose();
+    }
+  }, [groupProp, groups, onClose]);
+
   const open = group !== null;
   const ppl = group ? h.groupPeople(group.id) : [];
   const gKids = group ? h.groupKids(group.id) : [];
@@ -65,7 +79,14 @@ export function GroupDrawer({
   const allTags = [...new Set(groups.flatMap((g) => g.tags))];
 
   const row = (p: Person) => (
-    <div key={p.id} className="flex items-center gap-2.5 py-1.5">
+    <div
+      key={p.id}
+      onClick={staff ? () => setEditPerson(p) : undefined}
+      className={`flex items-center gap-2.5 rounded-lg px-1 py-1.5 ${
+        staff ? "cursor-pointer hover:bg-surface-2" : ""
+      }`}
+      title={staff ? `Edit ${p.name}` : undefined}
+    >
       <Avatar name={p.name} gender={p.gender} />
       <div>
         <div className="text-sm">{p.name}</div>
@@ -103,13 +124,23 @@ export function GroupDrawer({
       >
         {group && (
           <>
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className="absolute right-4 top-4 rounded-lg px-2.5 py-1 text-xl text-muted hover:bg-surface-2"
-            >
-              ✕
-            </button>
+            <div className="absolute right-4 top-4 flex items-center gap-1">
+              {staff && (
+                <button
+                  onClick={() => setEditGroup(true)}
+                  className="rounded-lg px-2.5 py-1 text-[12.5px] font-semibold text-accent-ink hover:bg-surface-2"
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="rounded-lg px-2.5 py-1 text-xl text-muted hover:bg-surface-2"
+              >
+                ✕
+              </button>
+            </div>
             <SeasonChip group={group} />
             <h2 className="font-display mb-0.5 mt-1.5 text-2xl">{group.name}</h2>
             <div className="mb-2 text-[13.5px] text-muted">
@@ -227,7 +258,14 @@ export function GroupDrawer({
               <section className="mt-5">
                 <span className="label mb-2 block">Kids</span>
                 {gKids.map((k) => (
-                  <div key={k.id} className="flex items-center gap-2.5 py-1.5">
+                  <div
+                    key={k.id}
+                    onClick={staff ? () => setEditPerson(k) : undefined}
+                    className={`flex items-center gap-2.5 rounded-lg px-1 py-1.5 ${
+                      staff ? "cursor-pointer hover:bg-surface-2" : ""
+                    }`}
+                    title={staff ? `Edit ${k.name}` : undefined}
+                  >
                     <Avatar name={k.name} gender={k.gender} size={22} />
                     <div className="text-sm">{k.name}</div>
                     <span className="ml-auto rounded-full bg-gold-soft px-2 py-0.5 text-[10.5px] font-semibold text-gold">
@@ -276,6 +314,17 @@ export function GroupDrawer({
           </>
         )}
       </aside>
+
+      {editPerson && (
+        <Modal title={`Edit ${editPerson.firstName}`} onClose={() => setEditPerson(null)}>
+          <EditPersonForm person={editPerson} onDone={() => setEditPerson(null)} />
+        </Modal>
+      )}
+      {editGroup && group && (
+        <Modal title={`Edit ${group.name}`} onClose={() => setEditGroup(false)}>
+          <EditGroupForm group={group} onDone={() => setEditGroup(false)} />
+        </Modal>
+      )}
     </>
   );
 }

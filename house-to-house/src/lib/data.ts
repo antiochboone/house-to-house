@@ -265,17 +265,22 @@ const slug = (name: string) =>
   name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z]+/g, "-");
 
 export const PEOPLE: Person[] = ROWS.map(
-  ([name, gender, groupId, role, by, status, note, isChild]) => ({
-    id: slug(name),
-    name,
-    gender,
-    groupId,
-    role,
-    discipledBy: by ? slug(by) : null,
-    status,
-    note,
-    isChild,
-  }),
+  ([name, gender, groupId, role, by, status, note, isChild]) => {
+    const space = name.indexOf(" ");
+    return {
+      id: slug(name),
+      name,
+      firstName: space === -1 ? name : name.slice(0, space),
+      lastName: space === -1 ? "" : name.slice(space + 1),
+      gender,
+      groupId,
+      role,
+      discipledBy: by ? slug(by) : null,
+      status,
+      note,
+      isChild,
+    };
+  },
 );
 
 /* ---------------- Guests (follow-up pipeline) ---------------- */

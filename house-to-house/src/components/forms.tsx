@@ -4,7 +4,7 @@
 // relationship. Built for speed of entry — Hunter is typing in a whole church.
 
 import { useState, type ReactNode } from "react";
-import type { DiscipleshipStatus, Gender, MemberRole, Season } from "@/lib/types";
+import type { DiscipleshipStatus, Gender, Group, MemberRole, Person, Season } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 
@@ -19,8 +19,8 @@ export function Modal({
 }) {
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <div className="fixed inset-x-0 top-[10vh] z-50 mx-auto w-[440px] max-w-[calc(100vw-2rem)] rounded-[14px] border border-line bg-bg p-6 shadow-card">
+      <div className="fixed inset-0 z-[60] bg-black/40" onClick={onClose} />
+      <div className="fixed inset-x-0 top-[8vh] z-[70] mx-auto max-h-[84vh] w-[440px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[14px] border border-line bg-bg p-6 shadow-card">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-xl">{title}</h2>
           <button
@@ -344,6 +344,323 @@ export function AddPersonForm({
         </div>
       </div>
       <SubmitRow busy={busy} error={error} label="Add person" />
+    </form>
+  );
+}
+
+export function EditPersonForm({ person, onDone }: { person: Person; onDone: () => void }) {
+  const { groups, people, updatePerson, deletePerson, endDiscipleship } = useData();
+  const [first, setFirst] = useState(person.firstName);
+  const [last, setLast] = useState(person.lastName);
+  const [gender, setGender] = useState<Gender>(person.gender);
+  const [isChild, setIsChild] = useState(!!person.isChild);
+  const [groupId, setGroupId] = useState<string>(person.groupId ?? "");
+  const [role, setRole] = useState<MemberRole>(person.role === "staff" ? "member" : person.role);
+  const [status, setStatus] = useState<DiscipleshipStatus>(person.status ?? "none");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const discipler = person.discipledBy
+    ? people.find((p) => p.id === person.discipledBy)
+    : null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const err = await updatePerson(person.id, {
+      firstName: first.trim(),
+      lastName: last.trim(),
+      gender,
+      isChild,
+      groupId: groupId || null,
+      role: isChild ? "member" : role,
+      status: isChild ? "none" : status,
+    });
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    const err = await deletePerson(person.id);
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>First name</label>
+          <input required value={first} onChange={(e) => setFirst(e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Last name</label>
+          <input value={last} onChange={(e) => setLast(e.target.value)} className={inputCls} />
+        </div>
+      </div>
+      <label className={labelCls}>Who is this?</label>
+      <div className="flex gap-2">
+        {(["M", "F"] as const).map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => setGender(g)}
+            className={`flex-1 rounded-xl border-[1.5px] py-2 text-[14px] font-medium ${
+              gender === g
+                ? g === "M"
+                  ? "border-men bg-men-soft text-men-ink"
+                  : "border-women bg-women-soft text-women-ink"
+                : "border-line text-muted"
+            }`}
+          >
+            {g === "M" ? (isChild ? "Boy" : "Man") : isChild ? "Girl" : "Woman"}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setIsChild(!isChild)}
+          className={`rounded-xl border-[1.5px] px-3.5 py-2 text-[14px] font-medium ${
+            isChild ? "border-gold bg-gold-soft text-gold" : "border-line text-muted"
+          }`}
+        >
+          Child
+        </button>
+      </div>
+      <label className={labelCls}>Lifegroup</label>
+      <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
+        <option value="">Not in a lifegroup</option>
+        {groups.map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.name}
+          </option>
+        ))}
+      </select>
+      {groupId && !isChild && (
+        <>
+          <label className={labelCls}>Role in group</label>
+          <select value={role} onChange={(e) => setRole(e.target.value as MemberRole)} className={inputCls}>
+            <option value="member">Member</option>
+            <option value="leader">Leader</option>
+            <option value="intern">Intern</option>
+            <option value="worship">Worship leader</option>
+          </select>
+        </>
+      )}
+      {!isChild && (
+        <>
+          <label className={labelCls}>Discipleship</label>
+          {discipler ? (
+            <div className="flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[13.5px]">
+              <span>
+                Discipled by <strong>{discipler.name}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  setBusy(true);
+                  const err = await endDiscipleship(person.id);
+                  setBusy(false);
+                  if (err) setError(err);
+                  else onDone();
+                }}
+                className="text-[12px] text-ember hover:underline"
+              >
+                end relationship
+              </button>
+            </div>
+          ) : (
+            <select value={status} onChange={(e) => setStatus(e.target.value as DiscipleshipStatus)} className={inputCls}>
+              {(Object.keys(STATUS_LABEL) as DiscipleshipStatus[]).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          )}
+        </>
+      )}
+      <SubmitRow busy={busy} error={error} label="Save changes" />
+      <div className="mt-3 text-center">
+        {confirmDelete ? (
+          <span className="text-[12.5px] text-muted">
+            Really remove {person.firstName} entirely?{" "}
+            <button type="button" onClick={remove} className="font-semibold text-ember hover:underline">
+              yes, remove
+            </button>{" "}
+            ·{" "}
+            <button type="button" onClick={() => setConfirmDelete(false)} className="hover:underline">
+              cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="text-[12.5px] text-faint hover:text-ember hover:underline"
+          >
+            remove this person from the church records
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function parseMeet(meet: string) {
+  const dayMatch = DAYS.find((d) => meet.includes(d));
+  const timeMatch = meet.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  const place = meet
+    .split(" · ")
+    .filter((part) => !DAYS.includes(part) && !/^\d{1,2}:\d{2}/.test(part))
+    .join(" · ");
+  return {
+    day: dayMatch ?? "",
+    hour: timeMatch ? timeMatch[1] : "",
+    minute: timeMatch ? timeMatch[2] : "30",
+    ampm: (timeMatch?.[3]?.toUpperCase() as "AM" | "PM") ?? "PM",
+    place: place === "meeting time TBD" ? "" : place,
+  };
+}
+
+export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => void }) {
+  const { groups, lanes, updateGroup, deleteGroup, setGroupOrigin } = useData();
+  const parsed = parseMeet(group.meet);
+  const lane = lanes.find((l) => l.id === group.id);
+  const [name, setName] = useState(group.name);
+  const [season, setSeason] = useState<Season>(group.season);
+  const [day, setDay] = useState(parsed.day);
+  const [hour, setHour] = useState(parsed.hour);
+  const [minute, setMinute] = useState(parsed.minute);
+  const [ampm, setAmpm] = useState<"AM" | "PM">(parsed.ampm);
+  const [place, setPlace] = useState(parsed.place);
+  const [plantedMonth, setPlantedMonth] = useState(lane?.segments[0]?.from ?? "");
+  const [parentId, setParentId] = useState(lane?.parentId ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    let err = await updateGroup(group.id, {
+      name: name.trim(),
+      season,
+      meetingDay: day,
+      meetingTime: hour ? `${hour}:${minute} ${ampm}` : "",
+      meetingPlace: place.trim(),
+    });
+    if (!err && plantedMonth) {
+      err = await setGroupOrigin(group.id, plantedMonth, parentId || null);
+    }
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    const err = await deleteGroup(group.id);
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <label className={labelCls}>Group name</label>
+      <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+      <label className={labelCls}>Season</label>
+      <select value={season} onChange={(e) => setSeason(e.target.value as Season)} className={inputCls}>
+        <option value="start">Starting Up — new or recently replanted</option>
+        <option value="build">Building Up — healthy and growing</option>
+        <option value="plant">Multiplying — preparing to plant a new group</option>
+      </select>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Day</label>
+          <select value={day} onChange={(e) => setDay(e.target.value)} className={inputCls}>
+            <option value="">—</option>
+            {DAYS.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Time</label>
+          <div className="flex gap-1.5">
+            <select value={hour} onChange={(e) => setHour(e.target.value)} className={inputCls} aria-label="Hour">
+              {HOURS.map((h) => (
+                <option key={h} value={h}>{h || "—"}</option>
+              ))}
+            </select>
+            <select value={minute} onChange={(e) => setMinute(e.target.value)} className={inputCls} aria-label="Minute">
+              {MINUTES.map((m) => (
+                <option key={m} value={m}>:{m}</option>
+              ))}
+            </select>
+            <select value={ampm} onChange={(e) => setAmpm(e.target.value as "AM" | "PM")} className={inputCls} aria-label="AM or PM">
+              <option value="PM">PM</option>
+              <option value="AM">AM</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <label className={labelCls}>Where</label>
+      <input value={place} onChange={(e) => setPlace(e.target.value)} className={inputCls} />
+      <div className="mt-4 rounded-xl border border-dashed border-line p-3">
+        <span className="label mb-1 block">Origin story (for the timeline)</span>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Planted (month)</label>
+            <input
+              type="month"
+              value={plantedMonth}
+              onChange={(e) => setPlantedMonth(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Planted from</label>
+            <select value={parentId} onChange={(e) => setParentId(e.target.value)} className={inputCls}>
+              <option value="">— (original / direct plant)</option>
+              {groups
+                .filter((g) => g.id !== group.id)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+      </div>
+      <SubmitRow busy={busy} error={error} label="Save changes" />
+      <div className="mt-3 text-center">
+        {confirmDelete ? (
+          <span className="text-[12.5px] text-muted">
+            Really delete {group.name}? Its people become &quot;not in a lifegroup.&quot;{" "}
+            <button type="button" onClick={remove} className="font-semibold text-ember hover:underline">
+              yes, delete
+            </button>{" "}
+            ·{" "}
+            <button type="button" onClick={() => setConfirmDelete(false)} className="hover:underline">
+              cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="text-[12.5px] text-faint hover:text-ember hover:underline"
+          >
+            delete this group
+          </button>
+        )}
+      </div>
     </form>
   );
 }
