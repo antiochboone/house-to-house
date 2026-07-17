@@ -23,6 +23,13 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M8.8 6.6 5.6 12.4M11.2 6.6l3.2 5.8" />
     </svg>
   ),
+  people: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="h-[18px] w-[18px] shrink-0 opacity-85">
+      <circle cx="7" cy="6.5" r="2.5" />
+      <circle cx="13.5" cy="8" r="2" />
+      <path d="M2.5 15.5c.5-3 2.5-4.5 4.5-4.5s4 1.5 4.5 4.5M12.5 12.8c1.8.3 3.2 1.5 3.7 3" />
+    </svg>
+  ),
   guest: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0 opacity-85">
       <circle cx="8" cy="6.5" r="2.5" />
@@ -90,6 +97,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     role === "staff"
       ? [
           { href: "/map", label: "Lifegroup Map", icon: "map" },
+          { href: "/people", label: "People", icon: "people" },
           { href: "/discipleship", label: "Discipleship", icon: "disc" },
           { href: "/follow-up", label: "Follow-up", icon: "guest" },
           { href: "/check-in", label: "Check-in", icon: "checkin" },
@@ -135,14 +143,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
           onClick={toggleCollapsed}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={`mt-2 flex items-center gap-2 rounded-[10px] py-1.5 text-[12px] text-faint hover:bg-surface-2 hover:text-muted max-md:hidden ${
-            collapsed ? "justify-center px-0" : "px-3"
-          }`}
+          className="absolute -right-3 top-6 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-faint shadow-card hover:text-accent-ink max-md:hidden"
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 transition-transform ${collapsed ? "rotate-180" : ""}`}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-3 w-3 transition-transform ${collapsed ? "rotate-180" : ""}`}>
             <path d="M10 3 5 8l5 5" />
           </svg>
-          {!collapsed && "collapse"}
         </button>
         <div className="flex-1 max-md:hidden" />
         <div className={`border-t border-line pt-3.5 max-md:ml-auto max-md:border-0 max-md:pt-0 ${collapsed ? "flex justify-center" : ""}`}>
