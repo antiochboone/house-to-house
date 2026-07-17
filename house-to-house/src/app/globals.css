@@ -23,6 +23,7 @@
   --sprout-soft: #e3f0e4;
   --gold: #b08a28;
   --gold-soft: #f3ead0;
+  --beige: #b3a07c;
   --ember: #bf6a4e;
   --ember-soft: #f5e3db;
   --dormant: #8f948a;
@@ -54,6 +55,7 @@
     --sprout-soft: #2c3a2c;
     --gold: #d4af52;
     --gold-soft: #3b3520;
+    --beige: #a89a7d;
     --ember: #d68f70;
     --ember-soft: #3d2a21;
     --dormant: #8f948a;
@@ -69,7 +71,7 @@
   --accent-ink: #aad8b0; --accent-soft: #2c3a2c; --glow: rgba(131, 189, 139, 0.14);
   --men: #7ea3c7; --men-ink: #9fc0de; --men-soft: #253242;
   --women: #cf8a77; --women-ink: #de9f8f; --women-soft: #3d2a26;
-  --sprout: #83bd8b; --sprout-soft: #2c3a2c; --gold: #d4af52; --gold-soft: #3b3520;
+  --sprout: #83bd8b; --sprout-soft: #2c3a2c; --gold: #d4af52; --gold-soft: #3b3520; --beige: #a89a7d;
   --ember: #d68f70; --ember-soft: #3d2a21; --dormant: #8f948a; --dormant-soft: #333630;
   --cta-ink: #14210f;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 30px rgba(0, 0, 0, 0.3);
@@ -81,7 +83,7 @@
   --accent-ink: #2f6b3a; --accent-soft: #e4f0e1; --glow: rgba(78, 158, 95, 0.12);
   --men: #5d82a6; --men-ink: #46688a; --men-soft: #e2eaf2;
   --women: #c07260; --women-ink: #a65b4b; --women-soft: #f5e3df;
-  --sprout: #4e9e5f; --sprout-soft: #e3f0e4; --gold: #b08a28; --gold-soft: #f3ead0;
+  --sprout: #4e9e5f; --sprout-soft: #e3f0e4; --gold: #b08a28; --gold-soft: #f3ead0; --beige: #b3a07c;
   --ember: #bf6a4e; --ember-soft: #f5e3db; --dormant: #8f948a; --dormant-soft: #eaeae2;
   --cta-ink: #ffffff;
   --shadow-card: 0 1px 2px rgba(53, 57, 47, 0.05), 0 8px 24px rgba(53, 57, 47, 0.07);

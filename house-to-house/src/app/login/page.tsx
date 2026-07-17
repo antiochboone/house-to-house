@@ -45,12 +45,13 @@ export default function LoginPage() {
   return (
     <div className="mx-auto mt-24 w-full max-w-sm px-4">
       <div className="mb-8 flex items-center justify-center gap-3">
-        <svg width="42" height="37" viewBox="0 0 34 30" fill="none" aria-hidden>
-          <path d="M2 14 L9.5 6.5 L17 14" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M4.5 13 V24 H14.5 V13" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-          <rect x="7.8" y="17.2" width="3.4" height="3.4" rx="0.6" fill="var(--accent)" />
-          <path d="M15 16.5 L23.5 8 L32 16.5" stroke="var(--gold)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M17.5 15.5 V26 H29.5 V15.5" stroke="var(--gold)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        <svg width="46" height="38" viewBox="0 0 46 38" fill="none" aria-hidden>
+          <path d="M20 13 L31 2 L42 13" stroke="var(--beige)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M22.5 11 V27 H39.5 V11" stroke="var(--beige)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="28" y="19.5" width="6" height="7.5" rx="0.8" fill="var(--beige)" />
+          <path d="M6.5 20 V36 H23.5 V20" fill="var(--bg)" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 22 L15 11 L26 22" fill="var(--bg)" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="12" y="28.5" width="6" height="7.5" rx="0.8" fill="var(--accent)" />
         </svg>
         <div>
           <div className="font-display text-2xl leading-none">House to House</div>

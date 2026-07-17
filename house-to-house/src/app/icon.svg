@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 38">
+  <style>
+    .g1 { stroke: #4E9E5F; } .f1 { fill: #4E9E5F; }
+    .g2 { stroke: #b3a07c; } .f2 { fill: #b3a07c; }
+    .bg { fill: #F7F3EA; }
+    @media (prefers-color-scheme: dark) {
+      .g1 { stroke: #83BD8B; } .f1 { fill: #83BD8B; }
+      .g2 { stroke: #a89a7d; } .f2 { fill: #a89a7d; }
+      .bg { fill: #211F19; }
+    }
+  </style>
+  <path class="g2" d="M20 13 L31 2 L42 13" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path class="g2" d="M22.5 11 V27 H39.5 V11" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect class="f2" x="28" y="19.5" width="6" height="7.5" rx="0.8"/>
+  <path class="bg g1" d="M6.5 20 V36 H23.5 V20" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path class="bg g1" d="M4 22 L15 11 L26 22" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect class="f1" x="12" y="28.5" width="6" height="7.5" rx="0.8"/>
+</svg>
