@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Group, Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Insight, SeasonChip } from "./ui";
+import { TagsInput } from "./forms";
 
 const ROLE_NAME: Partial<Record<Person["role"], string>> = {
   leader: "Leader",
@@ -40,8 +41,10 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people } = useData();
+  const { people, groups, role, setGroupTags } = useData();
   const h = makeHelpers(people);
+  const [editingTags, setEditingTags] = useState(false);
+  const [draftTags, setDraftTags] = useState<string[]>([]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -49,10 +52,17 @@ export function GroupDrawer({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  useEffect(() => {
+    setEditingTags(false);
+    if (group) setDraftTags(group.tags);
+  }, [group]);
+
   const open = group !== null;
   const ppl = group ? h.groupPeople(group.id) : [];
+  const gKids = group ? h.groupKids(group.id) : [];
   const leadership = ppl.filter((p) => ["leader", "intern", "worship"].includes(p.role));
   const members = ppl.filter((p) => p.role === "member");
+  const allTags = [...new Set(groups.flatMap((g) => g.tags))];
 
   const row = (p: Person) => (
     <div key={p.id} className="flex items-center gap-2.5 py-1.5">
@@ -102,10 +112,53 @@ export function GroupDrawer({
             </button>
             <SeasonChip group={group} />
             <h2 className="font-display mb-0.5 mt-1.5 text-2xl">{group.name}</h2>
-            <div className="mb-3.5 text-[13.5px] text-muted">
+            <div className="mb-2 text-[13.5px] text-muted">
               {group.meet} · {ppl.length} people
+              {gKids.length > 0 ? ` · ${gKids.length} kids` : ""}
               {group.lineage ? ` · ${group.lineage}` : ""}
             </div>
+
+            {editingTags ? (
+              <div className="mb-2">
+                <TagsInput tags={draftTags} setTags={setDraftTags} suggestions={allTags} />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={async () => {
+                      await setGroupTags(group.id, draftTags);
+                      setEditingTags(false);
+                    }}
+                    className="rounded-lg bg-accent px-3 py-1 text-[12px] font-semibold text-cta-ink"
+                  >
+                    Save tags
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDraftTags(group.tags);
+                      setEditingTags(false);
+                    }}
+                    className="text-[12px] text-muted"
+                  >
+                    cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                {group.tags.map((t) => (
+                  <span key={t} className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
+                    {t}
+                  </span>
+                ))}
+                {role === "staff" && (
+                  <button
+                    onClick={() => setEditingTags(true)}
+                    className="text-[11.5px] text-accent-ink hover:underline"
+                  >
+                    {group.tags.length ? "edit tags" : "＋ add tags"}
+                  </button>
+                )}
+              </div>
+            )}
 
             {showDetail && group.insights.length > 0 && (
               <section className="mt-5">
@@ -169,6 +222,21 @@ export function GroupDrawer({
               )}
               {members.map(row)}
             </section>
+
+            {gKids.length > 0 && (
+              <section className="mt-5">
+                <span className="label mb-2 block">Kids</span>
+                {gKids.map((k) => (
+                  <div key={k.id} className="flex items-center gap-2.5 py-1.5">
+                    <Avatar name={k.name} gender={k.gender} size={22} />
+                    <div className="text-sm">{k.name}</div>
+                    <span className="ml-auto rounded-full bg-gold-soft px-2 py-0.5 text-[10.5px] font-semibold text-gold">
+                      child
+                    </span>
+                  </div>
+                ))}
+              </section>
+            )}
 
             {showDetail && group.dgroups !== "—" && (
               <section className="mt-5">

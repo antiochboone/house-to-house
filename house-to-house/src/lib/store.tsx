@@ -44,6 +44,7 @@ export interface AddPersonInput {
   groupId?: string | null;
   role?: MemberRole;
   status?: DiscipleshipStatus;
+  isChild?: boolean;
 }
 
 export interface AddGroupInput {
@@ -52,6 +53,7 @@ export interface AddGroupInput {
   meetingDay?: string;
   meetingTime?: string;
   meetingPlace?: string;
+  tags?: string[];
 }
 
 interface DataApi {
@@ -71,11 +73,43 @@ interface DataApi {
   addGroup: (input: AddGroupInput) => Promise<string | null>;
   addRelationship: (disciplerId: string, discipleId: string) => Promise<string | null>;
   setStatus: (personId: string, status: DiscipleshipStatus) => Promise<string | null>;
+  setGroupTags: (groupId: string, labels: string[]) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
 
 const monthOf = (iso: string) => iso.slice(0, 7);
+
+/** Find-or-create tags by label, then attach them to a group. */
+async function writeGroupTags(
+  churchId: string,
+  groupId: string,
+  labels: string[],
+): Promise<string | null> {
+  const supabase = supabaseBrowser();
+  for (const label of labels) {
+    const { data: existing } = await supabase
+      .from("tags")
+      .select("id")
+      .ilike("label", label)
+      .maybeSingle();
+    let tagId = existing?.id;
+    if (!tagId) {
+      const { data: created, error } = await supabase
+        .from("tags")
+        .insert({ church_id: churchId, label, kind: "custom" })
+        .select("id")
+        .single();
+      if (error) return error.message;
+      tagId = created.id;
+    }
+    const { error: linkErr } = await supabase
+      .from("group_tags")
+      .upsert({ group_id: groupId, tag_id: tagId });
+    if (linkErr) return linkErr.message;
+  }
+  return null;
+}
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const realMode = isSupabaseConfigured;
@@ -93,18 +127,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!realMode) return;
     const supabase = supabaseBrowser();
 
-    const [{ data: auth }, profileQ, groupsQ, peopleQ, memsQ, relsQ, winsQ, guestsQ, eventsQ] =
-      await Promise.all([
-        supabase.auth.getUser(),
-        supabase.from("profiles").select("role").maybeSingle(),
-        supabase.from("groups").select("*").neq("status", "dissolved").order("created_at"),
-        supabase.from("people").select("*").order("first_name"),
-        supabase.from("memberships").select("*").is("left_at", null),
-        supabase.from("discipleship_relationships").select("*").is("ended_at", null),
-        supabase.from("wins").select("*").order("happened_on", { ascending: false }).limit(20),
-        supabase.from("guests").select("*").is("archived_at", null).order("created_at"),
-        supabase.from("group_events").select("*").order("happened_on"),
-      ]);
+    const [
+      { data: auth },
+      profileQ,
+      groupsQ,
+      peopleQ,
+      memsQ,
+      relsQ,
+      winsQ,
+      guestsQ,
+      eventsQ,
+      tagsQ,
+      groupTagsQ,
+    ] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.from("profiles").select("role").maybeSingle(),
+      supabase.from("groups").select("*").neq("status", "dissolved").order("created_at"),
+      supabase.from("people").select("*").order("first_name"),
+      supabase.from("memberships").select("*").is("left_at", null),
+      supabase.from("discipleship_relationships").select("*").is("ended_at", null),
+      supabase.from("wins").select("*").order("happened_on", { ascending: false }).limit(20),
+      supabase.from("guests").select("*").is("archived_at", null).order("created_at"),
+      supabase.from("group_events").select("*").order("happened_on"),
+      supabase.from("tags").select("*"),
+      supabase.from("group_tags").select("*"),
+    ]);
 
     setUserEmail(auth.user?.email ?? null);
     setRole((profileQ.data?.role as AppRole) ?? "leader");
@@ -112,6 +159,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const mems = memsQ.data ?? [];
     const rels = relsQ.data ?? [];
     const events = eventsQ.data ?? [];
+    const tagLabel = new Map((tagsQ.data ?? []).map((t) => [t.id, t.label as string]));
+    const tagsByGroup = new Map<string, string[]>();
+    for (const gt of groupTagsQ.data ?? []) {
+      const label = tagLabel.get(gt.tag_id);
+      if (!label) continue;
+      const list = tagsByGroup.get(gt.group_id) ?? [];
+      list.push(label);
+      tagsByGroup.set(gt.group_id, list);
+    }
 
     const memByPerson = new Map<string, (typeof mems)[number]>();
     for (const m of mems) if (!memByPerson.has(m.person_id)) memByPerson.set(m.person_id, m);
@@ -131,6 +187,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           discipledBy: disciplerOf.get(row.id) ?? null,
           status: (row.discipleship_status ?? null) as DiscipleshipStatus | null,
           note: row.notes ?? undefined,
+          isChild: !!row.is_child,
         };
       }),
     );
@@ -156,6 +213,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           dgroups: "—",
           lineage: null,
           history,
+          tags: tagsByGroup.get(row.id) ?? [],
         } satisfies Group;
       }),
     );
@@ -240,6 +298,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             role: input.role ?? "member",
             discipledBy: null,
             status: input.status ?? "none",
+            isChild: input.isChild,
           },
         ]);
         return null;
@@ -257,6 +316,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           email: input.email || null,
           phone: input.phone || null,
           discipleship_status: input.status ?? "none",
+          is_child: input.isChild ?? false,
         })
         .select("id")
         .single();
@@ -294,6 +354,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             dgroups: "forming",
             lineage: null,
             history: [],
+            tags: input.tags ?? [],
           },
         ]);
         return null;
@@ -301,19 +362,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const supabase = supabaseBrowser();
       const { data: church } = await supabase.from("churches").select("id").single();
       if (!church) return "Couldn't find your church record.";
-      const { error } = await supabase.from("groups").insert({
-        church_id: church.id,
-        name: input.name,
-        season: input.season,
-        meeting_day: input.meetingDay || null,
-        meeting_time: input.meetingTime || null,
-        meeting_place: input.meetingPlace || null,
-      });
+      const { data: group, error } = await supabase
+        .from("groups")
+        .insert({
+          church_id: church.id,
+          name: input.name,
+          season: input.season,
+          meeting_day: input.meetingDay || null,
+          meeting_time: input.meetingTime || null,
+          meeting_place: input.meetingPlace || null,
+        })
+        .select("id")
+        .single();
       if (error) return error.message;
+      if (input.tags && input.tags.length) {
+        const err = await writeGroupTags(church.id, group.id, input.tags);
+        if (err) return err;
+      }
       await refresh();
       return null;
     },
     [realMode, groups.length, refresh],
+  );
+
+  const setGroupTags = useCallback(
+    async (groupId: string, labels: string[]): Promise<string | null> => {
+      const clean = [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
+      if (!realMode) {
+        setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, tags: clean } : g)));
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+      const { error: delErr } = await supabase.from("group_tags").delete().eq("group_id", groupId);
+      if (delErr) return delErr.message;
+      const err = await writeGroupTags(church.id, groupId, clean);
+      if (err) return err;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
   );
 
   const addRelationship = useCallback(
@@ -380,8 +469,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addGroup,
       addRelationship,
       setStatus,
+      setGroupTags,
     }),
-    [ready, realMode, role, demoRole, userEmail, people, groups, wins, guests, lanes, refresh, addPerson, addGroup, addRelationship, setStatus],
+    [ready, realMode, role, demoRole, userEmail, people, groups, wins, guests, lanes, refresh, addPerson, addGroup, addRelationship, setStatus, setGroupTags],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -396,9 +486,10 @@ export function useData(): DataApi {
 /* ---------------- Pure derivations over the store's arrays ---------------- */
 
 export function makeHelpers(people: Person[]) {
+  const adults = people.filter((p) => !p.isChild);
   const byId = new Map(people.map((p) => [p.id, p]));
   const kids = new Map<string, Person[]>();
-  for (const p of people) {
+  for (const p of adults) {
     if (p.discipledBy) {
       const list = kids.get(p.discipledBy) ?? [];
       list.push(p);
@@ -424,13 +515,15 @@ export function makeHelpers(people: Person[]) {
     engagementTier,
     descendantCount,
     treeRoots: () =>
-      people.filter(
+      adults.filter(
         (p) => disciplesOf(p.id).length > 0 && (!p.discipledBy || !byId.has(p.discipledBy)),
       ),
-    groupPeople: (gid: string) => people.filter((p) => p.groupId === gid),
+    /** Adults in a group (children live in groupKids). */
+    groupPeople: (gid: string) => adults.filter((p) => p.groupId === gid),
+    groupKids: (gid: string) => people.filter((p) => p.groupId === gid && p.isChild),
     groupLeaders: (gid: string) =>
-      people.filter((p) => p.groupId === gid && p.role === "leader"),
-    placedPeople: () => people.filter((p) => p.groupId !== null),
-    unplacedPeople: () => people.filter((p) => p.groupId === null && p.role !== "staff"),
+      adults.filter((p) => p.groupId === gid && p.role === "leader"),
+    placedPeople: () => adults.filter((p) => p.groupId !== null),
+    unplacedPeople: () => adults.filter((p) => p.groupId === null && p.role !== "staff"),
   };
 }

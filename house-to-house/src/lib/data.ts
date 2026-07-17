@@ -19,6 +19,7 @@ import type {
 export const GROUPS: Group[] = [
   {
     id: "king", name: "King Street", meet: "Tuesdays 6:30 · downtown Boone",
+    tags: ["Downtown"],
     season: "build", status: "active",
     insights: [
       "Grown by 3 since April",
@@ -34,6 +35,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "howard", name: "Howard's Knob", meet: "Thursdays 6:00 · north Boone",
+    tags: [],
     season: "build", status: "active",
     insights: [
       "Steady attendance all spring",
@@ -47,6 +49,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "hardin", name: "Hardin Creek", meet: "Tuesdays 6:30 · east Boone",
+    tags: [],
     season: "plant", status: "active",
     insights: [
       "2 men's + 2 women's D-groups — the plant-ready pattern",
@@ -63,6 +66,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "blowing", name: "Blowing Rock", meet: "Mondays 6:30 · Blowing Rock",
+    tags: ["Blowing Rock"],
     season: "start", status: "active",
     insights: [
       "Planted in February — 4-week start plan complete",
@@ -76,6 +80,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "perkins", name: "Perkinsville", meet: "Wednesdays 6:30 · Perkinsville",
+    tags: [],
     season: "build", status: "active",
     insights: [
       "Roster unchanged in 7 months — may be drifting toward stagnant",
@@ -91,6 +96,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "appstate", name: "App State", meet: "Sundays 8:00 · campus",
+    tags: ["College"],
     season: "build", status: "active",
     insights: [
       "Grown by 5 since January",
@@ -105,6 +111,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "valle", name: "Valle Crucis", meet: "Fridays 5:30 · Valle Crucis · family group",
+    tags: ["Families"],
     season: "build", status: "active",
     insights: [
       "6 kids — running the 5 C's rotation",
@@ -115,6 +122,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "oak", name: "Oak Grove", meet: "Thursdays 6:30 · west Boone",
+    tags: [],
     season: "start", status: "active",
     insights: [
       "Replanted in May after a dormant winter",
@@ -139,6 +147,7 @@ type Row = [
   discipledBy: string | null,
   status: DiscipleshipStatus | null,
   note?: string,
+  isChild?: boolean,
 ];
 
 const ROWS: Row[] = [
@@ -230,6 +239,9 @@ const ROWS: Row[] = [
   ["Vic Sloane", "M", "valle", "member", null, "declined"],
   ["Nell Harmon", "F", "valle", "member", "Sue Freeny", null],
   ["Roy Peck", "M", "valle", "member", null, "invited"],
+  ["Ellie Plummer", "F", "valle", "member", null, "none", undefined, true],
+  ["Mack Freeny", "M", "valle", "member", null, "none", undefined, true],
+  ["Junie Freeny", "F", "valle", "member", null, "none", undefined, true],
 
   ["Bea Lawson", "F", "oak", "leader", null, null],
   ["Tomás Ortiz", "M", "oak", "leader", null, null],
@@ -252,16 +264,19 @@ const ROWS: Row[] = [
 const slug = (name: string) =>
   name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z]+/g, "-");
 
-export const PEOPLE: Person[] = ROWS.map(([name, gender, groupId, role, by, status, note]) => ({
-  id: slug(name),
-  name,
-  gender,
-  groupId,
-  role,
-  discipledBy: by ? slug(by) : null,
-  status,
-  note,
-}));
+export const PEOPLE: Person[] = ROWS.map(
+  ([name, gender, groupId, role, by, status, note, isChild]) => ({
+    id: slug(name),
+    name,
+    gender,
+    groupId,
+    role,
+    discipledBy: by ? slug(by) : null,
+    status,
+    note,
+    isChild,
+  }),
+);
 
 /* ---------------- Guests (follow-up pipeline) ---------------- */
 
@@ -448,7 +463,7 @@ export const LINEAGE: Lane[] = [
 export const SEASON_META: Record<Season, { label: string; chip: string }> = {
   start: { label: "Starting Up", chip: "bg-sprout-soft text-sprout" },
   build: { label: "Building Up", chip: "bg-gold-soft text-gold" },
-  plant: { label: "Planting", chip: "bg-ember-soft text-ember" },
+  plant: { label: "Multiplying", chip: "bg-ember-soft text-ember" },
 };
 
 export const STATUS_LABEL: Record<DiscipleshipStatus, string> = {

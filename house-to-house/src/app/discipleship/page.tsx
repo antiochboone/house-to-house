@@ -72,6 +72,7 @@ export default function DiscipleshipPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd] = useState(false);
+  const [treeTab, setTreeTab] = useState<"M" | "F">("M");
 
   if (role !== "staff") {
     return (
@@ -129,10 +130,37 @@ export default function DiscipleshipPage() {
     </button>
   );
 
-  const treePanel = (title: string, list: Person[]) => (
+  const activeRoots = treeTab === "M" ? menRoots : womenRoots;
+  const treePanel = (
     <div className="rise rounded-[14px] border border-line bg-surface p-5 shadow-card">
-      <h2 className="font-display mb-3.5 text-[17px]">{title}</h2>
-      {list.length === 0 ? (
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px]">
+          {(
+            [
+              ["M", `Men`],
+              ["F", `Women`],
+            ] as const
+          ).map(([g, label]) => (
+            <button
+              key={g}
+              onClick={() => setTreeTab(g)}
+              className={`rounded-lg px-4 py-1.5 text-[13px] font-semibold ${
+                treeTab === g
+                  ? g === "M"
+                    ? "bg-men-soft text-men-ink shadow-card"
+                    : "bg-women-soft text-women-ink shadow-card"
+                  : "text-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[12px] text-faint">
+          {activeRoots.length} {activeRoots.length === 1 ? "chain" : "chains"}
+        </span>
+      </div>
+      {activeRoots.length === 0 ? (
         <p className="text-[12.5px] italic text-muted">
           {realMode
             ? "No relationships recorded yet — use “Record a relationship” to start the tree."
@@ -140,7 +168,7 @@ export default function DiscipleshipPage() {
         </p>
       ) : (
         <ul className="tree">
-          {list.map((r) => (
+          {activeRoots.map((r) => (
             <TreeNode key={r.id} person={r} h={h} groupName={groupName} collapsed={collapsed} toggle={toggle} />
           ))}
         </ul>
@@ -172,10 +200,7 @@ export default function DiscipleshipPage() {
       </div>
 
       <div className="grid grid-cols-[1fr_300px] items-start gap-6 max-lg:grid-cols-1">
-        <div className="grid grid-cols-2 gap-5 max-lg:grid-cols-1">
-          {treePanel("Men", menRoots)}
-          {treePanel("Women", womenRoots)}
-        </div>
+        {treePanel}
 
         <div className="flex flex-col gap-4">
           <div className="rise rounded-[14px] border border-line bg-surface p-[18px] shadow-card">

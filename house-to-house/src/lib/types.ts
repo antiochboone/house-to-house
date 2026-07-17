@@ -32,6 +32,8 @@ export interface Person {
   status: DiscipleshipStatus | null;
   /** For unplaced people: a short shepherding note. */
   note?: string;
+  /** Children attend with their families; excluded from adult views by default. */
+  isChild?: boolean;
 }
 
 export interface GroupEvent {
@@ -50,6 +52,8 @@ export interface Group {
   lineage: string | null;
   readiness?: number;
   history: GroupEvent[];
+  /** Tag labels (geography, season of life, custom). */
+  tags: string[];
 }
 
 export type GuestAttending = "yes" | "sporadic" | "new";

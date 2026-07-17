@@ -45,6 +45,7 @@ create table people (
   phone               text,
   -- Meaningful when the person has no active discipleship relationship:
   discipleship_status text check (discipleship_status in ('open','invited','declined','wants','none')),
+  is_child            boolean not null default false,
   notes               text,
   created_at          timestamptz not null default now()
 );

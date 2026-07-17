@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useData } from "@/lib/store";
@@ -44,9 +45,9 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-function Wordmark() {
+function Wordmark({ collapsed }: { collapsed: boolean }) {
   return (
-    <div className="flex items-center gap-2.5 px-2.5 pb-4">
+    <div className={`flex items-center gap-2.5 pb-4 ${collapsed ? "justify-center px-0" : "px-2.5"}`}>
       <svg width="34" height="30" viewBox="0 0 34 30" fill="none" aria-hidden className="shrink-0">
         <path d="M2 14 L9.5 6.5 L17 14" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M4.5 13 V24 H14.5 V13" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -54,12 +55,14 @@ function Wordmark() {
         <path d="M15 16.5 L23.5 8 L32 16.5" stroke="var(--gold)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M17.5 15.5 V26 H29.5 V15.5" stroke="var(--gold)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <div>
-        <div className="font-display text-[19px] leading-[1.1]">House to House</div>
-        <div className="mt-0.5 text-[10.5px] uppercase tracking-wider text-muted max-md:hidden">
-          Antioch Boone
+      {!collapsed && (
+        <div>
+          <div className="font-display text-[19px] leading-[1.1]">House to House</div>
+          <div className="mt-0.5 text-[10.5px] uppercase tracking-wider text-muted max-md:hidden">
+            Antioch Boone
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -67,6 +70,16 @@ function Wordmark() {
 export function Shell({ children }: { children: React.ReactNode }) {
   const { role, demoRole, setDemoRole, realMode, userEmail } = useData();
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(localStorage.getItem("h2h-sidebar") === "collapsed");
+  }, []);
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem("h2h-sidebar", next ? "collapsed" : "open");
+  };
 
   // Auth pages stand alone — no app chrome.
   if (pathname.startsWith("/login") || pathname.startsWith("/auth")) {
@@ -89,8 +102,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen max-md:flex-col">
-      <aside className="sticky top-0 flex h-screen w-[232px] shrink-0 flex-col gap-1.5 border-r border-line px-3.5 py-5 max-md:static max-md:h-auto max-md:w-full max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-1 max-md:border-b max-md:border-r-0 max-md:px-3.5 max-md:py-3">
-        <Wordmark />
+      <aside
+        style={{ "--sbw": collapsed ? "68px" : "232px" } as React.CSSProperties}
+        className={`sidebar sticky top-0 flex h-screen shrink-0 flex-col gap-1.5 border-r border-line py-5 transition-[width] duration-150 max-md:static max-md:h-auto max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-1 max-md:border-b max-md:border-r-0 max-md:px-3.5 max-md:py-3 ${
+          collapsed ? "px-2" : "px-3.5"
+        }`}
+      >
+        <Wordmark collapsed={collapsed} />
         <nav className="flex flex-col gap-1 max-md:flex-row max-md:flex-wrap">
           {items.map((it) => {
             const active = it.href === pathname;
@@ -98,21 +116,39 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Link
                 key={it.href + it.label}
                 href={it.href}
-                className={`flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[14.5px] font-medium max-md:w-auto max-md:px-2.5 max-md:py-1.5 ${
+                title={it.label}
+                className={`flex w-full items-center gap-2.5 rounded-[10px] py-2 text-[14.5px] font-medium max-md:w-auto max-md:px-2.5 max-md:py-1.5 ${
+                  collapsed ? "justify-center px-0" : "px-3"
+                } ${
                   active
                     ? "bg-accent-soft font-semibold text-accent-ink"
                     : "text-muted hover:bg-surface-2 hover:text-ink"
                 }`}
               >
                 <span className="max-md:hidden">{ICONS[it.icon]}</span>
-                {it.label}
+                {!collapsed && it.label}
               </Link>
             );
           })}
         </nav>
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={`mt-2 flex items-center gap-2 rounded-[10px] py-1.5 text-[12px] text-faint hover:bg-surface-2 hover:text-muted max-md:hidden ${
+            collapsed ? "justify-center px-0" : "px-3"
+          }`}
+        >
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 transition-transform ${collapsed ? "rotate-180" : ""}`}>
+            <path d="M10 3 5 8l5 5" />
+          </svg>
+          {!collapsed && "collapse"}
+        </button>
         <div className="flex-1 max-md:hidden" />
-        <div className="border-t border-line pt-3.5 max-md:ml-auto max-md:border-0 max-md:pt-0">
-          {realMode ? (
+        <div className={`border-t border-line pt-3.5 max-md:ml-auto max-md:border-0 max-md:pt-0 ${collapsed ? "flex justify-center" : ""}`}>
+          {collapsed ? (
+            <Avatar name={realMode ? (userEmail ?? "?") : "Hunter R"} gender={realMode ? undefined : "M"} />
+          ) : realMode ? (
             <>
               <div className="flex items-center gap-2 px-2 py-1 max-md:hidden">
                 <Avatar name={userEmail ?? "?"} gender={undefined} />

@@ -18,6 +18,8 @@ export default function MapPage() {
   const [mode, setMode] = useState<MapMode>("cards");
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
   const [modal, setModal] = useState<OpenModal>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [showKids, setShowKids] = useState(false);
 
   // Support /map?open=<groupId> (used by the leader's "My Group" nav item).
   useEffect(() => {
@@ -35,6 +37,9 @@ export default function MapPage() {
   const placed = h.placedPeople();
   const inD = placed.filter(h.inRelationship);
   const unplaced = h.unplacedPeople();
+  const allTags = [...new Set(groups.flatMap((g) => g.tags))].sort();
+  const visibleGroups = activeTag ? groups.filter((g) => g.tags.includes(activeTag)) : groups;
+  const totalKids = people.filter((p) => p.isChild && p.groupId).length;
 
   if (!ready) {
     return (
@@ -121,6 +126,50 @@ export default function MapPage() {
         </div>
       ) : (
         <>
+          {(allTags.length > 0 || totalKids > 0) && (
+            <div className="mb-4 flex flex-wrap items-center gap-1.5">
+              {allTags.length > 0 && (
+                <>
+                  <span className="label mr-1">Filter</span>
+                  <button
+                    onClick={() => setActiveTag(null)}
+                    className={`rounded-full border px-2.5 py-1 text-xs ${
+                      activeTag === null
+                        ? "border-accent bg-accent-soft font-semibold text-accent-ink"
+                        : "border-line text-muted"
+                    }`}
+                  >
+                    all groups
+                  </button>
+                  {allTags.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setActiveTag(activeTag === t ? null : t)}
+                      className={`rounded-full border px-2.5 py-1 text-xs ${
+                        activeTag === t
+                          ? "border-accent bg-accent-soft font-semibold text-accent-ink"
+                          : "border-line text-muted"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </>
+              )}
+              {totalKids > 0 && (
+                <button
+                  onClick={() => setShowKids(!showKids)}
+                  className={`ml-auto rounded-full border px-2.5 py-1 text-xs ${
+                    showKids
+                      ? "border-gold bg-gold-soft font-semibold text-gold"
+                      : "border-line text-muted"
+                  }`}
+                >
+                  {showKids ? "✓ " : ""}show kids ({totalKids})
+                </button>
+              )}
+            </div>
+          )}
           <div className="mb-6 flex flex-wrap items-baseline gap-6">
             <Stat num={groups.length} label="lifegroups" />
             <Stat num={placed.length} label="people in groups" />
@@ -146,7 +195,7 @@ export default function MapPage() {
                   )}
                   <Chip tone="bg-sprout-soft text-sprout">Starting Up</Chip>
                   <Chip tone="bg-gold-soft text-gold">Building Up</Chip>
-                  <Chip tone="bg-ember-soft text-ember">Planting</Chip>
+                  <Chip tone="bg-ember-soft text-ember">Multiplying</Chip>
                 </>
               )}
             </div>
@@ -155,9 +204,9 @@ export default function MapPage() {
           {showTimeline ? (
             <LineageTimeline lanes={lanes} />
           ) : showChart ? (
-            <EngagementChart />
+            <EngagementChart visibleGroups={visibleGroups} />
           ) : (
-            <CardsView onOpen={setOpenGroup} />
+            <CardsView visibleGroups={visibleGroups} showKids={showKids} onOpen={setOpenGroup} />
           )}
         </>
       )}
@@ -183,18 +232,27 @@ export default function MapPage() {
   );
 }
 
-function CardsView({ onOpen }: { onOpen: (g: Group) => void }) {
-  const { role, people, groups, wins, realMode } = useData();
+function CardsView({
+  visibleGroups,
+  showKids,
+  onOpen,
+}: {
+  visibleGroups: Group[];
+  showKids: boolean;
+  onOpen: (g: Group) => void;
+}) {
+  const { role, people, wins, realMode } = useData();
   const h = makeHelpers(people);
   const staff = role === "staff";
 
   return (
     <div className="grid grid-cols-[1fr_280px] items-start gap-5 max-lg:grid-cols-1">
       <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-4">
-        {groups.map((g) => {
+        {visibleGroups.map((g) => {
           const mine = role === "leader" && g.id === LEADER_HOME;
           const showDetail = staff || mine;
           const ppl = h.groupPeople(g.id);
+          const gKids = h.groupKids(g.id);
           const leaders = h.groupLeaders(g.id);
           return (
             <button
@@ -224,9 +282,10 @@ function CardsView({ onOpen }: { onOpen: (g: Group) => void }) {
                     ? `${leaders.map((l) => firstName(l.name)).join(" & ")} · `
                     : ""}
                   {ppl.length} people
+                  {gKids.length > 0 ? ` · ${gKids.length} kids` : ""}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-[5px] py-0.5">
+              <div className="flex flex-wrap items-center gap-[5px] py-0.5">
                 {ppl.map((p) =>
                   showDetail ? (
                     <span
@@ -240,7 +299,24 @@ function CardsView({ onOpen }: { onOpen: (g: Group) => void }) {
                     <span key={p.id} className="inline-block h-2.5 w-2.5 rounded-full bg-faint opacity-50" />
                   ),
                 )}
+                {showKids &&
+                  gKids.map((k) => (
+                    <span
+                      key={k.id}
+                      title={`${k.name} (child)`}
+                      className="inline-block h-2 w-2 rounded-full bg-gold opacity-80"
+                    />
+                  ))}
               </div>
+              {g.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {g.tags.map((t) => (
+                    <span key={t} className="rounded-full bg-surface-2 px-2 py-0.5 text-[10.5px] font-medium text-muted">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
               {showDetail && g.insights[0] && <Insight text={g.insights[0]} />}
               {g.lineage && <div className="text-[11.5px] text-faint">↳ {g.lineage}</div>}
             </button>
@@ -275,14 +351,14 @@ function CardsView({ onOpen }: { onOpen: (g: Group) => void }) {
   );
 }
 
-function EngagementChart() {
-  const { people, groups } = useData();
+function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
+  const { people } = useData();
   const h = makeHelpers(people);
   const unplaced = h.unplacedPeople();
 
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(330px,1fr))] gap-4">
-      {groups.map((g) => {
+      {visibleGroups.map((g) => {
         const ppl = h.groupPeople(g.id);
         const cell = (tierKey: string, gender: "F" | "M") =>
           ppl

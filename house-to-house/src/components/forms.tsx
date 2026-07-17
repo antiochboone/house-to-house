@@ -64,15 +64,81 @@ function SubmitRow({
   );
 }
 
+const DAYS = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
+const HOURS = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const MINUTES = ["00", "15", "30", "45"];
+
+export function TagsInput({
+  tags,
+  setTags,
+  suggestions,
+}: {
+  tags: string[];
+  setTags: (t: string[]) => void;
+  suggestions: string[];
+}) {
+  const [draft, setDraft] = useState("");
+  const add = (label: string) => {
+    const clean = label.trim();
+    if (clean && !tags.some((t) => t.toLowerCase() === clean.toLowerCase()))
+      setTags([...tags, clean]);
+    setDraft("");
+  };
+  const unused = suggestions.filter(
+    (s) => !tags.some((t) => t.toLowerCase() === s.toLowerCase()),
+  );
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border-[1.5px] border-line bg-surface px-2 py-1.5 focus-within:border-accent">
+        {tags.map((t) => (
+          <span key={t} className="flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[12px] font-medium text-accent-ink">
+            {t}
+            <button type="button" aria-label={`Remove tag ${t}`} onClick={() => setTags(tags.filter((x) => x !== t))} className="text-[11px] opacity-70 hover:opacity-100">
+              ✕
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              add(draft);
+            }
+          }}
+          onBlur={() => draft.trim() && add(draft)}
+          placeholder={tags.length ? "" : "e.g. Downtown, College, Families…"}
+          className="min-w-[120px] flex-1 bg-transparent px-1 py-0.5 text-[13.5px] outline-none"
+        />
+      </div>
+      {unused.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {unused.map((s) => (
+            <button key={s} type="button" onClick={() => add(s)} className="rounded-full border border-line px-2 py-0.5 text-[11.5px] text-muted hover:border-accent hover:text-accent-ink">
+              + {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AddGroupForm({ onDone }: { onDone: () => void }) {
-  const { addGroup } = useData();
+  const { addGroup, groups } = useData();
   const [name, setName] = useState("");
   const [season, setSeason] = useState<Season>("start");
   const [day, setDay] = useState("");
-  const [time, setTime] = useState("");
+  const [hour, setHour] = useState("");
+  const [minute, setMinute] = useState("30");
+  const [ampm, setAmpm] = useState<"AM" | "PM">("PM");
   const [place, setPlace] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const allTags = [...new Set(groups.flatMap((g) => g.tags))];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,9 +146,10 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
     const err = await addGroup({
       name: name.trim(),
       season,
-      meetingDay: day.trim(),
-      meetingTime: time.trim(),
+      meetingDay: day,
+      meetingTime: hour ? `${hour}:${minute} ${ampm}` : "",
       meetingPlace: place.trim(),
+      tags,
     });
     setBusy(false);
     if (err) setError(err);
@@ -95,22 +162,44 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
       <input required autoFocus value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="King Street" />
       <label className={labelCls}>Season</label>
       <select value={season} onChange={(e) => setSeason(e.target.value as Season)} className={inputCls}>
-        <option value="start">Starting Up</option>
-        <option value="build">Building Up</option>
-        <option value="plant">Planting</option>
+        <option value="start">Starting Up — new or recently replanted</option>
+        <option value="build">Building Up — healthy and growing</option>
+        <option value="plant">Multiplying — preparing to plant a new group</option>
       </select>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Day</label>
-          <input value={day} onChange={(e) => setDay(e.target.value)} className={inputCls} placeholder="Tuesdays" />
+          <select value={day} onChange={(e) => setDay(e.target.value)} className={inputCls}>
+            <option value="">—</option>
+            {DAYS.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className={labelCls}>Time</label>
-          <input value={time} onChange={(e) => setTime(e.target.value)} className={inputCls} placeholder="6:30" />
+          <div className="flex gap-1.5">
+            <select value={hour} onChange={(e) => setHour(e.target.value)} className={inputCls} aria-label="Hour">
+              {HOURS.map((h) => (
+                <option key={h} value={h}>{h || "—"}</option>
+              ))}
+            </select>
+            <select value={minute} onChange={(e) => setMinute(e.target.value)} className={inputCls} aria-label="Minute">
+              {MINUTES.map((m) => (
+                <option key={m} value={m}>:{m}</option>
+              ))}
+            </select>
+            <select value={ampm} onChange={(e) => setAmpm(e.target.value as "AM" | "PM")} className={inputCls} aria-label="AM or PM">
+              <option value="PM">PM</option>
+              <option value="AM">AM</option>
+            </select>
+          </div>
         </div>
       </div>
       <label className={labelCls}>Where</label>
       <input value={place} onChange={(e) => setPlace(e.target.value)} className={inputCls} placeholder="downtown Boone" />
+      <label className={labelCls}>Tags</label>
+      <TagsInput tags={tags} setTags={setTags} suggestions={allTags} />
       <SubmitRow busy={busy} error={error} label="Add lifegroup" />
     </form>
   );
@@ -127,6 +216,7 @@ export function AddPersonForm({
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [gender, setGender] = useState<Gender>("M");
+  const [isChild, setIsChild] = useState(false);
   const [groupId, setGroupId] = useState<string>(defaultGroupId ?? "");
   const [role, setRole] = useState<MemberRole>("member");
   const [status, setStatus] = useState<DiscipleshipStatus>("none");
@@ -143,11 +233,12 @@ export function AddPersonForm({
       firstName: first.trim(),
       lastName: last.trim(),
       gender,
+      isChild,
       email: email.trim(),
       phone: phone.trim(),
       groupId: groupId || null,
-      role,
-      status,
+      role: isChild ? "member" : role,
+      status: isChild ? "none" : status,
     });
     setBusy(false);
     if (err) {
@@ -182,7 +273,7 @@ export function AddPersonForm({
           <input value={last} onChange={(e) => setLast(e.target.value)} className={inputCls} />
         </div>
       </div>
-      <label className={labelCls}>Gender</label>
+      <label className={labelCls}>Who is this?</label>
       <div className="flex gap-2">
         {(["M", "F"] as const).map((g) => (
           <button
@@ -197,9 +288,18 @@ export function AddPersonForm({
                 : "border-line text-muted"
             }`}
           >
-            {g === "M" ? "Man" : "Woman"}
+            {g === "M" ? (isChild ? "Boy" : "Man") : isChild ? "Girl" : "Woman"}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setIsChild(!isChild)}
+          className={`rounded-xl border-[1.5px] px-3.5 py-2 text-[14px] font-medium ${
+            isChild ? "border-gold bg-gold-soft text-gold" : "border-line text-muted"
+          }`}
+        >
+          Child
+        </button>
       </div>
       <label className={labelCls}>Lifegroup</label>
       <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
@@ -210,7 +310,7 @@ export function AddPersonForm({
           </option>
         ))}
       </select>
-      {groupId && (
+      {groupId && !isChild && (
         <>
           <label className={labelCls}>Role in group</label>
           <select value={role} onChange={(e) => setRole(e.target.value as MemberRole)} className={inputCls}>
@@ -221,14 +321,18 @@ export function AddPersonForm({
           </select>
         </>
       )}
-      <label className={labelCls}>Discipleship status</label>
-      <select value={status} onChange={(e) => setStatus(e.target.value as DiscipleshipStatus)} className={inputCls}>
-        {(Object.keys(STATUS_LABEL) as DiscipleshipStatus[]).map((s) => (
-          <option key={s} value={s}>
-            {STATUS_LABEL[s]}
-          </option>
-        ))}
-      </select>
+      {!isChild && (
+        <>
+          <label className={labelCls}>Discipleship status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value as DiscipleshipStatus)} className={inputCls}>
+            {(Object.keys(STATUS_LABEL) as DiscipleshipStatus[]).map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Email (optional)</label>
