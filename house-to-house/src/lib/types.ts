@@ -4,20 +4,38 @@
 
 export type Gender = "M" | "F";
 
-export type Season = "start" | "build" | "plant";
+export type Season = "start" | "build" | "plant" | "stagnant";
 
 export type GroupStatus = "active" | "dormant" | "dissolved";
 
 /** Membership role inside a lifegroup ("staff" = church staff, not in a group). */
 export type MemberRole = "leader" | "intern" | "worship" | "member" | "staff";
 
-/** Where someone stands with discipleship when they have no active relationship. */
-export type DiscipleshipStatus = "open" | "invited" | "declined" | "wants" | "none";
+/** Where someone stands with discipleship (multiple can apply; empty = not yet invited). */
+export type DiscipleshipStatus =
+  | "open"
+  | "invited"
+  | "declined"
+  | "wants"
+  | "none"
+  | "discipled"
+  | "making";
 
 /** Engagement tiers for the chart view (per-church configurable later). */
 export type EngagementTier = "lead" | "core" | "consistent" | "fringe";
 
 export type AppRole = "staff" | "leader";
+
+/** A configurable group-tag category (stored per church in churches.settings). */
+export interface TagCategory {
+  id: string;
+  label: string;
+  /** true = pick any number; false = pick at most one (yes/no style). */
+  multi: boolean;
+  options: string[];
+  /** User-added category (removable); baked-in categories are permanent. */
+  custom?: boolean;
+}
 
 export interface Person {
   id: string;
@@ -30,8 +48,8 @@ export interface Person {
   role: MemberRole;
   /** Person id of their discipler (mentoring edge, always same-gender). */
   discipledBy: string | null;
-  /** Only meaningful when the person has no discipleship edges. */
-  status: DiscipleshipStatus | null;
+  /** Discipleship statuses (multiple allowed; empty = not yet invited). */
+  statuses: DiscipleshipStatus[];
   /** For unplaced people: a short shepherding note. */
   note?: string;
   /** Children attend with their families; excluded from adult views by default. */

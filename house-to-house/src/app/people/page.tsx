@@ -168,8 +168,14 @@ export default function PeoplePage() {
                     title="in a discipleship relationship"
                     className="inline-block h-2.5 w-2.5 rounded-full bg-accent"
                   />
-                ) : p.status && p.status !== "none" ? (
-                  <Chip className="font-medium max-md:hidden">{STATUS_LABEL[p.status]}</Chip>
+                ) : p.statuses.length > 0 ? (
+                  <span className="flex gap-1 max-md:hidden">
+                    {p.statuses.map((s) => (
+                      <Chip key={s} className="font-medium">
+                        {STATUS_LABEL[s]}
+                      </Chip>
+                    ))}
+                  </span>
                 ) : null)}
               {p.groupId ? (
                 <Link

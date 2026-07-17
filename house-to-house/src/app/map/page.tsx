@@ -194,8 +194,9 @@ export default function MapPage() {
                     </>
                   )}
                   <Chip tone="bg-sprout-soft text-sprout">Starting Up</Chip>
-                  <Chip tone="bg-gold-soft text-gold">Building Up</Chip>
+                  <Chip tone="bg-gold-soft text-gold">Thriving</Chip>
                   <Chip tone="bg-ember-soft text-ember">Multiplying</Chip>
+                  <Chip tone="bg-dormant-soft text-dormant">Stagnant</Chip>
                 </>
               )}
             </div>

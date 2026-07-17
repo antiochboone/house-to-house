@@ -5,7 +5,7 @@ import type { Group, Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Insight, SeasonChip } from "./ui";
-import { EditGroupForm, EditPersonForm, Modal, TagsInput } from "./forms";
+import { EditGroupForm, EditPersonForm, Modal } from "./forms";
 
 const ROLE_NAME: Partial<Record<Person["role"], string>> = {
   leader: "Leader",
@@ -14,19 +14,27 @@ const ROLE_NAME: Partial<Record<Person["role"], string>> = {
 };
 
 function statusChip(p: Person) {
-  if (!p.status) return null;
-  const tone =
-    p.status === "wants"
-      ? "bg-sprout-soft text-sprout"
-      : p.status === "invited"
-        ? "bg-gold-soft text-gold"
-        : p.status === "declined"
-          ? "bg-dormant-soft text-dormant"
-          : "bg-surface-2 text-muted";
+  if (p.statuses.length === 0) return null;
   return (
-    <Chip tone={tone} className="font-medium">
-      {STATUS_LABEL[p.status]}
-    </Chip>
+    <span className="flex flex-wrap justify-end gap-1">
+      {p.statuses.map((s) => (
+        <Chip
+          key={s}
+          tone={
+            s === "wants" || s === "making"
+              ? "bg-sprout-soft text-sprout"
+              : s === "invited" || s === "discipled"
+                ? "bg-gold-soft text-gold"
+                : s === "declined"
+                  ? "bg-dormant-soft text-dormant"
+                  : "bg-surface-2 text-muted"
+          }
+          className="font-medium"
+        >
+          {STATUS_LABEL[s]}
+        </Chip>
+      ))}
+    </span>
   );
 }
 
@@ -41,13 +49,11 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people, groups, role, setGroupTags } = useData();
+  const { people, groups, role } = useData();
   const h = makeHelpers(people);
   // Always render the live group from the store so edits reflect immediately;
   // fall back to the passed snapshot while closing.
   const group = groupProp ? (groups.find((g) => g.id === groupProp.id) ?? groupProp) : null;
-  const [editingTags, setEditingTags] = useState(false);
-  const [draftTags, setDraftTags] = useState<string[]>([]);
   const [editPerson, setEditPerson] = useState<Person | null>(null);
   const [editGroup, setEditGroup] = useState(false);
   const staff = role === "staff";
@@ -57,11 +63,6 @@ export function GroupDrawer({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  useEffect(() => {
-    setEditingTags(false);
-    if (group) setDraftTags(group.tags);
-  }, [group]);
 
   // If the open group was deleted, close the drawer.
   useEffect(() => {
@@ -76,7 +77,6 @@ export function GroupDrawer({
   const gKids = group ? h.groupKids(group.id) : [];
   const leadership = ppl.filter((p) => ["leader", "intern", "worship"].includes(p.role));
   const members = ppl.filter((p) => p.role === "member");
-  const allTags = [...new Set(groups.flatMap((g) => g.tags))];
 
   const row = (p: Person) => (
     <div
@@ -149,40 +149,16 @@ export function GroupDrawer({
               {group.lineage ? ` · ${group.lineage}` : ""}
             </div>
 
-            {editingTags ? (
-              <div className="mb-2">
-                <TagsInput tags={draftTags} setTags={setDraftTags} suggestions={allTags} />
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={async () => {
-                      await setGroupTags(group.id, draftTags);
-                      setEditingTags(false);
-                    }}
-                    className="rounded-lg bg-accent px-3 py-1 text-[12px] font-semibold text-cta-ink"
-                  >
-                    Save tags
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDraftTags(group.tags);
-                      setEditingTags(false);
-                    }}
-                    className="text-[12px] text-muted"
-                  >
-                    cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
+            {(group.tags.length > 0 || staff) && (
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
                 {group.tags.map((t) => (
                   <span key={t} className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
                     {t}
                   </span>
                 ))}
-                {role === "staff" && (
+                {staff && (
                   <button
-                    onClick={() => setEditingTags(true)}
+                    onClick={() => setEditGroup(true)}
                     className="text-[11.5px] text-accent-ink hover:underline"
                   >
                     {group.tags.length ? "edit tags" : "＋ add tags"}

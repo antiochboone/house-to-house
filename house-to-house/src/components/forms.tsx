@@ -5,7 +5,7 @@
 
 import { useState, type ReactNode } from "react";
 import type { DiscipleshipStatus, Gender, Group, MemberRole, Person, Season } from "@/lib/types";
-import { STATUS_LABEL } from "@/lib/data";
+import { SELECTABLE_STATUSES, STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 
 export function Modal({
@@ -68,56 +68,182 @@ const DAYS = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Frid
 const HOURS = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const MINUTES = ["00", "15", "30", "45"];
 
-export function TagsInput({
+/** Multi-select discipleship status chips; empty selection = "not yet invited". */
+function StatusChips({
+  statuses,
+  setStatuses,
+}: {
+  statuses: DiscipleshipStatus[];
+  setStatuses: (s: DiscipleshipStatus[]) => void;
+}) {
+  const toggle = (s: DiscipleshipStatus) =>
+    setStatuses(
+      statuses.includes(s) ? statuses.filter((x) => x !== s) : [...statuses, s],
+    );
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5">
+        {SELECTABLE_STATUSES.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => toggle(s)}
+            className={`rounded-full border px-2.5 py-1 text-[12px] ${
+              statuses.includes(s)
+                ? "border-accent bg-accent-soft font-semibold text-accent-ink"
+                : "border-line text-muted hover:border-accent"
+            }`}
+          >
+            {STATUS_LABEL[s]}
+          </button>
+        ))}
+      </div>
+      {statuses.length === 0 && (
+        <p className="mt-1.5 text-[11.5px] text-faint">Nothing picked = not yet invited.</p>
+      )}
+    </div>
+  );
+}
+
+function CategoryRow({
+  category,
   tags,
   setTags,
-  suggestions,
+}: {
+  category: import("@/lib/types").TagCategory;
+  tags: string[];
+  setTags: (t: string[]) => void;
+}) {
+  const { addTagOption } = useData();
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const toggle = (opt: string) => {
+    const on = tags.some((t) => t.toLowerCase() === opt.toLowerCase());
+    if (on) {
+      setTags(tags.filter((t) => t.toLowerCase() !== opt.toLowerCase()));
+    } else if (category.multi) {
+      setTags([...tags, opt]);
+    } else {
+      // single-select: drop other options from this category, add this one
+      const others = tags.filter(
+        (t) => !category.options.some((o) => o.toLowerCase() === t.toLowerCase()),
+      );
+      setTags([...others, opt]);
+    }
+  };
+
+  const commitAdd = async () => {
+    const clean = draft.trim();
+    setAdding(false);
+    setDraft("");
+    if (!clean) return;
+    await addTagOption(category.id, clean);
+    if (!tags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
+      if (category.multi) setTags([...tags, clean]);
+      else {
+        const others = tags.filter(
+          (t) => !category.options.some((o) => o.toLowerCase() === t.toLowerCase()),
+        );
+        setTags([...others, clean]);
+      }
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline gap-2">
+        <span className="text-[12px] font-semibold text-ink">{category.label}</span>
+        {!category.multi && <span className="text-[10.5px] text-faint">pick one</span>}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {category.options.map((opt) => {
+          const on = tags.some((t) => t.toLowerCase() === opt.toLowerCase());
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => toggle(opt)}
+              className={`rounded-full border px-2.5 py-1 text-[12px] ${
+                on
+                  ? "border-accent bg-accent-soft font-semibold text-accent-ink"
+                  : "border-line text-muted hover:border-accent"
+              }`}
+            >
+              {opt}
+            </button>
+          );
+        })}
+        {adding ? (
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void commitAdd();
+              }
+              if (e.key === "Escape") {
+                setAdding(false);
+                setDraft("");
+              }
+            }}
+            onBlur={commitAdd}
+            placeholder="new tag…"
+            className="w-[110px] rounded-full border border-accent bg-surface px-2.5 py-1 text-[12px] outline-none"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="rounded-full border border-dashed border-line px-2.5 py-1 text-[12px] text-faint hover:border-accent hover:text-accent-ink"
+          >
+            ＋ add
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function TagEditor({
+  tags,
+  setTags,
+  startOpen = false,
 }: {
   tags: string[];
   setTags: (t: string[]) => void;
-  suggestions: string[];
+  startOpen?: boolean;
 }) {
-  const [draft, setDraft] = useState("");
-  const add = (label: string) => {
-    const clean = label.trim();
-    if (clean && !tags.some((t) => t.toLowerCase() === clean.toLowerCase()))
-      setTags([...tags, clean]);
-    setDraft("");
-  };
-  const unused = suggestions.filter(
-    (s) => !tags.some((t) => t.toLowerCase() === s.toLowerCase()),
-  );
+  const { tagCategories } = useData();
+  const [open, setOpen] = useState(startOpen);
+
   return (
-    <div>
-      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border-[1.5px] border-line bg-surface px-2 py-1.5 focus-within:border-accent">
-        {tags.map((t) => (
-          <span key={t} className="flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[12px] font-medium text-accent-ink">
-            {t}
-            <button type="button" aria-label={`Remove tag ${t}`} onClick={() => setTags(tags.filter((x) => x !== t))} className="text-[11px] opacity-70 hover:opacity-100">
-              ✕
-            </button>
+    <div className="rounded-xl border border-line">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
+      >
+        <span className="text-[10px] text-faint">{open ? "▾" : "▸"}</span>
+        <span className="text-[13px] font-medium">Tags</span>
+        {!open && tags.length > 0 ? (
+          <span className="ml-1 flex flex-wrap gap-1">
+            {tags.map((t) => (
+              <span key={t} className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
+                {t}
+              </span>
+            ))}
           </span>
-        ))}
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
-              add(draft);
-            }
-          }}
-          onBlur={() => draft.trim() && add(draft)}
-          placeholder={tags.length ? "" : "e.g. Downtown, College, Families…"}
-          className="min-w-[120px] flex-1 bg-transparent px-1 py-0.5 text-[13.5px] outline-none"
-        />
-      </div>
-      {unused.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {unused.map((s) => (
-            <button key={s} type="button" onClick={() => add(s)} className="rounded-full border border-line px-2 py-0.5 text-[11.5px] text-muted hover:border-accent hover:text-accent-ink">
-              + {s}
-            </button>
+        ) : (
+          !open && <span className="text-[12px] text-faint">none yet — click to add</span>
+        )}
+      </button>
+      {open && (
+        <div className="flex flex-col gap-3 border-t border-line px-3 py-3">
+          {tagCategories.map((c) => (
+            <CategoryRow key={c.id} category={c} tags={tags} setTags={setTags} />
           ))}
         </div>
       )}
@@ -126,7 +252,7 @@ export function TagsInput({
 }
 
 export function AddGroupForm({ onDone }: { onDone: () => void }) {
-  const { addGroup, groups } = useData();
+  const { addGroup } = useData();
   const [name, setName] = useState("");
   const [season, setSeason] = useState<Season>("start");
   const [day, setDay] = useState("");
@@ -137,8 +263,6 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
   const [tags, setTags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const allTags = [...new Set(groups.flatMap((g) => g.tags))];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,9 +286,10 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
       <input required autoFocus value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="King Street" />
       <label className={labelCls}>Season</label>
       <select value={season} onChange={(e) => setSeason(e.target.value as Season)} className={inputCls}>
-        <option value="start">Starting Up — new or recently replanted</option>
-        <option value="build">Building Up — healthy and growing</option>
-        <option value="plant">Multiplying — preparing to plant a new group</option>
+        <option value="start">Starting Up</option>
+        <option value="build">Thriving</option>
+        <option value="plant">Multiplying</option>
+        <option value="stagnant">Stagnant</option>
       </select>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -198,8 +323,9 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
       </div>
       <label className={labelCls}>Where</label>
       <input value={place} onChange={(e) => setPlace(e.target.value)} className={inputCls} placeholder="downtown Boone" />
-      <label className={labelCls}>Tags</label>
-      <TagsInput tags={tags} setTags={setTags} suggestions={allTags} />
+      <div className="mt-3.5">
+        <TagEditor tags={tags} setTags={setTags} />
+      </div>
       <SubmitRow busy={busy} error={error} label="Add lifegroup" />
     </form>
   );
@@ -219,7 +345,7 @@ export function AddPersonForm({
   const [isChild, setIsChild] = useState(false);
   const [groupId, setGroupId] = useState<string>(defaultGroupId ?? "");
   const [role, setRole] = useState<MemberRole>("member");
-  const [status, setStatus] = useState<DiscipleshipStatus>("none");
+  const [statuses, setStatuses] = useState<DiscipleshipStatus[]>([]);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
@@ -238,7 +364,7 @@ export function AddPersonForm({
       phone: phone.trim(),
       groupId: groupId || null,
       role: isChild ? "member" : role,
-      status: isChild ? "none" : status,
+      statuses: isChild ? [] : statuses,
     });
     setBusy(false);
     if (err) {
@@ -251,7 +377,7 @@ export function AddPersonForm({
       setEmail("");
       setPhone("");
       setRole("member");
-      setStatus("none");
+      setStatuses([]);
       setError(null);
     }
   };
@@ -323,14 +449,8 @@ export function AddPersonForm({
       )}
       {!isChild && (
         <>
-          <label className={labelCls}>Discipleship status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value as DiscipleshipStatus)} className={inputCls}>
-            {(Object.keys(STATUS_LABEL) as DiscipleshipStatus[]).map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
+          <label className={labelCls}>Discipleship (pick any that apply)</label>
+          <StatusChips statuses={statuses} setStatuses={setStatuses} />
         </>
       )}
       <div className="grid grid-cols-2 gap-3">
@@ -356,7 +476,7 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
   const [isChild, setIsChild] = useState(!!person.isChild);
   const [groupId, setGroupId] = useState<string>(person.groupId ?? "");
   const [role, setRole] = useState<MemberRole>(person.role === "staff" ? "member" : person.role);
-  const [status, setStatus] = useState<DiscipleshipStatus>(person.status ?? "none");
+  const [statuses, setStatuses] = useState<DiscipleshipStatus[]>(person.statuses);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -375,7 +495,7 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
       isChild,
       groupId: groupId || null,
       role: isChild ? "member" : role,
-      status: isChild ? "none" : status,
+      statuses: isChild ? [] : statuses,
     });
     setBusy(false);
     if (err) setError(err);
@@ -452,9 +572,9 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
       )}
       {!isChild && (
         <>
-          <label className={labelCls}>Discipleship</label>
-          {discipler ? (
-            <div className="flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[13.5px]">
+          <label className={labelCls}>Discipleship (pick any that apply)</label>
+          {discipler && (
+            <div className="mb-2 flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[13.5px]">
               <span>
                 Discipled by <strong>{discipler.name}</strong>
               </span>
@@ -472,15 +592,8 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
                 end relationship
               </button>
             </div>
-          ) : (
-            <select value={status} onChange={(e) => setStatus(e.target.value as DiscipleshipStatus)} className={inputCls}>
-              {(Object.keys(STATUS_LABEL) as DiscipleshipStatus[]).map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </option>
-              ))}
-            </select>
           )}
+          <StatusChips statuses={statuses} setStatuses={setStatuses} />
         </>
       )}
       <SubmitRow busy={busy} error={error} label="Save changes" />
@@ -527,7 +640,7 @@ function parseMeet(meet: string) {
 }
 
 export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => void }) {
-  const { groups, lanes, updateGroup, deleteGroup, setGroupOrigin } = useData();
+  const { groups, lanes, updateGroup, deleteGroup, setGroupOrigin, setGroupTags } = useData();
   const parsed = parseMeet(group.meet);
   const lane = lanes.find((l) => l.id === group.id);
   const [name, setName] = useState(group.name);
@@ -537,6 +650,7 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
   const [minute, setMinute] = useState(parsed.minute);
   const [ampm, setAmpm] = useState<"AM" | "PM">(parsed.ampm);
   const [place, setPlace] = useState(parsed.place);
+  const [tags, setTags] = useState<string[]>(group.tags);
   const [plantedMonth, setPlantedMonth] = useState(lane?.segments[0]?.from ?? "");
   const [parentId, setParentId] = useState(lane?.parentId ?? "");
   const [busy, setBusy] = useState(false);
@@ -553,6 +667,7 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
       meetingTime: hour ? `${hour}:${minute} ${ampm}` : "",
       meetingPlace: place.trim(),
     });
+    if (!err) err = await setGroupTags(group.id, tags);
     if (!err && plantedMonth) {
       err = await setGroupOrigin(group.id, plantedMonth, parentId || null);
     }
@@ -575,9 +690,10 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
       <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
       <label className={labelCls}>Season</label>
       <select value={season} onChange={(e) => setSeason(e.target.value as Season)} className={inputCls}>
-        <option value="start">Starting Up — new or recently replanted</option>
-        <option value="build">Building Up — healthy and growing</option>
-        <option value="plant">Multiplying — preparing to plant a new group</option>
+        <option value="start">Starting Up</option>
+        <option value="build">Thriving</option>
+        <option value="plant">Multiplying</option>
+        <option value="stagnant">Stagnant</option>
       </select>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -611,6 +727,9 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
       </div>
       <label className={labelCls}>Where</label>
       <input value={place} onChange={(e) => setPlace(e.target.value)} className={inputCls} />
+      <div className="mt-3.5">
+        <TagEditor tags={tags} setTags={setTags} />
+      </div>
       <div className="mt-4 rounded-xl border border-dashed border-line p-3">
         <span className="label mb-1 block">Origin story (for the timeline)</span>
         <div className="grid grid-cols-2 gap-3">

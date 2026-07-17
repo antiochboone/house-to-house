@@ -43,7 +43,10 @@ export default function CheckInPage() {
   const [step, setStep] = useState(0);
   const [rhythm, setRhythm] = useState(0);
   const [moods, setMoods] = useState<number[]>([]);
-  const [, setWin] = useState<number | null>(null);
+  const [newFace, setNewFace] = useState<boolean | null>(null);
+  const [newFaceName, setNewFaceName] = useState("");
+  const [win, setWin] = useState<number | null>(null);
+  const [winNote, setWinNote] = useState("");
   const phoneRef = useRef<HTMLDivElement>(null);
 
   const burst = () => {
@@ -157,17 +160,47 @@ export default function CheckInPage() {
               <div className="label mb-2 text-center">Roster</div>
               <p className="font-display mb-1.5 text-center text-[21px]">Anyone new since June?</p>
               <p className="mb-5 text-center text-[13.5px] text-muted">
-                Corey brought his roommate twice — want to add him?
+                New faces get added to the roster right from here.
               </p>
               <div className="flex flex-1 flex-col gap-2">
-                <Opt onClick={next}>＋ Add Corey&apos;s roommate</Opt>
-                <Opt onClick={next}>＋ Add someone else</Opt>
-                <Opt onClick={next}>No new faces this month</Opt>
-                <p className="mt-1 px-1 text-center text-[11.5px] text-faint">
-                  Adding someone opens a quick name-and-how-they-connected form in the real
-                  build.
-                </p>
+                <Opt selected={newFace === true} onClick={() => setNewFace(true)}>
+                  ＋ Someone joined lifegroup
+                </Opt>
+                {newFace === true && (
+                  <input
+                    autoFocus
+                    value={newFaceName}
+                    onChange={(e) => setNewFaceName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newFaceName.trim()) {
+                        e.preventDefault();
+                        next();
+                      }
+                    }}
+                    placeholder="Their name?"
+                    className="rounded-xl border-[1.5px] border-accent bg-bg px-3.5 py-2.5 text-[14.5px] outline-none"
+                  />
+                )}
+                <Opt
+                  selected={newFace === false}
+                  onClick={() => {
+                    setNewFace(false);
+                    setNewFaceName("");
+                    next();
+                  }}
+                >
+                  No new faces this month
+                </Opt>
               </div>
+              {newFace === true && (
+                <button
+                  onClick={next}
+                  disabled={!newFaceName.trim()}
+                  className="mt-4 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-cta-ink disabled:opacity-45"
+                >
+                  Next
+                </button>
+              )}
               <button onClick={back} className="w-full py-2 text-center text-[13px] text-muted">
                 back
               </button>
@@ -211,14 +244,60 @@ export default function CheckInPage() {
                 Wins go on the church-wide board (you can keep one private too).
               </p>
               <div className="flex flex-1 flex-col gap-2">
-                {["Answered prayer", "Someone met Jesus", "New discipleship relationship", "Nothing this month — that's okay"].map(
+                {["Answered prayer", "Someone met Jesus", "New discipleship relationship"].map(
                   (w, i) => (
-                    <Opt key={w} onClick={() => { setWin(i); next(); }}>
+                    <Opt
+                      key={w}
+                      selected={win === i}
+                      onClick={() => {
+                        setWin(i);
+                        setWinNote("");
+                      }}
+                    >
                       {w}
                     </Opt>
                   ),
                 )}
+                {win !== null && (
+                  <input
+                    autoFocus
+                    value={winNote}
+                    onChange={(e) => setWinNote(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && winNote.trim()) {
+                        e.preventDefault();
+                        next();
+                      }
+                    }}
+                    placeholder={
+                      win === 0
+                        ? "Share it in one sentence…"
+                        : win === 1
+                          ? "Who? A first name is enough"
+                          : "Who's discipling whom?"
+                    }
+                    className="rounded-xl border-[1.5px] border-accent bg-bg px-3.5 py-2.5 text-[14.5px] outline-none"
+                  />
+                )}
+                <Opt
+                  onClick={() => {
+                    setWin(null);
+                    setWinNote("");
+                    next();
+                  }}
+                >
+                  Nothing this month — that&apos;s okay
+                </Opt>
               </div>
+              {win !== null && (
+                <button
+                  onClick={next}
+                  disabled={!winNote.trim()}
+                  className="mt-4 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-cta-ink disabled:opacity-45"
+                >
+                  Next
+                </button>
+              )}
               <button onClick={back} className="w-full py-2 text-center text-[13px] text-muted">
                 back
               </button>
@@ -238,7 +317,7 @@ export default function CheckInPage() {
                 />
               </svg>
               <p className="font-display mt-2.5 text-2xl">That&apos;s it. 87 seconds.</p>
-              <p className="max-w-[250px] text-sm text-muted">
+              <p className="max-w-[260px] text-sm text-muted">
                 King Street is checked in for July
                 {feeling && (
                   <>
@@ -246,13 +325,22 @@ export default function CheckInPage() {
                     — feeling <strong>{feeling}</strong>
                   </>
                 )}
-                . Your win is on the board. See you in August.
+                .{newFaceName.trim() && <> {newFaceName.trim()} is on the roster.</>}
+                {winNote.trim() ? (
+                  <> Your win — &quot;{winNote.trim()}&quot; — is on the board.</>
+                ) : win !== null ? (
+                  <> Your win is on the board.</>
+                ) : null}{" "}
+                See you in August.
               </p>
               <button
                 onClick={() => {
                   setStep(0);
                   setMoods([]);
                   setWin(null);
+                  setWinNote("");
+                  setNewFace(null);
+                  setNewFaceName("");
                 }}
                 className="mt-2.5 py-2 text-[13px] text-muted"
               >

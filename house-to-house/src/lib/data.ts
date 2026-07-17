@@ -11,6 +11,7 @@ import type {
   MilestoneKey,
   Person,
   Season,
+  TagCategory,
   Win,
 } from "./types";
 
@@ -19,7 +20,7 @@ import type {
 export const GROUPS: Group[] = [
   {
     id: "king", name: "King Street", meet: "Tuesdays 6:30 · downtown Boone",
-    tags: ["Downtown"],
+    tags: ["Downtown", "Young adults", "Kids welcome"],
     season: "build", status: "active",
     insights: [
       "Grown by 3 since April",
@@ -66,7 +67,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "blowing", name: "Blowing Rock", meet: "Mondays 6:30 · Blowing Rock",
-    tags: ["Blowing Rock"],
+    tags: ["Blowing Rock", "Multigenerational"],
     season: "start", status: "active",
     insights: [
       "Planted in February — 4-week start plan complete",
@@ -96,7 +97,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "appstate", name: "App State", meet: "Sundays 8:00 · campus",
-    tags: ["College"],
+    tags: ["College", "Adults only"],
     season: "build", status: "active",
     insights: [
       "Grown by 5 since January",
@@ -111,7 +112,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: "valle", name: "Valle Crucis", meet: "Fridays 5:30 · Valle Crucis · family group",
-    tags: ["Families"],
+    tags: ["Families", "Childcare provided", "Kids welcome"],
     season: "build", status: "active",
     insights: [
       "6 kids — running the 5 C's rotation",
@@ -276,7 +277,7 @@ export const PEOPLE: Person[] = ROWS.map(
       groupId,
       role,
       discipledBy: by ? slug(by) : null,
-      status,
+      statuses: status && status !== "none" ? [status] : [],
       note,
       isChild,
     };
@@ -467,8 +468,9 @@ export const LINEAGE: Lane[] = [
 
 export const SEASON_META: Record<Season, { label: string; chip: string }> = {
   start: { label: "Starting Up", chip: "bg-sprout-soft text-sprout" },
-  build: { label: "Building Up", chip: "bg-gold-soft text-gold" },
+  build: { label: "Thriving", chip: "bg-gold-soft text-gold" },
   plant: { label: "Multiplying", chip: "bg-ember-soft text-ember" },
+  stagnant: { label: "Stagnant", chip: "bg-dormant-soft text-dormant" },
 };
 
 export const STATUS_LABEL: Record<DiscipleshipStatus, string> = {
@@ -477,13 +479,55 @@ export const STATUS_LABEL: Record<DiscipleshipStatus, string> = {
   declined: "declined for now",
   wants: "wants to disciple",
   none: "not yet invited",
+  discipled: "already discipled",
+  making: "disciple-making",
 };
+
+/** The statuses offered as multi-select chips (empty selection = "not yet invited"). */
+export const SELECTABLE_STATUSES: DiscipleshipStatus[] = [
+  "open",
+  "invited",
+  "declined",
+  "wants",
+  "discipled",
+  "making",
+];
 
 export const TIERS: { key: EngagementTier; label: string }[] = [
   { key: "lead", label: "Leading" },
   { key: "core", label: "Core" },
   { key: "consistent", label: "Consistent" },
   { key: "fringe", label: "On the fringe" },
+];
+
+/** Baked-in tag categories; a church can extend these (stored in churches.settings). */
+export const DEFAULT_TAG_CATEGORIES: TagCategory[] = [
+  {
+    id: "life_stage",
+    label: "Season of life",
+    multi: true,
+    options: [
+      "Multigenerational",
+      "Young adults",
+      "College",
+      "Youth",
+      "Families",
+      "Empty nesters",
+    ],
+  },
+  {
+    id: "childcare",
+    label: "Childcare",
+    multi: false,
+    options: ["Childcare provided", "No childcare"],
+  },
+  {
+    id: "child_friendly",
+    label: "Kids at gatherings",
+    multi: false,
+    options: ["Kids welcome", "Adults only"],
+  },
+  { id: "location", label: "Area of town", multi: true, options: [] },
 ];
 
 export const PULSE_WORDS = [

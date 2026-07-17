@@ -43,8 +43,8 @@ create table people (
   gender              text check (gender in ('M','F')),
   email               text,
   phone               text,
-  -- Meaningful when the person has no active discipleship relationship:
-  discipleship_status text check (discipleship_status in ('open','invited','declined','wants','none')),
+  -- Discipleship statuses (multiple allowed; empty = not yet invited):
+  discipleship_status text[] not null default '{}',
   is_child            boolean not null default false,
   notes               text,
   created_at          timestamptz not null default now()
@@ -55,7 +55,7 @@ create table groups (
   church_id     uuid not null references churches(id) on delete cascade,
   name          text not null,
   status        text not null default 'active' check (status in ('active','dormant','dissolved')),
-  season        text check (season in ('start','build','plant')),
+  season        text check (season in ('start','build','plant','stagnant')),
   meeting_day   text,
   meeting_time  text,
   meeting_place text,

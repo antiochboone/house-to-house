@@ -22,9 +22,11 @@ import type {
   MemberRole,
   Person,
   Season,
+  TagCategory,
   Win,
 } from "./types";
 import {
+  DEFAULT_TAG_CATEGORIES,
   GROUPS as SEED_GROUPS,
   GUESTS as SEED_GUESTS,
   LINEAGE as SEED_LINEAGE,
@@ -43,7 +45,7 @@ export interface AddPersonInput {
   phone?: string;
   groupId?: string | null;
   role?: MemberRole;
-  status?: DiscipleshipStatus;
+  statuses?: DiscipleshipStatus[];
   isChild?: boolean;
 }
 
@@ -68,11 +70,12 @@ interface DataApi {
   wins: Win[];
   guests: Guest[];
   lanes: Lane[];
+  tagCategories: TagCategory[];
   refresh: () => Promise<void>;
   addPerson: (input: AddPersonInput) => Promise<string | null>;
   addGroup: (input: AddGroupInput) => Promise<string | null>;
   addRelationship: (disciplerId: string, discipleId: string) => Promise<string | null>;
-  setStatus: (personId: string, status: DiscipleshipStatus) => Promise<string | null>;
+  setStatuses: (personId: string, statuses: DiscipleshipStatus[]) => Promise<string | null>;
   setGroupTags: (groupId: string, labels: string[]) => Promise<string | null>;
   updatePerson: (id: string, input: AddPersonInput) => Promise<string | null>;
   deletePerson: (id: string) => Promise<string | null>;
@@ -84,6 +87,7 @@ interface DataApi {
     plantedMonth: string,
     parentGroupId: string | null,
   ) => Promise<string | null>;
+  addTagOption: (categoryId: string, label: string) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -132,6 +136,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [wins, setWins] = useState<Win[]>(realMode ? [] : SEED_WINS);
   const [guests, setGuests] = useState<Guest[]>(realMode ? [] : SEED_GUESTS);
   const [lanes, setLanes] = useState<Lane[]>(realMode ? [] : SEED_LINEAGE);
+  const [tagCategories, setTagCategories] = useState<TagCategory[]>(DEFAULT_TAG_CATEGORIES);
 
   const refresh = useCallback(async () => {
     if (!realMode) return;
@@ -140,6 +145,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const [
       { data: auth },
       profileQ,
+      churchQ,
       groupsQ,
       peopleQ,
       memsQ,
@@ -152,6 +158,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ] = await Promise.all([
       supabase.auth.getUser(),
       supabase.from("profiles").select("role").maybeSingle(),
+      supabase.from("churches").select("settings").single(),
       supabase.from("groups").select("*").neq("status", "dissolved").order("created_at"),
       supabase.from("people").select("*").order("first_name"),
       supabase.from("memberships").select("*").is("left_at", null),
@@ -165,6 +172,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     setUserEmail(auth.user?.email ?? null);
     setRole((profileQ.data?.role as AppRole) ?? "leader");
+
+    const savedCategories = churchQ.data?.settings?.tagCategories as TagCategory[] | undefined;
+    setTagCategories(savedCategories?.length ? savedCategories : DEFAULT_TAG_CATEGORIES);
 
     const mems = memsQ.data ?? [];
     const rels = relsQ.data ?? [];
@@ -197,7 +207,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           groupId: mem?.group_id ?? null,
           role: (mem?.role ?? "member") as MemberRole,
           discipledBy: disciplerOf.get(row.id) ?? null,
-          status: (row.discipleship_status ?? null) as DiscipleshipStatus | null,
+          statuses: (Array.isArray(row.discipleship_status)
+            ? row.discipleship_status
+            : row.discipleship_status && row.discipleship_status !== "none"
+              ? [row.discipleship_status]
+              : []) as DiscipleshipStatus[],
           note: row.notes ?? undefined,
           isChild: !!row.is_child,
         };
@@ -311,7 +325,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             groupId: input.groupId ?? null,
             role: input.role ?? "member",
             discipledBy: null,
-            status: input.status ?? "none",
+            statuses: input.statuses ?? [],
             isChild: input.isChild,
           },
         ]);
@@ -329,7 +343,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           gender: input.gender,
           email: input.email || null,
           phone: input.phone || null,
-          discipleship_status: input.status ?? "none",
+          discipleship_status: input.statuses ?? [],
           is_child: input.isChild ?? false,
         })
         .select("id")
@@ -447,16 +461,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [people, realMode, refresh],
   );
 
-  const setStatus = useCallback(
-    async (personId: string, status: DiscipleshipStatus): Promise<string | null> => {
+  const setStatuses = useCallback(
+    async (personId: string, statuses: DiscipleshipStatus[]): Promise<string | null> => {
       if (!realMode) {
-        setPeople((prev) => prev.map((p) => (p.id === personId ? { ...p, status } : p)));
+        setPeople((prev) => prev.map((p) => (p.id === personId ? { ...p, statuses } : p)));
         return null;
       }
       const supabase = supabaseBrowser();
       const { error } = await supabase
         .from("people")
-        .update({ discipleship_status: status })
+        .update({ discipleship_status: statuses })
         .eq("id", personId);
       if (error) return error.message;
       await refresh();
@@ -482,7 +496,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   isChild: input.isChild,
                   groupId: input.groupId ?? null,
                   role: input.role ?? "member",
-                  status: input.status ?? p.status,
+                  statuses: input.statuses ?? p.statuses,
                 }
               : p,
           ),
@@ -498,7 +512,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           gender: input.gender,
           email: input.email || null,
           phone: input.phone || null,
-          discipleship_status: input.status ?? "none",
+          discipleship_status: input.statuses ?? [],
           is_child: input.isChild ?? false,
         })
         .eq("id", id);
@@ -678,6 +692,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [groups, realMode, refresh],
   );
 
+  const addTagOption = useCallback(
+    async (categoryId: string, label: string): Promise<string | null> => {
+      const clean = label.trim();
+      if (!clean) return null;
+      const next = tagCategories.map((c) =>
+        c.id === categoryId &&
+        !c.options.some((o) => o.toLowerCase() === clean.toLowerCase())
+          ? { ...c, options: [...c.options, clean] }
+          : c,
+      );
+      setTagCategories(next);
+      if (!realMode) return null;
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase
+        .from("churches")
+        .select("id, settings")
+        .single();
+      if (!church) return "Couldn't find your church record.";
+      const settings = { ...(church.settings ?? {}), tagCategories: next };
+      const { error } = await supabase
+        .from("churches")
+        .update({ settings })
+        .eq("id", church.id);
+      if (error) return error.message;
+      return null;
+    },
+    [tagCategories, realMode],
+  );
+
   const value = useMemo<DataApi>(
     () => ({
       ready,
@@ -691,11 +734,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       wins,
       guests,
       lanes,
+      tagCategories,
       refresh,
       addPerson,
       addGroup,
       addRelationship,
-      setStatus,
+      setStatuses,
       setGroupTags,
       updatePerson,
       deletePerson,
@@ -703,8 +747,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateGroup,
       deleteGroup,
       setGroupOrigin,
+      addTagOption,
     }),
-    [ready, realMode, role, demoRole, userEmail, people, groups, wins, guests, lanes, refresh, addPerson, addGroup, addRelationship, setStatus, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin],
+    [ready, realMode, role, demoRole, userEmail, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -735,7 +780,13 @@ export function makeHelpers(people: Person[]) {
     if (p.role === "leader" || p.role === "intern" || p.role === "worship" || p.role === "staff")
       return "lead" as const;
     if (inRelationship(p)) return "core" as const;
-    if (p.status === "open" || p.status === "invited" || p.status === "wants")
+    if (p.statuses.includes("making")) return "core" as const;
+    if (
+      p.statuses.includes("open") ||
+      p.statuses.includes("invited") ||
+      p.statuses.includes("wants") ||
+      p.statuses.includes("discipled")
+    )
       return "consistent" as const;
     return "fringe" as const;
   };

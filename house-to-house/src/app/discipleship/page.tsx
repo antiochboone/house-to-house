@@ -5,7 +5,7 @@ import type { DiscipleshipStatus, Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
-import { AddRelationshipForm, Modal } from "@/components/forms";
+import { AddRelationshipForm, EditPersonForm, Modal } from "@/components/forms";
 
 type Filter = "all" | DiscipleshipStatus;
 type Helpers = ReturnType<typeof makeHelpers>;
@@ -67,11 +67,12 @@ function TreeNode({
 }
 
 export default function DiscipleshipPage() {
-  const { ready, realMode, role, people, groups, setStatus } = useData();
+  const { ready, realMode, role, people, groups } = useData();
   const h = makeHelpers(people);
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd] = useState(false);
+  const [editPerson, setEditPerson] = useState<Person | null>(null);
   const [treeTab, setTreeTab] = useState<"M" | "F">("M");
 
   if (role !== "staff") {
@@ -108,9 +109,26 @@ export default function DiscipleshipPage() {
   const all = h.placedPeople();
   const inD = all.filter(h.inRelationship);
   const notD = all.filter((p) => !h.inRelationship(p));
-  const counts: Record<Filter, number> = { all: notD.length, wants: 0, open: 0, invited: 0, declined: 0, none: 0 };
-  for (const p of notD) if (p.status) counts[p.status]++;
-  const filtered = filter === "all" ? notD : notD.filter((p) => p.status === filter);
+  const counts: Record<Filter, number> = {
+    all: notD.length,
+    wants: 0,
+    open: 0,
+    invited: 0,
+    declined: 0,
+    discipled: 0,
+    making: 0,
+    none: 0,
+  };
+  for (const p of notD) {
+    if (p.statuses.length === 0) counts.none++;
+    for (const s of p.statuses) if (s in counts) counts[s as Filter]++;
+  }
+  const filtered =
+    filter === "all"
+      ? notD
+      : filter === "none"
+        ? notD.filter((p) => p.statuses.length === 0)
+        : notD.filter((p) => p.statuses.includes(filter));
 
   const roots = h.treeRoots();
   const menRoots = roots.filter((p) => p.gender === "M");
@@ -180,7 +198,7 @@ export default function DiscipleshipPage() {
     <>
       <div className="mb-5 flex flex-wrap items-end gap-4">
         <div className="max-w-[560px]">
-          <h1 className="font-display mb-1 text-[27px]">Who is discipling whom</h1>
+          <h1 className="font-display mb-1 text-[27px]">Discipleship Tree</h1>
           <p className="text-[14.5px] text-muted">
             Every chain starts somewhere. Click any name to fold or unfold their branch.
           </p>
@@ -213,6 +231,8 @@ export default function DiscipleshipPage() {
               {filterBtn("wants", "wants to disciple")}
               {filterBtn("open", "open")}
               {filterBtn("invited", "invited")}
+              {filterBtn("discipled", "already discipled")}
+              {filterBtn("making", "disciple-making")}
               {filterBtn("declined", "declined for now")}
               {filterBtn("none", "not yet invited")}
             </div>
@@ -222,25 +242,25 @@ export default function DiscipleshipPage() {
               </p>
             )}
             {filtered.map((p) => (
-              <div key={p.id} className="flex items-center gap-2.5 border-t border-line py-2">
+              <button
+                key={p.id}
+                onClick={() => setEditPerson(p)}
+                title={`Edit ${p.name}`}
+                className="flex w-full items-center gap-2.5 border-t border-line py-2 text-left hover:bg-surface-2"
+              >
                 <Avatar name={p.name} gender={p.gender} />
                 <div className="min-w-0">
                   <div className="truncate text-[13.5px]">{p.name}</div>
                   <div className="text-[11px] text-faint">{groupName(p)}</div>
                 </div>
-                <select
-                  value={p.status ?? "none"}
-                  onChange={(e) => void setStatus(p.id, e.target.value as DiscipleshipStatus)}
-                  className="ml-auto max-w-[130px] rounded-full border border-line bg-surface-2 px-2 py-1 text-[11px] font-medium text-muted"
-                  aria-label={`Discipleship status for ${p.name}`}
-                >
-                  {(Object.keys(STATUS_LABEL) as DiscipleshipStatus[]).map((s) => (
-                    <option key={s} value={s}>
+                <span className="ml-auto flex max-w-[150px] flex-wrap justify-end gap-1">
+                  {p.statuses.map((s) => (
+                    <span key={s} className="rounded-full bg-surface-2 px-2 py-0.5 text-[10.5px] font-medium text-muted">
                       {STATUS_LABEL[s]}
-                    </option>
+                    </span>
                   ))}
-                </select>
-              </div>
+                </span>
+              </button>
             ))}
           </div>
 
@@ -249,7 +269,7 @@ export default function DiscipleshipPage() {
               <h2 className="font-display mb-0.5 text-[16.5px]">Matches to make</h2>
               <div className="text-xs leading-relaxed text-muted">
                 {notD
-                  .filter((p) => p.status === "wants")
+                  .filter((p) => p.statuses.includes("wants"))
                   .map((p) => `${p.name.split(" ")[0]} (${groupName(p)}) wants to disciple someone`)
                   .join(" · ")}
                 {" "}— look for someone open, same gender, same group. ✦
@@ -262,6 +282,11 @@ export default function DiscipleshipPage() {
       {showAdd && (
         <Modal title="Record a discipleship relationship" onClose={() => setShowAdd(false)}>
           <AddRelationshipForm onDone={() => setShowAdd(false)} />
+        </Modal>
+      )}
+      {editPerson && (
+        <Modal title={`Edit ${editPerson.firstName}`} onClose={() => setEditPerson(null)}>
+          <EditPersonForm person={editPerson} onDone={() => setEditPerson(null)} />
         </Modal>
       )}
     </>
