@@ -68,6 +68,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const { role, setRole } = useRole();
   const pathname = usePathname();
 
+  // Auth pages stand alone — no app chrome.
+  if (pathname.startsWith("/login") || pathname.startsWith("/auth")) {
+    return <>{children}</>;
+  }
+
   const items =
     role === "staff"
       ? [
