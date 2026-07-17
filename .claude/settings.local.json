@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.lifegroupleaders.com)",
+      "WebFetch(domain:www.discipleshiplessons.com)"
+    ]
+  }
+}

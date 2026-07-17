@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/* ---------- House to House · Magnolia palette ---------- */
+:root {
+  --bg: #f7f3ea;
+  --surface: #fffdf8;
+  --surface-2: #f0e9d8;
+  --ink: #35392f;
+  --muted: #77796b;
+  --faint: #a5a18d;
+  --line: #e5ddc8;
+  --accent: #4e9e5f;
+  --accent-ink: #2f6b3a;
+  --accent-soft: #e4f0e1;
+  --glow: rgba(78, 158, 95, 0.12);
+  --men: #5d82a6;
+  --men-ink: #46688a;
+  --men-soft: #e2eaf2;
+  --women: #c07260;
+  --women-ink: #a65b4b;
+  --women-soft: #f5e3df;
+  --sprout: #4e9e5f;
+  --sprout-soft: #e3f0e4;
+  --gold: #b08a28;
+  --gold-soft: #f3ead0;
+  --ember: #bf6a4e;
+  --ember-soft: #f5e3db;
+  --dormant: #8f948a;
+  --dormant-soft: #eaeae2;
+  --cta-ink: #ffffff;
+  --shadow-card: 0 1px 2px rgba(53, 57, 47, 0.05), 0 8px 24px rgba(53, 57, 47, 0.07);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #211f19;
+    --surface: #2a2822;
+    --surface-2: #343128;
+    --ink: #edeae0;
+    --muted: #a8a492;
+    --faint: #7d796a;
+    --line: #3e3a2f;
+    --accent: #83bd8b;
+    --accent-ink: #aad8b0;
+    --accent-soft: #2c3a2c;
+    --glow: rgba(131, 189, 139, 0.14);
+    --men: #7ea3c7;
+    --men-ink: #9fc0de;
+    --men-soft: #253242;
+    --women: #cf8a77;
+    --women-ink: #de9f8f;
+    --women-soft: #3d2a26;
+    --sprout: #83bd8b;
+    --sprout-soft: #2c3a2c;
+    --gold: #d4af52;
+    --gold-soft: #3b3520;
+    --ember: #d68f70;
+    --ember-soft: #3d2a21;
+    --dormant: #8f948a;
+    --dormant-soft: #333630;
+    --cta-ink: #14210f;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 30px rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #211f19; --surface: #2a2822; --surface-2: #343128; --ink: #edeae0;
+  --muted: #a8a492; --faint: #7d796a; --line: #3e3a2f; --accent: #83bd8b;
+  --accent-ink: #aad8b0; --accent-soft: #2c3a2c; --glow: rgba(131, 189, 139, 0.14);
+  --men: #7ea3c7; --men-ink: #9fc0de; --men-soft: #253242;
+  --women: #cf8a77; --women-ink: #de9f8f; --women-soft: #3d2a26;
+  --sprout: #83bd8b; --sprout-soft: #2c3a2c; --gold: #d4af52; --gold-soft: #3b3520;
+  --ember: #d68f70; --ember-soft: #3d2a21; --dormant: #8f948a; --dormant-soft: #333630;
+  --cta-ink: #14210f;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="light"] {
+  --bg: #f7f3ea; --surface: #fffdf8; --surface-2: #f0e9d8; --ink: #35392f;
+  --muted: #77796b; --faint: #a5a18d; --line: #e5ddc8; --accent: #4e9e5f;
+  --accent-ink: #2f6b3a; --accent-soft: #e4f0e1; --glow: rgba(78, 158, 95, 0.12);
+  --men: #5d82a6; --men-ink: #46688a; --men-soft: #e2eaf2;
+  --women: #c07260; --women-ink: #a65b4b; --women-soft: #f5e3df;
+  --sprout: #4e9e5f; --sprout-soft: #e3f0e4; --gold: #b08a28; --gold-soft: #f3ead0;
+  --ember: #bf6a4e; --ember-soft: #f5e3db; --dormant: #8f948a; --dormant-soft: #eaeae2;
+  --cta-ink: #ffffff;
+  --shadow-card: 0 1px 2px rgba(53, 57, 47, 0.05), 0 8px 24px rgba(53, 57, 47, 0.07);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-glow: var(--glow);
+  --color-men: var(--men);
+  --color-men-ink: var(--men-ink);
+  --color-men-soft: var(--men-soft);
+  --color-women: var(--women);
+  --color-women-ink: var(--women-ink);
+  --color-women-soft: var(--women-soft);
+  --color-sprout: var(--sprout);
+  --color-sprout-soft: var(--sprout-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-ember: var(--ember);
+  --color-ember-soft: var(--ember-soft);
+  --color-dormant: var(--dormant);
+  --color-dormant-soft: var(--dormant-soft);
+  --color-cta-ink: var(--cta-ink);
+  --font-display: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  --font-sans: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --shadow-card: var(--shadow-card);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Uppercase micro-label */
+.label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- Discipleship tree connectors ---------- */
+.tree, .tree ul { list-style: none; margin: 0; padding-left: 0; }
+.tree ul { padding-left: 22px; position: relative; }
+.tree ul::before {
+  content: ""; position: absolute; left: 8px; top: 0; bottom: 12px;
+  width: 2px; background: var(--line); border-radius: 2px;
+}
+.tree li { position: relative; padding: 3px 0; }
+.tree ul li::before {
+  content: ""; position: absolute; left: -14px; top: 16px;
+  width: 12px; height: 2px; background: var(--line);
+}
+
+/* ---------- Follow-up milestone road ---------- */
+.mile { position: relative; }
+.mile::before {
+  content: ""; position: absolute; top: 9px; left: -50%;
+  width: 100%; height: 2px; background: var(--line); z-index: 0;
+}
+.mile:first-child::before { display: none; }
+.mile.done::before { background: var(--accent); }
+
+/* ---------- Motion ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .rise { animation: rise 0.35s ease both; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  .burst-dot { animation: burst 1s ease-out forwards; }
+  @keyframes burst {
+    from { transform: translate(0, 0) scale(1); opacity: 1; }
+    to { transform: translate(var(--dx), var(--dy)) scale(0.4); opacity: 0; }
+  }
+}
