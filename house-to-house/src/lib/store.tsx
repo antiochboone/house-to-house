@@ -766,8 +766,9 @@ export function useData(): DataApi {
 export function makeHelpers(people: Person[]) {
   const adults = people.filter((p) => !p.isChild);
   const byId = new Map(people.map((p) => [p.id, p]));
+  // Discipleship edges span everyone — kids get discipled too (4th grade and up).
   const kids = new Map<string, Person[]>();
-  for (const p of adults) {
+  for (const p of people) {
     if (p.discipledBy) {
       const list = kids.get(p.discipledBy) ?? [];
       list.push(p);
@@ -785,7 +786,8 @@ export function makeHelpers(people: Person[]) {
       p.statuses.includes("open") ||
       p.statuses.includes("invited") ||
       p.statuses.includes("wants") ||
-      p.statuses.includes("discipled")
+      p.statuses.includes("discipled") ||
+      p.statuses.includes("na")
     )
       return "consistent" as const;
     return "fringe" as const;
@@ -799,9 +801,17 @@ export function makeHelpers(people: Person[]) {
     engagementTier,
     descendantCount,
     treeRoots: () =>
-      adults.filter(
+      people.filter(
         (p) => disciplesOf(p.id).length > 0 && (!p.discipledBy || !byId.has(p.discipledBy)),
       ),
+    /** Everyone in a group, kids included, minus those marked "not applicable" —
+     * the population the Discipleship Tree page cares about. */
+    discipleshipPeople: () =>
+      people.filter(
+        (p) => p.groupId !== null && p.role !== "staff" && !p.statuses.includes("na"),
+      ),
+    naPeople: () =>
+      people.filter((p) => p.groupId !== null && p.statuses.includes("na")),
     /** Adults in a group (children live in groupKids). */
     groupPeople: (gid: string) => adults.filter((p) => p.groupId === gid),
     groupKids: (gid: string) => people.filter((p) => p.groupId === gid && p.isChild),

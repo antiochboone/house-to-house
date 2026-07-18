@@ -19,7 +19,8 @@ export type DiscipleshipStatus =
   | "wants"
   | "none"
   | "discipled"
-  | "making";
+  | "making"
+  | "na";
 
 /** Engagement tiers for the chart view (per-church configurable later). */
 export type EngagementTier = "lead" | "core" | "consistent" | "fringe";

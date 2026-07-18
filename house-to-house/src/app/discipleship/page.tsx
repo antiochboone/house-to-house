@@ -106,7 +106,10 @@ export default function DiscipleshipPage() {
       return next;
     });
 
-  const all = h.placedPeople();
+  // Kids are part of discipleship (4th grade and up); "not applicable" people
+  // live behind their own filter so they don't clutter the shepherding list.
+  const all = h.discipleshipPeople();
+  const na = h.naPeople();
   const inD = all.filter(h.inRelationship);
   const notD = all.filter((p) => !h.inRelationship(p));
   const counts: Record<Filter, number> = {
@@ -117,18 +120,21 @@ export default function DiscipleshipPage() {
     declined: 0,
     discipled: 0,
     making: 0,
+    na: na.length,
     none: 0,
   };
   for (const p of notD) {
     if (p.statuses.length === 0) counts.none++;
-    for (const s of p.statuses) if (s in counts) counts[s as Filter]++;
+    for (const s of p.statuses) if (s in counts && s !== "na") counts[s as Filter]++;
   }
   const filtered =
     filter === "all"
       ? notD
       : filter === "none"
         ? notD.filter((p) => p.statuses.length === 0)
-        : notD.filter((p) => p.statuses.includes(filter));
+        : filter === "na"
+          ? na
+          : notD.filter((p) => p.statuses.includes(filter));
 
   const roots = h.treeRoots();
   const menRoots = roots.filter((p) => p.gender === "M");
@@ -235,6 +241,7 @@ export default function DiscipleshipPage() {
               {filterBtn("making", "disciple-making")}
               {filterBtn("declined", "declined for now")}
               {filterBtn("none", "not yet invited")}
+              {filterBtn("na", "not applicable")}
             </div>
             {filtered.length === 0 && (
               <p className="border-t border-line pt-3 text-[12.5px] italic text-muted">

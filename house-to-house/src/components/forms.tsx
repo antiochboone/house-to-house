@@ -363,8 +363,8 @@ export function AddPersonForm({
       email: email.trim(),
       phone: phone.trim(),
       groupId: groupId || null,
-      role: isChild ? "member" : role,
-      statuses: isChild ? [] : statuses,
+      role,
+      statuses,
     });
     setBusy(false);
     if (err) {
@@ -436,7 +436,7 @@ export function AddPersonForm({
           </option>
         ))}
       </select>
-      {groupId && !isChild && (
+      {groupId && (
         <>
           <label className={labelCls}>Role in group</label>
           <select value={role} onChange={(e) => setRole(e.target.value as MemberRole)} className={inputCls}>
@@ -447,12 +447,8 @@ export function AddPersonForm({
           </select>
         </>
       )}
-      {!isChild && (
-        <>
-          <label className={labelCls}>Discipleship (pick any that apply)</label>
-          <StatusChips statuses={statuses} setStatuses={setStatuses} />
-        </>
-      )}
+      <label className={labelCls}>Discipleship (pick any that apply)</label>
+      <StatusChips statuses={statuses} setStatuses={setStatuses} />
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Email (optional)</label>
@@ -494,8 +490,8 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
       gender,
       isChild,
       groupId: groupId || null,
-      role: isChild ? "member" : role,
-      statuses: isChild ? [] : statuses,
+      role,
+      statuses,
     });
     setBusy(false);
     if (err) setError(err);
@@ -559,7 +555,7 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
           </option>
         ))}
       </select>
-      {groupId && !isChild && (
+      {groupId && (
         <>
           <label className={labelCls}>Role in group</label>
           <select value={role} onChange={(e) => setRole(e.target.value as MemberRole)} className={inputCls}>
@@ -570,32 +566,28 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
           </select>
         </>
       )}
-      {!isChild && (
-        <>
-          <label className={labelCls}>Discipleship (pick any that apply)</label>
-          {discipler && (
-            <div className="mb-2 flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[13.5px]">
-              <span>
-                Discipled by <strong>{discipler.name}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={async () => {
-                  setBusy(true);
-                  const err = await endDiscipleship(person.id);
-                  setBusy(false);
-                  if (err) setError(err);
-                  else onDone();
-                }}
-                className="text-[12px] text-ember hover:underline"
-              >
-                end relationship
-              </button>
-            </div>
-          )}
-          <StatusChips statuses={statuses} setStatuses={setStatuses} />
-        </>
+      <label className={labelCls}>Discipleship (pick any that apply)</label>
+      {discipler && (
+        <div className="mb-2 flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[13.5px]">
+          <span>
+            Discipled by <strong>{discipler.name}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={async () => {
+              setBusy(true);
+              const err = await endDiscipleship(person.id);
+              setBusy(false);
+              if (err) setError(err);
+              else onDone();
+            }}
+            className="text-[12px] text-ember hover:underline"
+          >
+            end relationship
+          </button>
+        </div>
       )}
+      <StatusChips statuses={statuses} setStatuses={setStatuses} />
       <SubmitRow busy={busy} error={error} label="Save changes" />
       <div className="mt-3 text-center">
         {confirmDelete ? (

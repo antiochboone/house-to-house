@@ -118,7 +118,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         }`}
       >
         <Wordmark collapsed={collapsed} />
-        <nav className="flex flex-col gap-1 max-md:flex-row max-md:flex-wrap">
+        <nav className="flex flex-col gap-1 max-md:hidden">
           {items.map((it) => {
             const active = it.href === pathname;
             return (
@@ -126,7 +126,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 key={it.href + it.label}
                 href={it.href}
                 title={it.label}
-                className={`flex w-full items-center gap-2.5 rounded-[10px] py-2 text-[14.5px] font-medium max-md:w-auto max-md:px-2.5 max-md:py-1.5 ${
+                className={`flex w-full items-center gap-2.5 rounded-[10px] py-2 text-[14.5px] font-medium ${
                   collapsed ? "justify-center px-0" : "px-3"
                 } ${
                   active
@@ -134,7 +134,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     : "text-muted hover:bg-surface-2 hover:text-ink"
                 }`}
               >
-                <span className="max-md:hidden">{ICONS[it.icon]}</span>
+                {ICONS[it.icon]}
                 {!collapsed && it.label}
               </Link>
             );
@@ -212,7 +212,35 @@ export function Shell({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </aside>
-      <main className="min-w-0 flex-1 px-8 pb-20 pt-7 max-md:px-4 max-md:pt-5">{children}</main>
+      <main className="min-w-0 flex-1 px-8 pb-20 pt-7 max-md:px-4 max-md:pb-28 max-md:pt-5">
+        {children}
+      </main>
+
+      {/* Mobile bottom tab bar */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+        aria-label="Primary"
+      >
+        <div className="flex">
+          {items.map((it) => {
+            const active = it.href === pathname;
+            return (
+              <Link
+                key={it.href + it.label}
+                href={it.href}
+                className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${
+                  active ? "text-accent-ink" : "text-muted"
+                }`}
+              >
+                {ICONS[it.icon]}
+                <span className={`text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
+                  {it.label === "Lifegroup Map" ? "Map" : it.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

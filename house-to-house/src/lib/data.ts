@@ -481,6 +481,7 @@ export const STATUS_LABEL: Record<DiscipleshipStatus, string> = {
   none: "not yet invited",
   discipled: "already discipled",
   making: "disciple-making",
+  na: "not applicable",
 };
 
 /** The statuses offered as multi-select chips (empty selection = "not yet invited"). */
@@ -491,6 +492,7 @@ export const SELECTABLE_STATUSES: DiscipleshipStatus[] = [
   "wants",
   "discipled",
   "making",
+  "na",
 ];
 
 export const TIERS: { key: EngagementTier; label: string }[] = [
