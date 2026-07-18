@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Group } from "@/lib/types";
-import { LEADER_HOME, TIERS, firstName } from "@/lib/data";
+import { TIERS, firstName } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Flame, Insight, SeasonChip, Stat } from "@/components/ui";
 import { GroupDrawer } from "@/components/group-drawer";
@@ -13,7 +13,7 @@ type MapMode = "cards" | "chart" | "timeline";
 type OpenModal = "group" | "person" | null;
 
 export default function MapPage() {
-  const { ready, realMode, role, people, groups, lanes } = useData();
+  const { ready, realMode, role, people, groups, lanes, myGroupIds } = useData();
   const h = makeHelpers(people);
   const [mode, setMode] = useState<MapMode>("cards");
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
@@ -214,7 +214,7 @@ export default function MapPage() {
 
       <GroupDrawer
         group={openGroup}
-        showDetail={staff || openGroup?.id === LEADER_HOME}
+        showDetail={staff || (openGroup !== null && myGroupIds.includes(openGroup.id))}
         onClose={() => setOpenGroup(null)}
         onAddPerson={staff ? () => setModal("person") : undefined}
       />
@@ -242,7 +242,7 @@ function CardsView({
   showKids: boolean;
   onOpen: (g: Group) => void;
 }) {
-  const { role, people, wins, realMode } = useData();
+  const { role, people, wins, realMode, myGroupIds } = useData();
   const h = makeHelpers(people);
   const staff = role === "staff";
 
@@ -250,7 +250,7 @@ function CardsView({
     <div className="grid grid-cols-[1fr_280px] items-start gap-5 max-lg:grid-cols-1">
       <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-4">
         {visibleGroups.map((g) => {
-          const mine = role === "leader" && g.id === LEADER_HOME;
+          const mine = role === "leader" && myGroupIds.includes(g.id);
           const showDetail = staff || mine;
           const ppl = h.groupPeople(g.id);
           const gKids = h.groupKids(g.id);

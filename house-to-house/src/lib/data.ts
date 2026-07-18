@@ -532,6 +532,16 @@ export const DEFAULT_TAG_CATEGORIES: TagCategory[] = [
   { id: "location", label: "Area of town", multi: true, options: [] },
 ];
 
+export const DAYS_OF_WEEK = [
+  "Sundays",
+  "Mondays",
+  "Tuesdays",
+  "Wednesdays",
+  "Thursdays",
+  "Fridays",
+  "Saturdays",
+];
+
 export const PULSE_WORDS = [
   "Thriving", "Growing", "Warm", "Expectant", "Steady",
   "Tired", "Stretched", "Scattered", "Stuck",

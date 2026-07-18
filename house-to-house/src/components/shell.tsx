@@ -76,7 +76,7 @@ function Wordmark({ collapsed }: { collapsed: boolean }) {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { role, demoRole, setDemoRole, realMode, userEmail } = useData();
+  const { role, demoRole, setDemoRole, realMode, userEmail, myGroupIds } = useData();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -105,7 +105,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         ]
       : [
           { href: "/map", label: "Lifegroup Map", icon: "map" },
-          { href: "/map?open=king", label: "My Group", icon: "group" },
+          ...(myGroupIds.length > 0
+            ? [{ href: `/map?open=${myGroupIds[0]}`, label: "My Group", icon: "group" }]
+            : []),
           { href: "/check-in", label: "Check-in", icon: "checkin" },
         ];
 

@@ -34,6 +34,8 @@ import {
   WINS as SEED_WINS,
   type Lane,
 } from "./data";
+import { LEADER_HOME } from "./data";
+import { computeInsights } from "./insights";
 import { isSupabaseConfigured } from "./supabase/config";
 import { supabaseBrowser } from "./supabase/client";
 
@@ -58,6 +60,14 @@ export interface AddGroupInput {
   tags?: string[];
 }
 
+export interface CheckinInput {
+  groupId: string;
+  pulseWords: string[];
+  newPerson?: { firstName: string; lastName: string; gender: Gender };
+  win?: { category: "answered_prayer" | "salvation" | "new_dship"; note: string };
+  meeting?: { day: string; time: string; place: string };
+}
+
 interface DataApi {
   ready: boolean;
   realMode: boolean;
@@ -65,6 +75,10 @@ interface DataApi {
   demoRole: AppRole;
   setDemoRole: (r: AppRole) => void;
   userEmail: string | null;
+  /** The signed-in user's linked person record (real mode; null if unlinked). */
+  mePersonId: string | null;
+  /** Groups the signed-in user actively leads (leader/intern memberships). */
+  myGroupIds: string[];
   people: Person[];
   groups: Group[];
   wins: Win[];
@@ -88,6 +102,7 @@ interface DataApi {
     parentGroupId: string | null,
   ) => Promise<string | null>;
   addTagOption: (categoryId: string, label: string) => Promise<string | null>;
+  submitCheckin: (input: CheckinInput) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -137,6 +152,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [guests, setGuests] = useState<Guest[]>(realMode ? [] : SEED_GUESTS);
   const [lanes, setLanes] = useState<Lane[]>(realMode ? [] : SEED_LINEAGE);
   const [tagCategories, setTagCategories] = useState<TagCategory[]>(DEFAULT_TAG_CATEGORIES);
+  const [mePersonId, setMePersonId] = useState<string | null>(null);
+  const [realMyGroupIds, setRealMyGroupIds] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
     if (!realMode) return;
@@ -155,30 +172,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
       eventsQ,
       tagsQ,
       groupTagsQ,
+      checkinsQ,
     ] = await Promise.all([
       supabase.auth.getUser(),
-      supabase.from("profiles").select("role").maybeSingle(),
+      supabase.from("profiles").select("role, person_id").maybeSingle(),
       supabase.from("churches").select("settings").single(),
       supabase.from("groups").select("*").neq("status", "dissolved").order("created_at"),
       supabase.from("people").select("*").order("first_name"),
-      supabase.from("memberships").select("*").is("left_at", null),
+      supabase.from("memberships").select("*"),
       supabase.from("discipleship_relationships").select("*").is("ended_at", null),
       supabase.from("wins").select("*").order("happened_on", { ascending: false }).limit(20),
       supabase.from("guests").select("*").is("archived_at", null).order("created_at"),
       supabase.from("group_events").select("*").order("happened_on"),
       supabase.from("tags").select("*"),
       supabase.from("group_tags").select("*"),
+      supabase.from("checkins").select("*").order("month", { ascending: false }),
     ]);
 
     setUserEmail(auth.user?.email ?? null);
     setRole((profileQ.data?.role as AppRole) ?? "leader");
+    setMePersonId(profileQ.data?.person_id ?? null);
 
     const savedCategories = churchQ.data?.settings?.tagCategories as TagCategory[] | undefined;
     setTagCategories(savedCategories?.length ? savedCategories : DEFAULT_TAG_CATEGORIES);
 
-    const mems = memsQ.data ?? [];
+    const allMems = memsQ.data ?? [];
+    const mems = allMems.filter((m) => !m.left_at);
     const rels = relsQ.data ?? [];
     const events = eventsQ.data ?? [];
+    const checkinRows = checkinsQ.data ?? [];
+
+    const myPersonId = profileQ.data?.person_id ?? null;
+    setRealMyGroupIds(
+      myPersonId
+        ? mems
+            .filter(
+              (m) =>
+                m.person_id === myPersonId &&
+                (m.role === "leader" || m.role === "intern"),
+            )
+            .map((m) => m.group_id)
+        : [],
+    );
     const tagLabel = new Map((tagsQ.data ?? []).map((t) => [t.id, t.label as string]));
     const tagsByGroup = new Map<string, string[]>();
     for (const gt of groupTagsQ.data ?? []) {
@@ -218,6 +253,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }),
     );
 
+    const peopleLite = new Map(
+      (peopleQ.data ?? []).map((p) => [
+        p.id,
+        { isChild: !!p.is_child, gender: p.gender as string | null },
+      ]),
+    );
+    const insightCtx = {
+      people: peopleLite,
+      allMemberships: allMems,
+      relationships: rels,
+      checkins: checkinRows,
+    };
+
     setGroups(
       (groupsQ.data ?? []).map((row) => {
         const meet = [row.meeting_day, row.meeting_time, row.meeting_place]
@@ -235,7 +283,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           meet: meet || "meeting time TBD",
           season: (row.season ?? "start") as Season,
           status: row.status,
-          insights: [],
+          insights: computeInsights(row.id, row.season, insightCtx),
           dgroups: "—",
           lineage: null,
           history,
@@ -721,6 +769,101 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [tagCategories, realMode],
   );
 
+  const submitCheckin = useCallback(
+    async (input: CheckinInput): Promise<string | null> => {
+      if (!realMode) {
+        if (input.win) {
+          setWins((prev) => [
+            { text: input.win!.note, date: new Date().toISOString().slice(0, 10) },
+            ...prev,
+          ]);
+        }
+        if (input.newPerson) {
+          await addPerson({
+            ...input.newPerson,
+            groupId: input.groupId,
+            role: "member",
+            statuses: [],
+          });
+        }
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+
+      if (input.meeting) {
+        const { error } = await supabase
+          .from("groups")
+          .update({
+            meeting_day: input.meeting.day || null,
+            meeting_time: input.meeting.time || null,
+            meeting_place: input.meeting.place || null,
+          })
+          .eq("id", input.groupId);
+        if (error) return error.message;
+      }
+
+      let rosterNote: string | null = null;
+      if (input.newPerson) {
+        const { data: person, error } = await supabase
+          .from("people")
+          .insert({
+            church_id: church.id,
+            first_name: input.newPerson.firstName,
+            last_name: input.newPerson.lastName,
+            gender: input.newPerson.gender,
+            discipleship_status: [],
+          })
+          .select("id")
+          .single();
+        if (error) return error.message;
+        const { error: memErr } = await supabase.from("memberships").insert({
+          church_id: church.id,
+          person_id: person.id,
+          group_id: input.groupId,
+          role: "member",
+        });
+        if (memErr) return memErr.message;
+        rosterNote = `${input.newPerson.firstName} ${input.newPerson.lastName}`.trim() + " joined";
+      }
+
+      const month = `${new Date().toISOString().slice(0, 7)}-01`;
+      const { error: ciErr } = await supabase.from("checkins").upsert(
+        {
+          church_id: church.id,
+          group_id: input.groupId,
+          month,
+          submitted_by: mePersonId,
+          pulse_words: input.pulseWords,
+          roster_notes: rosterNote,
+          meeting_change: input.meeting
+            ? [input.meeting.day, input.meeting.time, input.meeting.place]
+                .filter(Boolean)
+                .join(" · ")
+            : null,
+        },
+        { onConflict: "group_id,month" },
+      );
+      if (ciErr) return ciErr.message;
+
+      if (input.win) {
+        const { error: winErr } = await supabase.from("wins").insert({
+          church_id: church.id,
+          group_id: input.groupId,
+          category: input.win.category,
+          body: input.win.note,
+          is_public: true,
+        });
+        if (winErr) return winErr.message;
+      }
+
+      await refresh();
+      return null;
+    },
+    [realMode, mePersonId, addPerson, refresh],
+  );
+
   const value = useMemo<DataApi>(
     () => ({
       ready,
@@ -729,6 +872,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       demoRole,
       setDemoRole,
       userEmail,
+      mePersonId: realMode ? mePersonId : null,
+      myGroupIds: realMode
+        ? realMyGroupIds
+        : demoRole === "leader"
+          ? [LEADER_HOME]
+          : [],
       people,
       groups,
       wins,
@@ -748,8 +897,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteGroup,
       setGroupOrigin,
       addTagOption,
+      submitCheckin,
     }),
-    [ready, realMode, role, demoRole, userEmail, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

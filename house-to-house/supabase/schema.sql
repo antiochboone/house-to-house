@@ -337,6 +337,44 @@ create policy profiles_write_staff on profiles for all
   with check (church_id = public.current_church_id() and public.is_staff());
 
 -- ---------------------------------------------------------------------------
+-- Auto-link sign-ins to people by email (first sign-in creates a leader
+-- profile when the email matches a person record)
+-- ---------------------------------------------------------------------------
+
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as
+$$
+declare
+  v_person people%rowtype;
+begin
+  select * into v_person
+  from people
+  where email is not null and lower(email) = lower(new.email)
+  limit 1;
+  if found then
+    insert into profiles (id, church_id, person_id, role)
+    values (new.id, v_person.church_id, v_person.id, 'leader')
+    on conflict (id) do nothing;
+  end if;
+  return new;
+end
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- Leader write policies (check-in flow): update own group, add newcomers, post wins
+create policy groups_update_leader on groups for update
+  using (public.leads_group(id)) with check (public.leads_group(id));
+create policy people_insert_leader on people for insert
+  with check (church_id = public.current_church_id());
+create policy memberships_insert_leader on memberships for insert
+  with check (church_id = public.current_church_id() and public.leads_group(group_id));
+create policy wins_insert_leader on wins for insert
+  with check (church_id = public.current_church_id());
+
+-- ---------------------------------------------------------------------------
 -- Seed: tenant #1
 -- ---------------------------------------------------------------------------
 
