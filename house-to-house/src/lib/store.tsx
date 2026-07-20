@@ -140,6 +140,8 @@ interface DataApi {
   deletePerson: (id: string) => Promise<string | null>;
   /** Grant/revoke a person's app access (staff only). Syncs their profile. */
   setAccess: (personId: string, level: AppAccess) => Promise<string | null>;
+  /** Email a sign-in link to an invited user (they must already have access). */
+  sendInvite: (email: string) => Promise<string | null>;
   endDiscipleship: (discipleId: string) => Promise<string | null>;
   updateGroup: (id: string, input: AddGroupInput) => Promise<string | null>;
   deleteGroup: (id: string) => Promise<string | null>;
@@ -829,6 +831,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return null;
     },
     [realMode, refresh],
+  );
+
+  const sendInvite = useCallback(
+    async (email: string): Promise<string | null> => {
+      const addr = email.trim();
+      if (!addr) return "No email to send to.";
+      if (!realMode) return null; // demo: pretend it went out
+      const supabase = supabaseBrowser();
+      // Same magic-link pipeline as self sign-in (Supabase SMTP). The sign-in
+      // trigger grants their access when they click, so save access first.
+      const { error } = await supabase.auth.signInWithOtp({
+        email: addr,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          shouldCreateUser: true,
+        },
+      });
+      return error?.message ?? null;
+    },
+    [realMode],
   );
 
   const endDiscipleship = useCallback(
@@ -1654,6 +1676,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updatePerson,
       deletePerson,
       setAccess,
+      sendInvite,
       endDiscipleship,
       updateGroup,
       deleteGroup,
@@ -1688,7 +1711,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reportEmails,
       saveReportEmails,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

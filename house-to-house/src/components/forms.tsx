@@ -505,7 +505,8 @@ export function AddPersonForm({
 }
 
 export function EditPersonForm({ person, onDone }: { person: Person; onDone: () => void }) {
-  const { groups, people, updatePerson, deletePerson, endDiscipleship, setAccess } = useData();
+  const { groups, people, updatePerson, deletePerson, endDiscipleship, setAccess, sendInvite } =
+    useData();
   const [first, setFirst] = useState(person.firstName);
   const [last, setLast] = useState(person.lastName);
   const [gender, setGender] = useState<Gender>(person.gender);
@@ -517,19 +518,14 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
   const [access, setAccessLevel] = useState<AppAccess>(person.access ?? "none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invited, setInvited] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const discipler = person.discipledBy
     ? people.find((p) => p.id === person.discipledBy)
     : null;
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (access !== "none" && !email.trim()) {
-      setError("Add a sign-in email before granting app access.");
-      return;
-    }
-    setBusy(true);
+  const persist = async (): Promise<string | null> => {
     let err = await updatePerson(person.id, {
       firstName: first.trim(),
       lastName: last.trim(),
@@ -543,9 +539,35 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
     if (!err && access !== (person.access ?? "none")) {
       err = await setAccess(person.id, access);
     }
+    return err;
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (access !== "none" && !email.trim()) {
+      setError("Add a sign-in email before granting app access.");
+      return;
+    }
+    setBusy(true);
+    const err = await persist();
     setBusy(false);
     if (err) setError(err);
     else onDone();
+  };
+
+  // Save any pending changes, then email a sign-in link (invite).
+  const saveAndInvite = async () => {
+    if (!email.trim()) {
+      setError("Add a sign-in email first.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    let err = await persist();
+    if (!err) err = await sendInvite(email.trim());
+    setBusy(false);
+    if (err) setError(err);
+    else setInvited(email.trim());
   };
 
   const remove = async () => {
@@ -672,14 +694,31 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setInvited(null);
+                }}
                 placeholder="name@email.com"
                 className={inputCls}
               />
-              {!email.trim() && (
+              {!email.trim() ? (
                 <p className="mt-1 px-1 text-[11.5px] text-ember">
                   An email is required — it&apos;s what they sign in with.
                 </p>
+              ) : invited ? (
+                <p className="mt-2 rounded-lg bg-accent-soft px-2.5 py-1.5 text-[12px] text-accent-ink">
+                  ✓ Sign-in link sent to {invited}. When {first.trim() || "they"} click it,
+                  they&apos;re in.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={saveAndInvite}
+                  disabled={busy}
+                  className="mt-2 w-full rounded-xl border-[1.5px] border-accent py-2 text-[13px] font-semibold text-accent-ink disabled:opacity-50"
+                >
+                  {busy ? "Sending…" : `✉ Save & email a sign-in link`}
+                </button>
               )}
             </>
           )}
