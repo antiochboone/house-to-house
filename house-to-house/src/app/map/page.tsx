@@ -55,7 +55,7 @@ export default function MapPage() {
     <>
       <div className="mb-5 flex flex-wrap items-end gap-4">
         <div className="max-w-[640px]">
-          <h1 className="font-display mb-1 text-[27px]">
+          <h1 className="font-display mb-1 text-[27px] max-md:text-[23px]">
             {staff ? "Lifegroup Map" : "Lifegroups at Antioch Boone"}
           </h1>
           <p className="text-[14.5px] text-muted">
@@ -69,7 +69,7 @@ export default function MapPage() {
           </p>
         </div>
         {staff && (
-          <div className="ml-auto flex flex-wrap items-center gap-2.5">
+          <div className="ml-auto flex flex-wrap items-center gap-2.5 max-md:ml-0">
             <button
               onClick={() => setModal("person")}
               className="rounded-xl border-[1.5px] border-line px-3.5 py-1.5 text-[13px] font-semibold text-muted hover:border-accent hover:text-accent-ink"

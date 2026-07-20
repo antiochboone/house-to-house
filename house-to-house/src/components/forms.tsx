@@ -26,7 +26,7 @@ export function Modal({
   return (
     <>
       <div className="fixed inset-0 z-[60] bg-black/40" onClick={onClose} />
-      <div className="fixed inset-x-0 top-[8vh] z-[70] mx-auto max-h-[84vh] w-[440px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[14px] border border-line bg-bg p-6 shadow-card">
+      <div className="fixed inset-x-0 top-[8vh] z-[70] mx-auto max-h-[84vh] w-[440px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[14px] border border-line bg-bg p-6 max-md:top-[4vh] max-md:max-h-[90vh] max-md:p-4 shadow-card">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-xl">{title}</h2>
           <button
@@ -44,7 +44,7 @@ export function Modal({
 }
 
 const inputCls =
-  "w-full rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[14.5px] outline-none focus:border-accent";
+  "w-full rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[14.5px] max-md:text-[16px] outline-none focus:border-accent";
 const labelCls = "label mb-1.5 mt-3.5 block first:mt-0";
 
 function SubmitRow({
@@ -197,7 +197,7 @@ function CategoryRow({
             }}
             onBlur={commitAdd}
             placeholder="new tag…"
-            className="w-[110px] rounded-full border border-accent bg-surface px-2.5 py-1 text-[12px] outline-none"
+            className="w-[110px] rounded-full border border-accent bg-surface px-2.5 py-1 text-[12px] max-md:text-[16px] outline-none"
           />
         ) : (
           <button

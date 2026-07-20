@@ -83,7 +83,7 @@ export default function FollowUpPage() {
     <>
       <div className="mb-5 flex flex-wrap items-end gap-4">
         <div className="max-w-[680px]">
-          <h1 className="font-display mb-1 text-[27px]">Guest follow-up</h1>
+          <h1 className="font-display mb-1 text-[27px] max-md:text-[23px]">Guest follow-up</h1>
           <p className="text-[14.5px] text-muted">
             From first Sunday to family. Tap a milestone to mark it done — &quot;In a
             lifegroup&quot; graduates them onto a real roster.

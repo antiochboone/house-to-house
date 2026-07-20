@@ -7,7 +7,7 @@
 
 import { useRef, useState } from "react";
 import type { Gender } from "@/lib/types";
-import { DAYS_OF_WEEK, PULSE_WORDS, firstName } from "@/lib/data";
+import { DAYS_OF_WEEK, firstName } from "@/lib/data";
 import { useData, makeHelpers, type CheckinInput } from "@/lib/store";
 
 const STEPS = 6;
@@ -47,11 +47,11 @@ function Opt({
 }
 
 const inputCls =
-  "rounded-xl border-[1.5px] border-accent bg-bg px-3.5 py-2.5 text-[14.5px] outline-none";
+  "rounded-xl border-[1.5px] border-accent bg-bg px-3.5 py-2.5 text-[14.5px] max-md:text-[16px] outline-none";
 
 export default function CheckInPage() {
   const data = useData();
-  const { ready, realMode, role, groups, people, mePersonId, myGroupIds, submitCheckin } = data;
+  const { ready, realMode, role, groups, people, mePersonId, myGroupIds, submitCheckin, pulseWords } = data;
   const h = makeHelpers(people);
 
   const [step, setStep] = useState(0);
@@ -133,7 +133,7 @@ export default function CheckInPage() {
     const winCategories = ["answered_prayer", "salvation", "new_dship"] as const;
     const input: CheckinInput = {
       groupId: group!.id,
-      pulseWords: moods.map((i) => PULSE_WORDS[i]),
+      pulseWords: moods.map((i) => pulseWords[i]),
       newPerson:
         newFace && newFirst.trim()
           ? { firstName: newFirst.trim(), lastName: newLast.trim(), gender: newGender }
@@ -176,7 +176,7 @@ export default function CheckInPage() {
     setSaveError(null);
   };
 
-  const words = moods.map((i) => PULSE_WORDS[i].toLowerCase());
+  const words = moods.map((i) => pulseWords[i].toLowerCase());
   const feeling =
     words.length === 0
       ? ""
@@ -191,7 +191,7 @@ export default function CheckInPage() {
   return (
     <>
       <div className="mb-5 max-w-[640px]">
-        <h1 className="font-display mb-1 text-[27px]">The monthly check-in</h1>
+        <h1 className="font-display mb-1 text-[27px] max-md:text-[23px]">The monthly check-in</h1>
         <p className="text-[14.5px] text-muted">
           {realMode
             ? role === "staff"
@@ -204,7 +204,7 @@ export default function CheckInPage() {
       <div className="flex justify-center pt-1.5">
         <div
           ref={phoneRef}
-          className="relative flex min-h-[560px] w-[360px] max-w-full flex-col overflow-hidden rounded-[26px] border border-line bg-surface px-5 pb-5 pt-6 shadow-card"
+          className="relative flex min-h-[560px] w-[360px] max-w-full flex-col max-md:min-h-[70vh] max-md:w-full overflow-hidden rounded-[26px] border border-line bg-surface px-5 pb-5 pt-6 shadow-card"
         >
           <div className="mb-5 flex justify-center gap-1.5">
             {Array.from({ length: STEPS }, (_, i) => (
@@ -373,7 +373,7 @@ export default function CheckInPage() {
               <p className="mb-5 text-center text-[13.5px] text-muted">Pick as many words as fit.</p>
               <div className="flex-1">
                 <div className="grid grid-cols-3 gap-2">
-                  {PULSE_WORDS.map((m, i) => (
+                  {pulseWords.map((m, i) => (
                     <Opt key={m} center selected={moods.includes(i)} onClick={() => toggleMood(i)}>
                       {m}
                     </Opt>

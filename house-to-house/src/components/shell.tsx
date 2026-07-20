@@ -50,6 +50,12 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M2.5 16c.5-3 2.5-4.5 4.5-4.5S11 13 11.5 16M12 13.2c1.8.3 3 1.4 3.5 2.8" />
     </svg>
   ),
+  gear: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0 opacity-85">
+      <circle cx="10" cy="10" r="2.6" />
+      <path d="M10 2.5v2.2M10 15.3v2.2M2.5 10h2.2M15.3 10h2.2M4.7 4.7l1.6 1.6M13.7 13.7l1.6 1.6M15.3 4.7l-1.6 1.6M6.3 13.7l-1.6 1.6" />
+    </svg>
+  ),
 };
 
 function Wordmark({ collapsed }: { collapsed: boolean }) {
@@ -102,6 +108,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           { href: "/discipleship", label: "Discipleship", icon: "disc" },
           { href: "/follow-up", label: "Follow-up", icon: "guest" },
           { href: "/check-in", label: "Check-in", icon: "checkin" },
+          { href: "/settings", label: "Settings", icon: "gear" },
         ]
       : [
           { href: "/map", label: "Lifegroup Map", icon: "map" },
@@ -153,7 +160,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </svg>
         </button>
         <div className="flex-1 max-md:hidden" />
-        <div className={`border-t border-line pt-3.5 max-md:ml-auto max-md:border-0 max-md:pt-0 ${collapsed ? "flex justify-center" : ""}`}>
+        {role === "staff" && (
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            className="hidden max-md:ml-auto max-md:flex max-md:h-9 max-md:w-9 max-md:items-center max-md:justify-center max-md:rounded-full max-md:text-muted"
+          >
+            {ICONS.gear}
+          </Link>
+        )}
+        <div className={`border-t border-line pt-3.5 max-md:border-0 max-md:pt-0 ${collapsed ? "flex justify-center" : ""} ${role === "staff" ? "" : "max-md:ml-auto"}`}>
           {collapsed ? (
             <Avatar name={realMode ? (userEmail ?? "?") : "Hunter R"} gender={realMode ? undefined : "M"} />
           ) : realMode ? (
@@ -188,7 +204,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <button
                     key={r}
                     onClick={() => setDemoRole(r)}
-                    className={`flex-1 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold capitalize ${
+                    className={`flex-1 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold capitalize max-md:px-2 max-md:py-1 ${
                       demoRole === r ? "bg-surface text-ink shadow-card" : "text-muted"
                     }`}
                   >
@@ -224,23 +240,25 @@ export function Shell({ children }: { children: React.ReactNode }) {
         aria-label="Primary"
       >
         <div className="flex">
-          {items.map((it) => {
-            const active = it.href === pathname;
-            return (
-              <Link
-                key={it.href + it.label}
-                href={it.href}
-                className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${
-                  active ? "text-accent-ink" : "text-muted"
-                }`}
-              >
-                {ICONS[it.icon]}
-                <span className={`text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
-                  {it.label === "Lifegroup Map" ? "Map" : it.label}
-                </span>
-              </Link>
-            );
-          })}
+          {items
+            .filter((it) => it.href !== "/settings")
+            .map((it) => {
+              const active = it.href === pathname;
+              return (
+                <Link
+                  key={it.href + it.label}
+                  href={it.href}
+                  className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${
+                    active ? "text-accent-ink" : "text-muted"
+                  }`}
+                >
+                  {ICONS[it.icon]}
+                  <span className={`text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
+                    {it.label === "Lifegroup Map" ? "Map" : it.label}
+                  </span>
+                </Link>
+              );
+            })}
         </div>
       </nav>
     </div>

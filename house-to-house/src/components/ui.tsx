@@ -70,7 +70,7 @@ export function Stat({
   return (
     <div>
       <div
-        className={`font-display text-[26px] tabular-nums ${alert ? "text-ember" : ""}`}
+        className={`font-display text-[26px] tabular-nums max-md:text-[22px] ${alert ? "text-ember" : ""}`}
       >
         {num}
         {dim && <span className="text-[15px] text-faint"> {dim}</span>}

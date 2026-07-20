@@ -204,7 +204,7 @@ export default function DiscipleshipPage() {
     <>
       <div className="mb-5 flex flex-wrap items-end gap-4">
         <div className="max-w-[560px]">
-          <h1 className="font-display mb-1 text-[27px]">Discipleship Tree</h1>
+          <h1 className="font-display mb-1 text-[27px] max-md:text-[23px]">Discipleship Tree</h1>
           <p className="text-[14.5px] text-muted">
             Every chain starts somewhere. Click any name to fold or unfold their branch.
           </p>

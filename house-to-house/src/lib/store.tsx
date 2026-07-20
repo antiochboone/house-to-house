@@ -38,7 +38,7 @@ import {
   WINS as SEED_WINS,
   type Lane,
 } from "./data";
-import { LEADER_HOME } from "./data";
+import { LEADER_HOME, PULSE_WORDS as DEFAULT_PULSE_WORDS } from "./data";
 import { computeInsights } from "./insights";
 import { isSupabaseConfigured } from "./supabase/config";
 import { supabaseBrowser } from "./supabase/client";
@@ -74,6 +74,14 @@ export interface GuestInput {
   email: string;
   phone: string;
   note: string;
+}
+
+export interface CheckinSummary {
+  groupId: string;
+  month: string;
+  pulseWords: string[];
+  rosterNote: string | null;
+  meetingChange: string | null;
 }
 
 export interface RecordEventInput {
@@ -136,6 +144,12 @@ interface DataApi {
   restoreGuest: (id: string) => Promise<string | null>;
   recordGroupEvent: (input: RecordEventInput) => Promise<string | null>;
   saveReadiness: (groupId: string, data: ReadinessData) => Promise<string | null>;
+  /** Recent check-ins, newest first (staff see all; leaders their groups). */
+  checkinLog: CheckinSummary[];
+  /** The church's pulse-word vocabulary (configurable in Settings). */
+  pulseWords: string[];
+  savePulseWords: (words: string[]) => Promise<string | null>;
+  addTagCategory: (label: string, multi: boolean) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -187,6 +201,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [tagCategories, setTagCategories] = useState<TagCategory[]>(DEFAULT_TAG_CATEGORIES);
   const [mePersonId, setMePersonId] = useState<string | null>(null);
   const [realMyGroupIds, setRealMyGroupIds] = useState<string[]>([]);
+  const [checkinLog, setCheckinLog] = useState<CheckinSummary[]>([]);
+  const [pulseWords, setPulseWords] = useState<string[]>(DEFAULT_PULSE_WORDS);
 
   const refresh = useCallback(async () => {
     if (!realMode) return;
@@ -228,12 +244,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const savedCategories = churchQ.data?.settings?.tagCategories as TagCategory[] | undefined;
     setTagCategories(savedCategories?.length ? savedCategories : DEFAULT_TAG_CATEGORIES);
+    const savedPulse = churchQ.data?.settings?.pulseWords as string[] | undefined;
+    setPulseWords(savedPulse?.length ? savedPulse : DEFAULT_PULSE_WORDS);
 
     const allMems = memsQ.data ?? [];
     const mems = allMems.filter((m) => !m.left_at);
     const rels = relsQ.data ?? [];
     const events = eventsQ.data ?? [];
     const checkinRows = checkinsQ.data ?? [];
+    setCheckinLog(
+      checkinRows.map((c) => ({
+        groupId: c.group_id,
+        month: c.month.slice(0, 7),
+        pulseWords: c.pulse_words ?? [],
+        rosterNote: c.roster_notes ?? null,
+        meetingChange: c.meeting_change ?? null,
+      })),
+    );
 
     const myPersonId = profileQ.data?.person_id ?? null;
     setRealMyGroupIds(
@@ -1321,6 +1348,54 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, refresh],
   );
 
+  const patchSettings = useCallback(
+    async (patch: Record<string, unknown>): Promise<string | null> => {
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id, settings").single();
+      if (!church) return "Couldn't find your church record.";
+      const { error } = await supabase
+        .from("churches")
+        .update({ settings: { ...(church.settings ?? {}), ...patch } })
+        .eq("id", church.id);
+      return error ? error.message : null;
+    },
+    [],
+  );
+
+  const savePulseWords = useCallback(
+    async (words: string[]): Promise<string | null> => {
+      const clean = [...new Set(words.map((w) => w.trim()).filter(Boolean))];
+      if (clean.length === 0) return "Keep at least one pulse word.";
+      setPulseWords(clean);
+      if (!realMode) return null;
+      return patchSettings({ pulseWords: clean });
+    },
+    [realMode, patchSettings],
+  );
+
+  const addTagCategory = useCallback(
+    async (label: string, multi: boolean): Promise<string | null> => {
+      const clean = label.trim();
+      if (!clean) return "Give the category a name.";
+      if (tagCategories.some((c) => c.label.toLowerCase() === clean.toLowerCase()))
+        return "That category already exists.";
+      const next = [
+        ...tagCategories,
+        {
+          id: `custom-${clean.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          label: clean,
+          multi,
+          options: [],
+          custom: true,
+        },
+      ];
+      setTagCategories(next);
+      if (!realMode) return null;
+      return patchSettings({ tagCategories: next });
+    },
+    [tagCategories, realMode, patchSettings],
+  );
+
   const value = useMemo<DataApi>(
     () => ({
       ready,
@@ -1363,8 +1438,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       restoreGuest,
       recordGroupEvent,
       saveReadiness,
+      checkinLog,
+      pulseWords,
+      savePulseWords,
+      addTagCategory,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

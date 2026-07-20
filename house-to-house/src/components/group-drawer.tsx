@@ -49,7 +49,7 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people, groups, role } = useData();
+  const { people, groups, role, checkinLog } = useData();
   const h = makeHelpers(people);
   // Always render the live group from the store so edits reflect immediately;
   // fall back to the passed snapshot while closing.
@@ -120,7 +120,7 @@ export function GroupDrawer({
       />
       <aside
         aria-label="Group details"
-        className={`fixed inset-y-0 right-0 z-50 w-[480px] max-w-full overflow-y-auto border-l border-line bg-bg px-6 pb-16 pt-6 transition-transform duration-200 ${
+        className={`fixed inset-y-0 right-0 z-50 w-[480px] max-w-full overflow-y-auto border-l border-line bg-bg px-6 pb-24 pt-6 max-md:px-4 transition-transform duration-200 ${
           open ? "translate-x-0" : "translate-x-[102%]"
         }`}
       >
@@ -179,6 +179,49 @@ export function GroupDrawer({
                 </div>
               </section>
             )}
+
+            {showDetail &&
+              (() => {
+                const log = checkinLog.filter((c) => c.groupId === group.id).slice(0, 3);
+                if (log.length === 0) return null;
+                const fmtMonth = (ym: string) => {
+                  const [y, m] = ym.split("-").map(Number);
+                  return new Date(y, m - 1, 1).toLocaleString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  });
+                };
+                return (
+                  <section className="mt-5">
+                    <span className="label mb-2 block">Recent check-ins</span>
+                    <div className="flex flex-col gap-2">
+                      {log.map((c) => (
+                        <div
+                          key={c.month}
+                          className="rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[13px]"
+                        >
+                          <div className="flex items-baseline justify-between">
+                            <span className="font-semibold">{fmtMonth(c.month)}</span>
+                            {c.pulseWords.length > 0 && (
+                              <span className="text-muted">
+                                {c.pulseWords.map((w) => w.toLowerCase()).join(" · ")}
+                              </span>
+                            )}
+                          </div>
+                          {c.rosterNote && (
+                            <div className="mt-0.5 text-[12px] text-muted">🌱 {c.rosterNote}</div>
+                          )}
+                          {c.meetingChange && (
+                            <div className="mt-0.5 text-[12px] text-muted">
+                              Meeting changed to {c.meetingChange}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })()}
 
             {showDetail && (group.readiness !== undefined || staff) && (
               <section className="mt-5">

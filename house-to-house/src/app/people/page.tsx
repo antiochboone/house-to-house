@@ -79,7 +79,7 @@ export default function PeoplePage() {
     <>
       <div className="mb-5 flex flex-wrap items-end gap-4">
         <div className="max-w-[560px]">
-          <h1 className="font-display mb-1 text-[27px]">People</h1>
+          <h1 className="font-display mb-1 text-[27px] max-md:text-[23px]">People</h1>
           <p className="text-[14.5px] text-muted">
             Everyone the church knows by name — in a group, on the edge, or growing up in
             the middle of it all.
@@ -104,7 +104,7 @@ export default function PeoplePage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name…"
-          className="w-[240px] rounded-xl border-[1.5px] border-line bg-surface px-3.5 py-2 text-[14px] outline-none focus:border-accent"
+          className="w-[240px] rounded-xl border-[1.5px] border-line bg-surface px-3.5 py-2 text-[14px] max-md:text-[16px] outline-none focus:border-accent"
         />
         {filterBtn("unplaced", "not in a group")}
         {filterBtn("kids", "kids")}
