@@ -6,6 +6,7 @@ import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Insight, SeasonChip } from "./ui";
 import { EditGroupForm, EditPersonForm, GroupEventForm, Modal, ReadinessForm } from "./forms";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 const ROLE_NAME: Partial<Record<Person["role"], string>> = {
   leader: "Leader",
@@ -75,6 +76,7 @@ export function GroupDrawer({
   }, [groupProp, groups, onClose]);
 
   const open = group !== null;
+  useScrollLock(open);
   const ppl = group ? h.groupPeople(group.id) : [];
   const gKids = group ? h.groupKids(group.id) : [];
   const leadership = ppl.filter((p) => ["leader", "intern", "worship"].includes(p.role));
@@ -120,7 +122,7 @@ export function GroupDrawer({
       />
       <aside
         aria-label="Group details"
-        className={`fixed inset-y-0 right-0 z-50 w-[480px] max-w-full overflow-y-auto border-l border-line bg-bg px-6 pb-24 pt-6 max-md:px-4 transition-transform duration-200 ${
+        className={`fixed inset-y-0 right-0 z-50 w-[480px] max-w-full overflow-y-auto overscroll-contain border-l border-line bg-bg px-6 pb-24 pt-6 max-md:px-4 transition-transform duration-200 ${
           open ? "translate-x-0" : "translate-x-[102%]"
         }`}
       >

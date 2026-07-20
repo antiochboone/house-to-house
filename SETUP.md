@@ -60,6 +60,32 @@ person, controls). Total time: ~15 minutes. Do them in this order.
 2. That's it for now — importing the repository happens at deploy time with
    Claude walking you through it.
 
+## 4. Resend (emailed reports) — ~5 min, optional
+
+Only needed if you want monthly check-ins **emailed** in addition to being
+saved in the app. Skip it and everything still works; reports just live in
+House to House.
+
+1. Go to **resend.com** → sign up with the church email (free tier covers a
+   church's volume many times over).
+2. **Domains → Add Domain**: enter your church domain (e.g. `antiochboone.com`)
+   and add the DNS records it shows you to wherever the domain is managed.
+   Verification usually takes a few minutes.
+   - No church domain handy? You can send from Resend's shared test domain for
+     trying it out, but deliverability is much better once your own is verified.
+3. **API Keys → Create API Key** (sending permission is enough). Copy it —
+   it's shown only once.
+4. Give Claude the key and the from-address. Two env vars get set, both in
+   `.env.local` and in **Vercel → Settings → Environment Variables**:
+   - `RESEND_API_KEY` — the key from step 3
+   - `REPORT_FROM_EMAIL` — e.g. `House to House <reports@antiochboone.com>`
+5. In the app: **Settings → Emailed reports**, flip it on and add recipients.
+   Church-wide addresses get every group's report; zone and section lists route
+   to the leaders over those groups; a single group can have its own list too.
+
+> The API key is a **secret** — unlike the Supabase anon key, don't paste it in
+> public places. It lives only in `.env.local` (git-ignored) and Vercel.
+
 ---
 
 ## What Claude handles after each step
@@ -71,3 +97,5 @@ person, controls). Total time: ~15 minutes. Do them in this order.
   you can start entering the real Antioch Boone.
 - **After Vercel:** imports the repo, sets the env vars, deploys, updates the
   Supabase Site URL, and hands you a live link to put in Subsplash.
+- **After Resend (optional):** writes the two env vars locally and in Vercel,
+  then sends a test check-in report so you can confirm it lands in the inbox.

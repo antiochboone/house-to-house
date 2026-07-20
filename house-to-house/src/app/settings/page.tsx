@@ -6,8 +6,9 @@
 // House to House theirs.
 
 import { useState } from "react";
-import type { EngagementTier, Milestone, Section, Zone } from "@/lib/types";
+import type { EngagementTier, Milestone, ReportEmailConfig, Section, Zone } from "@/lib/types";
 import { TIERS, TIER_MEANING } from "@/lib/data";
+import { isEmail } from "@/lib/report-email";
 import { useData } from "@/lib/store";
 
 const inputCls =
@@ -115,6 +116,82 @@ function CommitInput({
   );
 }
 
+/** One "who gets this level's reports" row: chips plus an add field. */
+function EmailList({
+  label,
+  hint,
+  emails,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  emails: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const [bad, setBad] = useState(false);
+  const commit = () => {
+    const v = draft.trim();
+    if (!v) return;
+    if (!isEmail(v)) {
+      setBad(true);
+      return;
+    }
+    onChange([...emails, v]);
+    setDraft("");
+    setBad(false);
+  };
+  return (
+    <div>
+      <div className="mb-1.5 flex flex-wrap items-baseline gap-2">
+        <span className="text-[13px] font-semibold">{label}</span>
+        {hint && <span className="text-[10.5px] text-faint">{hint}</span>}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {emails.map((e) => (
+          <button
+            key={e}
+            type="button"
+            title={`Remove ${e}`}
+            onClick={() => onChange(emails.filter((x) => x !== e))}
+            className="group rounded-full border border-line px-2.5 py-1 text-[12px] text-muted hover:border-ember hover:text-ember"
+          >
+            {e} <span className="opacity-40 group-hover:opacity-100">✕</span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-1.5 flex gap-1.5">
+        <input
+          type="email"
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setBad(false);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+          }}
+          placeholder="name@church.org"
+          aria-label={`Add an email for ${label}`}
+          className={`${inputCls} min-w-0 flex-1 ${bad ? "border-ember" : ""}`}
+        />
+        <button
+          type="button"
+          onClick={commit}
+          className="rounded-xl border-[1.5px] border-line px-3 py-2 text-[12.5px] font-semibold text-muted hover:border-accent hover:text-accent-ink"
+        >
+          Add
+        </button>
+      </div>
+      {bad && <p className="mt-1 text-[11.5px] text-ember">That doesn&apos;t look like an email address.</p>}
+    </div>
+  );
+}
+
 function SectionCard({
   title,
   blurb,
@@ -151,6 +228,8 @@ export default function SettingsPage() {
     sections,
     groupSections,
     saveZoning,
+    reportEmails,
+    saveReportEmails,
   } = useData();
   const [newCat, setNewCat] = useState("");
   const [newCatMulti, setNewCatMulti] = useState(true);
@@ -230,6 +309,15 @@ export default function SettingsPage() {
     else delete next[groupId];
     void act(() => saveZoning({ ...zoning, groupSections: next }));
   };
+
+  /* ----- Emailed reports helpers ----- */
+  const patchReports = (patch: Partial<ReportEmailConfig>) =>
+    void act(() => saveReportEmails({ ...reportEmails, ...patch }));
+  const patchReportMap = (
+    level: "zones" | "sections" | "groups",
+    id: string,
+    next: string[],
+  ) => patchReports({ [level]: { ...reportEmails[level], [id]: next } } as Partial<ReportEmailConfig>);
 
   const iconBtn =
     "flex h-7 w-7 items-center justify-center rounded-lg text-[13px] text-faint hover:bg-surface-2 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent";
@@ -524,6 +612,92 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Emailed reports"
+          blurb="Check-ins are always saved here. Turn this on to also email each one out. Recipients stack: a group's report goes to its own list, its section's, its zone's, and the church-wide list."
+        >
+          <button
+            type="button"
+            role="switch"
+            aria-checked={reportEmails.enabled}
+            onClick={() => patchReports({ enabled: !reportEmails.enabled })}
+            className={`mb-4 flex w-full items-center gap-3 rounded-xl border-[1.5px] px-3.5 py-2.5 text-left ${
+              reportEmails.enabled
+                ? "border-accent bg-accent-soft"
+                : "border-line bg-surface"
+            }`}
+          >
+            <span
+              className={`flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors ${
+                reportEmails.enabled ? "bg-accent" : "bg-surface-2"
+              }`}
+            >
+              <span
+                className={`h-4 w-4 rounded-full bg-surface shadow-card transition-transform ${
+                  reportEmails.enabled ? "translate-x-4" : ""
+                }`}
+              />
+            </span>
+            <span className="text-[13.5px] font-semibold">
+              {reportEmails.enabled ? "Emailing reports" : "Reports are saved only"}
+            </span>
+          </button>
+
+          {reportEmails.enabled && (
+            <div className="flex flex-col gap-5">
+              <EmailList
+                label="Church-wide"
+                hint="gets every group's report"
+                emails={reportEmails.church}
+                onChange={(next) => patchReports({ church: next })}
+              />
+
+              {zones.map((z: Zone) => (
+                <EmailList
+                  key={z.id}
+                  label={z.name}
+                  hint="zone — every group in its sections"
+                  emails={reportEmails.zones[z.id] ?? []}
+                  onChange={(next) => patchReportMap("zones", z.id, next)}
+                />
+              ))}
+
+              {sections.map((s: Section) => (
+                <EmailList
+                  key={s.id}
+                  label={s.name}
+                  hint="section"
+                  emails={reportEmails.sections[s.id] ?? []}
+                  onChange={(next) => patchReportMap("sections", s.id, next)}
+                />
+              ))}
+
+              <details className="rounded-xl border border-line bg-surface px-3.5 py-2.5">
+                <summary className="cursor-pointer text-[13px] font-semibold">
+                  A single group&apos;s own recipients
+                </summary>
+                <div className="mt-3 flex flex-col gap-4">
+                  {groups.map((g) => (
+                    <EmailList
+                      key={g.id}
+                      label={g.name}
+                      emails={reportEmails.groups[g.id] ?? []}
+                      onChange={(next) => patchReportMap("groups", g.id, next)}
+                    />
+                  ))}
+                </div>
+              </details>
+
+              {zones.length === 0 && sections.length === 0 && (
+                <p className="text-[12px] leading-relaxed text-faint">
+                  Add zones and sections above to route reports to section leaders instead
+                  of sending everything to one inbox.
+                </p>
+              )}
+            </div>
+          )}
         </SectionCard>
       </div>
     </>

@@ -27,12 +27,14 @@ import type {
   MilestoneKey,
   Person,
   ReadinessData,
+  ReportEmailConfig,
   Season,
   Section,
   TagCategory,
   Win,
   Zone,
 } from "./types";
+import { DEFAULT_REPORT_EMAILS } from "./report-email";
 import {
   DEFAULT_TAG_CATEGORIES,
   DEFAULT_TIER_LABELS,
@@ -172,6 +174,9 @@ interface DataApi {
     sections: Section[];
     groupSections: Record<string, string>;
   }) => Promise<string | null>;
+  /** Who gets emailed when a check-in lands (configurable in Settings). */
+  reportEmails: ReportEmailConfig;
+  saveReportEmails: (config: ReportEmailConfig) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -231,6 +236,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [zones, setZones] = useState<Zone[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [groupSections, setGroupSections] = useState<Record<string, string>>({});
+  const [reportEmails, setReportEmails] = useState<ReportEmailConfig>(DEFAULT_REPORT_EMAILS);
 
   const refresh = useCallback(async () => {
     if (!realMode) return;
@@ -286,6 +292,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setGroupSections(
       (churchQ.data?.settings?.groupSections as Record<string, string> | undefined) ?? {},
     );
+    setReportEmails({
+      ...DEFAULT_REPORT_EMAILS,
+      ...((churchQ.data?.settings?.reportEmails as Partial<ReportEmailConfig> | undefined) ?? {}),
+    });
 
     const allMems = memsQ.data ?? [];
     const mems = allMems.filter((m) => !m.left_at);
@@ -1011,10 +1021,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (winErr) return winErr.message;
       }
 
+      // Email the report if the church turned it on. A mail failure must not
+      // fail the check-in — the data is already safely saved.
+      if (reportEmails.enabled) {
+        try {
+          await fetch("/api/check-in-report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ groupId: input.groupId, month }),
+          });
+        } catch {
+          // Offline or blocked — the check-in still stands.
+        }
+      }
+
       await refresh();
       return null;
     },
-    [realMode, mePersonId, addPerson, refresh],
+    [realMode, mePersonId, reportEmails.enabled, addPerson, refresh],
   );
 
   const splitName = (full: string) => {
@@ -1458,6 +1482,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, patchSettings],
   );
 
+  const saveReportEmails = useCallback(
+    async (config: ReportEmailConfig): Promise<string | null> => {
+      const clean = (list: string[] = []) => [
+        ...new Set(list.map((e) => e.trim()).filter(Boolean)),
+      ];
+      const cleanMap = (map: Record<string, string[]> = {}) =>
+        Object.fromEntries(
+          Object.entries(map)
+            .map(([k, v]) => [k, clean(v)] as const)
+            .filter(([, v]) => v.length > 0),
+        );
+      const next: ReportEmailConfig = {
+        enabled: config.enabled,
+        church: clean(config.church),
+        zones: cleanMap(config.zones),
+        sections: cleanMap(config.sections),
+        groups: cleanMap(config.groups),
+      };
+      setReportEmails(next);
+      if (!realMode) return null;
+      return patchSettings({ reportEmails: next });
+    },
+    [realMode, patchSettings],
+  );
+
   const addTagCategory = useCallback(
     async (label: string, multi: boolean): Promise<string | null> => {
       const clean = label.trim();
@@ -1535,8 +1584,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sections,
       groupSections,
       saveZoning,
+      reportEmails,
+      saveReportEmails,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, zones, sections, groupSections, saveZoning],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

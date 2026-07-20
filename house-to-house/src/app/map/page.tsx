@@ -20,6 +20,7 @@ export default function MapPage() {
   const [modal, setModal] = useState<OpenModal>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showKids, setShowKids] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
 
   // Support /map?open=<groupId> (used by the leader's "My Group" nav item).
   useEffect(() => {
@@ -53,7 +54,9 @@ export default function MapPage() {
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-end gap-4 max-md:mb-3.5 max-md:gap-2.5">
+      {/* Header. On a phone the two add buttons become a full-width row right
+          under the title; on desktop they sit right of the view toggle. */}
+      <div className="mb-5 flex flex-wrap items-end gap-4 max-md:mb-3.5 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
         <div className="max-w-[640px]">
           <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">
             {staff ? "Lifegroup Map" : "Lifegroups at Antioch Boone"}
@@ -69,24 +72,12 @@ export default function MapPage() {
           </p>
         </div>
         {staff && (
-          <div className="ml-auto flex flex-wrap items-center gap-2.5 max-md:ml-0 max-md:w-full max-md:gap-2">
-            <button
-              onClick={() => setModal("person")}
-              className="rounded-xl border-[1.5px] border-line px-3.5 py-1.5 text-[13px] font-semibold text-muted hover:border-accent hover:text-accent-ink"
-            >
-              ＋ Person
-            </button>
-            <button
-              onClick={() => setModal("group")}
-              className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink"
-            >
-              ＋ Lifegroup
-            </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2.5 max-md:ml-0 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
             {!emptyChurch && (
-              <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:order-first max-md:w-full">
+              <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:order-2">
                 {(
                   [
-                    ["cards", "Cards"],
+                    ["cards", "Lifegroups"],
                     ["chart", "Engagement"],
                     ["timeline", "Timeline"],
                   ] as const
@@ -94,7 +85,7 @@ export default function MapPage() {
                   <button
                     key={m}
                     onClick={() => setMode(m)}
-                    className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold max-md:flex-1 ${
+                    className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold max-md:flex-1 max-md:py-2 ${
                       mode === m ? "bg-surface text-ink shadow-card" : "text-muted"
                     }`}
                   >
@@ -103,6 +94,20 @@ export default function MapPage() {
                 ))}
               </div>
             )}
+            <div className="flex items-center gap-2.5 max-md:order-1 max-md:gap-2">
+              <button
+                onClick={() => setModal("person")}
+                className="rounded-xl border-[1.5px] border-line px-3.5 py-1.5 text-[13px] font-semibold text-muted hover:border-accent hover:text-accent-ink max-md:flex-1 max-md:py-2.5 max-md:text-[14.5px]"
+              >
+                ＋ Person
+              </button>
+              <button
+                onClick={() => setModal("group")}
+                className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink max-md:flex-1 max-md:py-2.5 max-md:text-[14.5px]"
+              >
+                ＋ Lifegroup
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -170,7 +175,37 @@ export default function MapPage() {
               )}
             </div>
           )}
-          <div className="mb-6 flex flex-wrap items-baseline gap-6 max-md:mb-4 max-md:gap-x-5 max-md:gap-y-2.5">
+          {/* Phone: one tappable summary line that opens into the full grid.
+              Desktop keeps the always-visible row. */}
+          <button
+            onClick={() => setStatsOpen(!statsOpen)}
+            aria-expanded={statsOpen}
+            className="mb-3 hidden w-full items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-left text-[13px] text-muted max-md:flex"
+          >
+            <span className="font-display text-[17px] tabular-nums text-ink">{groups.length}</span>
+            <span>groups</span>
+            <span className="text-line">·</span>
+            <span className="font-display text-[17px] tabular-nums text-ink">{placed.length}</span>
+            <span>people</span>
+            {staff && unplaced.length > 0 && (
+              <>
+                <span className="text-line">·</span>
+                <span className="font-display text-[17px] tabular-nums text-ember">
+                  {unplaced.length}
+                </span>
+                <span className="text-ember">unplaced</span>
+              </>
+            )}
+            <span className={`ml-auto text-[11px] text-faint transition-transform ${statsOpen ? "rotate-180" : ""}`}>
+              ▾
+            </span>
+          </button>
+
+          <div
+            className={`mb-6 flex flex-wrap items-baseline gap-6 max-md:mb-4 max-md:grid max-md:grid-cols-2 max-md:gap-4 ${
+              statsOpen ? "" : "max-md:hidden"
+            }`}
+          >
             <Stat num={groups.length} label="lifegroups" />
             <Stat num={placed.length} label="people in groups" />
             {staff && <Stat num={inD.length} label="in a discipleship relationship" />}
@@ -281,7 +316,7 @@ function CardsView({
         key={g.id}
         onClick={() => onOpen(g)}
         aria-label={`Open ${g.name}`}
-        className="rise flex w-full flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-[18px] pb-4 text-left shadow-card transition-[transform,border-color] duration-150 hover:-translate-y-0.5 hover:border-accent"
+        className="rise flex w-full flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-[18px] pb-4 text-left shadow-card transition-[transform,border-color] duration-150 hover:-translate-y-0.5 hover:border-accent max-md:gap-2 max-md:p-4"
       >
         <div className="flex items-start justify-between gap-2.5">
           <h3 className="font-display text-[19px] leading-tight">
@@ -307,7 +342,9 @@ function CardsView({
             {gKids.length > 0 ? ` · ${gKids.length} kids` : ""}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-[5px] py-0.5">
+        {/* The per-person dot row reads as texture on desktop but as noise on
+            a phone, where the headline counts already say it. */}
+        <div className="flex flex-wrap items-center gap-[5px] py-0.5 max-md:hidden">
           {ppl.map((p) =>
             showDetail ? (
               <span

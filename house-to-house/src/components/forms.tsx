@@ -13,6 +13,7 @@ import {
   STATUS_LABEL,
 } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function Modal({
   title,
@@ -23,10 +24,11 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
+  useScrollLock(true);
   return (
     <>
       <div className="fixed inset-0 z-[60] bg-black/40" onClick={onClose} />
-      <div className="fixed inset-x-0 top-[8vh] z-[70] mx-auto max-h-[84vh] w-[440px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[14px] border border-line bg-bg p-6 max-md:top-[4vh] max-md:max-h-[90vh] max-md:p-4 shadow-card">
+      <div className="fixed inset-x-0 top-[8vh] z-[70] mx-auto max-h-[84vh] w-[440px] max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-[14px] border border-line bg-bg p-6 max-md:top-[4vh] max-md:max-h-[90vh] max-md:p-4 shadow-card">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-xl">{title}</h2>
           <button

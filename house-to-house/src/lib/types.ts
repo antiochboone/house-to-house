@@ -39,6 +39,21 @@ export interface Section {
   zoneId: string | null;
 }
 
+/** Who gets emailed when a check-in comes in. Recipients accumulate down the
+ * tree: a group's report goes to its section's list, that section's zone list,
+ * and the church-wide list. */
+export interface ReportEmailConfig {
+  enabled: boolean;
+  /** Everyone here gets every group's report. */
+  church: string[];
+  /** zoneId → recipients for groups in that zone. */
+  zones: Record<string, string[]>;
+  /** sectionId → recipients for groups in that section. */
+  sections: Record<string, string[]>;
+  /** groupId → recipients for that one group. */
+  groups: Record<string, string[]>;
+}
+
 export type AppRole = "staff" | "leader";
 
 /** A configurable group-tag category (stored per church in churches.settings). */
