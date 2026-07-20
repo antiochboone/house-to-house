@@ -71,7 +71,9 @@ create table memberships (
   church_id       uuid not null references churches(id) on delete cascade,
   person_id       uuid not null references people(id) on delete cascade,
   group_id        uuid not null references groups(id) on delete cascade,
-  role            text not null default 'member' check (role in ('leader','intern','worship','member')),
+  -- Built-in ids are leader/intern/worship/member; churches can add custom
+  -- role ids in settings, so this is an open text field (no CHECK).
+  role            text not null default 'member',
   engagement_tier text check (engagement_tier in ('lead','core','consistent','fringe')),
   joined_at       date not null default current_date,
   left_at         date,
@@ -216,7 +218,9 @@ create function public.is_staff()
 returns boolean language sql stable security definer set search_path = public as
 $$ select exists (select 1 from profiles where id = auth.uid() and role = 'staff') $$;
 
--- Does the signed-in user actively lead (leader/intern) the given group?
+-- Does the signed-in user actively lead the given group? Leadership roles are
+-- the built-ins (leader/intern/worship) plus any ids the church marked as
+-- leadership in settings.leadershipRoleIds.
 create function public.leads_group(gid uuid)
 returns boolean language sql stable security definer set search_path = public as
 $$
@@ -224,10 +228,16 @@ $$
     select 1
     from profiles pr
     join memberships m on m.person_id = pr.person_id
+    join churches c on c.id = m.church_id
     where pr.id = auth.uid()
       and m.group_id = gid
-      and m.role in ('leader','intern')
       and m.left_at is null
+      and (
+        m.role in ('leader','intern','worship')
+        or m.role in (
+          select jsonb_array_elements_text(coalesce(c.settings->'leadershipRoleIds', '[]'::jsonb))
+        )
+      )
   )
 $$;
 

@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import type { EngagementTier, Milestone, ReportEmailConfig, Section, Zone } from "@/lib/types";
-import { ASSIGNABLE_ROLES, DEFAULT_ROLE_LABELS, TIERS, TIER_MEANING } from "@/lib/data";
+import { TIERS, TIER_MEANING } from "@/lib/data";
 import { isEmail } from "@/lib/report-email";
 import { useData } from "@/lib/store";
 
@@ -224,8 +224,9 @@ export default function SettingsPage() {
     saveMilestones,
     tierLabels,
     saveTierLabels,
-    roleLabels,
-    saveRoleLabels,
+    roles,
+    saveRoles,
+    people,
     zones,
     sections,
     groupSections,
@@ -235,6 +236,8 @@ export default function SettingsPage() {
   } = useData();
   const [newCat, setNewCat] = useState("");
   const [newCatMulti, setNewCatMulti] = useState(true);
+  const [newRole, setNewRole] = useState("");
+  const [newRoleLead, setNewRoleLead] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (role !== "staff") {
@@ -521,20 +524,113 @@ export default function SettingsPage() {
 
         <SectionCard
           title="Lifegroup roles"
-          blurb="What you call each role inside a group. The behavior stays the same — leaders and interns can run check-ins — but the names are yours."
+          blurb="The roles people can hold inside a group. Rename them, toggle whether a role is leadership (leadership roles form the leadership team and can run check-ins), or add your own — Co-leader, Host, Prayer lead, whatever fits."
         >
-          <div className="flex flex-col gap-3">
-            {ASSIGNABLE_ROLES.map((r) => (
-              <div key={r.key}>
-                <CommitInput
-                  value={roleLabels[r.key]}
-                  placeholder={DEFAULT_ROLE_LABELS[r.key]}
-                  ariaLabel={`Name for the "${DEFAULT_ROLE_LABELS[r.key]}" role`}
-                  onCommit={(v) => void act(() => saveRoleLabels({ ...roleLabels, [r.key]: v }))}
-                />
-                <span className="mt-1 block px-1 text-[11.5px] text-faint">{r.meaning}</span>
+          <div className="flex flex-col gap-2.5">
+            {roles.map((r) => (
+              <div
+                key={r.id}
+                className="flex flex-wrap items-center gap-2 rounded-xl border border-line px-3 py-2.5"
+              >
+                <div className="min-w-[140px] flex-1">
+                  <CommitInput
+                    value={r.label}
+                    placeholder="Role name"
+                    ariaLabel={`Name for the "${r.label}" role`}
+                    onCommit={(v) =>
+                      void act(() =>
+                        saveRoles(roles.map((x) => (x.id === r.id ? { ...x, label: v } : x))),
+                      )
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void act(() =>
+                      saveRoles(
+                        roles.map((x) =>
+                          x.id === r.id ? { ...x, leadership: !x.leadership } : x,
+                        ),
+                      ),
+                    )
+                  }
+                  className={`rounded-full border px-2.5 py-1 text-[12px] font-medium ${
+                    r.leadership
+                      ? "border-accent bg-accent-soft text-accent-ink"
+                      : "border-line text-muted"
+                  }`}
+                  title="Leadership roles form the leadership team and can run check-ins"
+                >
+                  {r.leadership ? "✓ leadership" : "leadership"}
+                </button>
+                {r.builtin ? (
+                  <span className="text-[10.5px] text-faint">built-in</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const inUse = people.some((p) => p.role === r.id);
+                      if (inUse) {
+                        setError(
+                          `Move anyone still set as "${r.label}" to another role before removing it.`,
+                        );
+                        return;
+                      }
+                      void act(() => saveRoles(roles.filter((x) => x.id !== r.id)));
+                    }}
+                    aria-label={`Remove the "${r.label}" role`}
+                    className="text-[12px] text-faint hover:text-ember"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              placeholder="e.g. Co-leader"
+              className={`${inputCls} min-w-0 flex-1`}
+              aria-label="New role name"
+            />
+            <button
+              type="button"
+              onClick={() => setNewRoleLead(!newRoleLead)}
+              className={`rounded-xl border-[1.5px] px-3 py-2 text-[12.5px] font-medium ${
+                newRoleLead ? "border-accent bg-accent-soft text-accent-ink" : "border-line text-muted"
+              }`}
+            >
+              {newRoleLead ? "leadership" : "member-level"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const label = newRole.trim();
+                if (!label) return;
+                if (roles.some((x) => x.label.toLowerCase() === label.toLowerCase())) {
+                  setError("That role already exists.");
+                  return;
+                }
+                const id = slugId(label, roles.map((x) => x.id));
+                void act(async () => {
+                  const err = await saveRoles([
+                    ...roles,
+                    { id, label, leadership: newRoleLead },
+                  ]);
+                  if (!err) {
+                    setNewRole("");
+                    setNewRoleLead(false);
+                  }
+                  return err;
+                });
+              }}
+              className="rounded-xl bg-accent px-3.5 py-2 text-[13px] font-semibold text-cta-ink"
+            >
+              Add role
+            </button>
           </div>
         </SectionCard>
 

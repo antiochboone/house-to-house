@@ -15,7 +15,6 @@ import {
 } from "react";
 import type {
   AppRole,
-  AssignableRole,
   DiscipleshipStatus,
   EngagementTier,
   Gender,
@@ -29,6 +28,7 @@ import type {
   Person,
   ReadinessData,
   ReportEmailConfig,
+  RoleDef,
   Season,
   Section,
   TagCategory,
@@ -37,7 +37,8 @@ import type {
 } from "./types";
 import { DEFAULT_REPORT_EMAILS } from "./report-email";
 import {
-  DEFAULT_ROLE_LABELS,
+  BUILTIN_LEADERSHIP_ROLE_IDS,
+  DEFAULT_ROLES,
   DEFAULT_TAG_CATEGORIES,
   DEFAULT_TIER_LABELS,
   MILESTONES as DEFAULT_MILESTONES,
@@ -166,9 +167,15 @@ interface DataApi {
   /** Display names for the four engagement tiers (configurable in Settings). */
   tierLabels: Record<EngagementTier, string>;
   saveTierLabels: (labels: Record<EngagementTier, string>) => Promise<string | null>;
-  /** Display names for lifegroup roles (configurable in Settings). */
-  roleLabels: Record<AssignableRole, string>;
-  saveRoleLabels: (labels: Record<AssignableRole, string>) => Promise<string | null>;
+  /** Lifegroup roles — built-in plus any custom (configurable in Settings). */
+  roles: RoleDef[];
+  saveRoles: (list: RoleDef[]) => Promise<string | null>;
+  /** Display label for a role id (falls back to the id if unknown). */
+  roleLabel: (id: string) => string;
+  /** Whether a role id counts as leadership (leadership team + check-ins). */
+  isLeadershipRole: (id: string) => boolean;
+  /** Ids of the leadership roles — passed into makeHelpers for tiers/leaders. */
+  leadershipRoleIds: Set<string>;
   /** Zones & sections — optional structure over the lifegroup map. */
   zones: Zone[];
   sections: Section[];
@@ -238,8 +245,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [milestones, setMilestones] = useState<Milestone[]>(DEFAULT_MILESTONES);
   const [tierLabels, setTierLabels] =
     useState<Record<EngagementTier, string>>(DEFAULT_TIER_LABELS);
-  const [roleLabels, setRoleLabels] =
-    useState<Record<AssignableRole, string>>(DEFAULT_ROLE_LABELS);
+  const [roles, setRoles] = useState<RoleDef[]>(DEFAULT_ROLES);
   const [zones, setZones] = useState<Zone[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [groupSections, setGroupSections] = useState<Record<string, string>>({});
@@ -294,10 +300,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       | Partial<Record<EngagementTier, string>>
       | undefined;
     setTierLabels({ ...DEFAULT_TIER_LABELS, ...savedTierLabels });
-    const savedRoleLabels = churchQ.data?.settings?.roleLabels as
-      | Partial<Record<AssignableRole, string>>
-      | undefined;
-    setRoleLabels({ ...DEFAULT_ROLE_LABELS, ...savedRoleLabels });
+    const savedRoles = churchQ.data?.settings?.roles as RoleDef[] | undefined;
+    if (savedRoles?.length) {
+      setRoles(savedRoles);
+    } else {
+      // Back-compat: build roles from the older roleLabels-only setting.
+      const oldLabels = churchQ.data?.settings?.roleLabels as
+        | Record<string, string>
+        | undefined;
+      setRoles(
+        oldLabels
+          ? DEFAULT_ROLES.map((r) => ({ ...r, label: oldLabels[r.id]?.trim() || r.label }))
+          : DEFAULT_ROLES,
+      );
+    }
     setZones((churchQ.data?.settings?.zones as Zone[] | undefined) ?? []);
     setSections((churchQ.data?.settings?.sections as Section[] | undefined) ?? []);
     setGroupSections(
@@ -324,14 +340,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
 
     const myPersonId = profileQ.data?.person_id ?? null;
+    // Leadership set from the just-loaded role config (DEFAULT_ROLES already
+    // marks leader/intern/worship as leadership).
+    const loadedRoles = (churchQ.data?.settings?.roles as RoleDef[] | undefined) ?? DEFAULT_ROLES;
+    const leadIds = new Set(loadedRoles.filter((r) => r.leadership).map((r) => r.id));
     setRealMyGroupIds(
       myPersonId
         ? mems
-            .filter(
-              (m) =>
-                m.person_id === myPersonId &&
-                (m.role === "leader" || m.role === "intern"),
-            )
+            .filter((m) => m.person_id === myPersonId && leadIds.has(m.role))
             .map((m) => m.group_id)
         : [],
     );
@@ -1468,15 +1484,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, patchSettings],
   );
 
-  const saveRoleLabels = useCallback(
-    async (labels: Record<AssignableRole, string>): Promise<string | null> => {
-      const clean = { ...DEFAULT_ROLE_LABELS };
-      for (const key of Object.keys(clean) as AssignableRole[]) {
-        if (labels[key]?.trim()) clean[key] = labels[key].trim();
+  const saveRoles = useCallback(
+    async (list: RoleDef[]): Promise<string | null> => {
+      // Keep every built-in role present (they can be renamed / re-flagged but
+      // not removed), then append the church's custom ones.
+      const byId = new Map(list.map((r) => [r.id, r]));
+      const merged: RoleDef[] = DEFAULT_ROLES.map((d) => {
+        const found = byId.get(d.id);
+        return found ? { ...found, id: d.id, builtin: true } : d;
+      });
+      for (const r of list) {
+        if (!DEFAULT_ROLES.some((d) => d.id === r.id) && r.label.trim()) {
+          merged.push({ ...r, label: r.label.trim(), builtin: false });
+        }
       }
-      setRoleLabels(clean);
+      setRoles(merged);
       if (!realMode) return null;
-      return patchSettings({ roleLabels: clean });
+      // Also persist the leadership id list so the DB (leads_group) can honor
+      // custom leadership roles for check-in permissions.
+      const leadershipRoleIds = merged.filter((r) => r.leadership).map((r) => r.id);
+      return patchSettings({ roles: merged, leadershipRoleIds });
     },
     [realMode, patchSettings],
   );
@@ -1554,6 +1581,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [tagCategories, realMode, patchSettings],
   );
 
+  const leadershipRoleIds = useMemo(
+    () => new Set(roles.filter((r) => r.leadership).map((r) => r.id)),
+    [roles],
+  );
+  const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles]);
+  const roleLabel = useCallback(
+    (id: string) => (id === "staff" ? "Staff" : roleById.get(id)?.label ?? id),
+    [roleById],
+  );
+  const isLeadershipRole = useCallback(
+    (id: string) => leadershipRoleIds.has(id),
+    [leadershipRoleIds],
+  );
+
   const value = useMemo<DataApi>(
     () => ({
       ready,
@@ -1604,8 +1645,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       saveMilestones,
       tierLabels,
       saveTierLabels,
-      roleLabels,
-      saveRoleLabels,
+      roles,
+      saveRoles,
+      roleLabel,
+      isLeadershipRole,
+      leadershipRoleIds,
       zones,
       sections,
       groupSections,
@@ -1613,7 +1657,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reportEmails,
       saveReportEmails,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roleLabels, saveRoleLabels, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -1627,8 +1671,12 @@ export function useData(): DataApi {
 
 /* ---------------- Pure derivations over the store's arrays ---------------- */
 
-export function makeHelpers(people: Person[]) {
+export function makeHelpers(
+  people: Person[],
+  leadershipRoleIds: Set<string> = new Set(BUILTIN_LEADERSHIP_ROLE_IDS),
+) {
   const adults = people.filter((p) => !p.isChild);
+  const isLead = (role: string) => leadershipRoleIds.has(role);
   const byId = new Map(people.map((p) => [p.id, p]));
   // Discipleship edges span everyone — kids get discipled too (4th grade and up).
   const kids = new Map<string, Person[]>();
@@ -1642,8 +1690,7 @@ export function makeHelpers(people: Person[]) {
   const disciplesOf = (id: string): Person[] => kids.get(id) ?? [];
   const inRelationship = (p: Person) => p.discipledBy !== null || disciplesOf(p.id).length > 0;
   const engagementTier = (p: Person) => {
-    if (p.role === "leader" || p.role === "intern" || p.role === "worship" || p.role === "staff")
-      return "lead" as const;
+    if (p.role === "staff" || isLead(p.role)) return "lead" as const;
     if (inRelationship(p)) return "core" as const;
     if (p.statuses.includes("making")) return "core" as const;
     if (

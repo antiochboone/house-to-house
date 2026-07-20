@@ -2,7 +2,6 @@
 // contract the Supabase adapter will implement in Milestone 2.
 
 import type {
-  AssignableRole,
   DiscipleshipStatus,
   EngagementTier,
   Gender,
@@ -12,6 +11,7 @@ import type {
   GroupEventKind,
   Milestone,
   Person,
+  RoleDef,
   Season,
   TagCategory,
   Win,
@@ -518,21 +518,18 @@ export const DEFAULT_TIER_LABELS: Record<EngagementTier, string> = Object.fromEn
   TIERS.map((t) => [t.key, t.label]),
 ) as Record<EngagementTier, string>;
 
-/** Lifegroup roles, in display order. `leadership: true` groups them under the
- * "Leadership team" heading in a group's drawer. Labels are configurable. */
-export const ASSIGNABLE_ROLES: { key: AssignableRole; leadership: boolean; meaning: string }[] = [
-  { key: "leader", leadership: true, meaning: "leads the group; can run check-ins" },
-  { key: "intern", leadership: true, meaning: "leader-in-training; can run check-ins" },
-  { key: "worship", leadership: true, meaning: "on the leadership team" },
-  { key: "member", leadership: false, meaning: "regular member" },
+/** The prebaked lifegroup roles. Churches can rename these, flip their
+ * leadership flag, and add their own (stored in churches.settings.roles). */
+export const DEFAULT_ROLES: RoleDef[] = [
+  { id: "leader", label: "Leader", leadership: true, builtin: true },
+  { id: "intern", label: "Intern", leadership: true, builtin: true },
+  { id: "worship", label: "Worship leader", leadership: true, builtin: true },
+  { id: "member", label: "Member", leadership: false, builtin: true },
 ];
 
-export const DEFAULT_ROLE_LABELS: Record<AssignableRole, string> = {
-  leader: "Leader",
-  intern: "Intern",
-  worship: "Worship leader",
-  member: "Member",
-};
+/** Built-in leadership role ids — the fallback leadership set before any
+ * custom roles are configured (and what the DB knows without the migration). */
+export const BUILTIN_LEADERSHIP_ROLE_IDS = ["leader", "intern", "worship"];
 
 /** Baked-in tag categories; a church can extend these (stored in churches.settings). */
 export const DEFAULT_TAG_CATEGORIES: TagCategory[] = [

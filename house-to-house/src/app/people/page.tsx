@@ -11,18 +11,10 @@ import { AddPersonForm, EditPersonForm, Modal } from "@/components/forms";
 type Filter = "all" | "unplaced" | "kids" | "staff";
 type SortBy = "name" | "lastName" | "role" | "group" | "discipleship";
 
-/** Leadership rank for role-sorting (higher = more central). */
-const ROLE_RANK: Record<string, number> = {
-  staff: 4,
-  leader: 3,
-  intern: 2,
-  worship: 1,
-  member: 0,
-};
-
 export default function PeoplePage() {
-  const { ready, role, people, groups, roleLabels } = useData();
-  const h = makeHelpers(people);
+  const { ready, role, people, groups, roles, roleLabel, isLeadershipRole, leadershipRoleIds } =
+    useData();
+  const h = makeHelpers(people, leadershipRoleIds);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [groupFilter, setGroupFilter] = useState<string>("");
@@ -30,8 +22,17 @@ export default function PeoplePage() {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Person | null>(null);
 
-  const roleLabel = (r: Person["role"]): string | undefined =>
-    r === "staff" ? "Staff" : r === "member" ? undefined : roleLabels[r as keyof typeof roleLabels];
+  // Role sort rank: staff highest, then leadership roles (in config order),
+  // then the rest, member lowest.
+  const roleRank = (r: Person["role"]): number => {
+    if (r === "staff") return 1000;
+    if (r === "member") return 0;
+    const idx = roles.findIndex((x) => x.id === r);
+    return (isLeadershipRole(r) ? 100 : 10) + (idx >= 0 ? roles.length - idx : 0);
+  };
+
+  const roleSubLabel = (r: Person["role"]): string | undefined =>
+    r === "staff" ? "Staff" : r === "member" ? undefined : roleLabel(r);
 
   if (role !== "staff") {
     return (
@@ -75,7 +76,7 @@ export default function PeoplePage() {
         return la !== 0 ? la : byName(a, b);
       }
       case "role": {
-        const r = (ROLE_RANK[b.role] ?? 0) - (ROLE_RANK[a.role] ?? 0);
+        const r = roleRank(b.role) - roleRank(a.role);
         return r !== 0 ? r : byName(a, b);
       }
       case "group": {
@@ -206,8 +207,8 @@ export default function PeoplePage() {
                     </span>
                   )}
                 </div>
-                {roleLabel(p.role) && (
-                  <div className="text-[11px] text-faint">{roleLabel(p.role)}</div>
+                {roleSubLabel(p.role) && (
+                  <div className="text-[11px] text-faint">{roleSubLabel(p.role)}</div>
                 )}
               </div>
             </button>

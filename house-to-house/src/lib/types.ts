@@ -8,13 +8,20 @@ export type Season = "start" | "build" | "plant" | "stagnant";
 
 export type GroupStatus = "active" | "dormant" | "dissolved";
 
-/** Membership role inside a lifegroup ("staff" = church staff, not in a group). */
-export type MemberRole = "leader" | "intern" | "worship" | "member" | "staff";
+/** Membership role id inside a lifegroup. The four built-ins are "leader",
+ * "intern", "worship", "member"; churches can add their own in Settings, so
+ * this is a plain string. "staff" is special: church staff, not in a group. */
+export type MemberRole = string;
 
-/** Roles assignable within a lifegroup. Their display labels are per-church
- * configurable in Settings; the underlying keys keep their behavior (leader &
- * intern drive who can lead check-ins, etc.). */
-export type AssignableRole = "leader" | "intern" | "worship" | "member";
+/** A configurable lifegroup role (stored per church in churches.settings.roles).
+ * `leadership` roles form the leadership team and can run check-ins. Built-in
+ * roles can be renamed and have their leadership flag changed, but not removed. */
+export interface RoleDef {
+  id: string;
+  label: string;
+  leadership: boolean;
+  builtin?: boolean;
+}
 
 /** Where someone stands with discipleship (multiple can apply; empty = not yet invited). */
 export type DiscipleshipStatus =

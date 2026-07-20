@@ -5,7 +5,6 @@
 
 import { useState, type ReactNode } from "react";
 import type {
-  AssignableRole,
   DiscipleshipStatus,
   Gender,
   Group,
@@ -347,9 +346,8 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-const ROLE_ORDER: AssignableRole[] = ["member", "leader", "intern", "worship"];
-
-/** Role-in-group dropdown using the church's configurable role labels. */
+/** Role-in-group dropdown using the church's configurable roles. Member first,
+ * then the rest in configured order. */
 function RoleSelect({
   value,
   onChange,
@@ -357,16 +355,20 @@ function RoleSelect({
   value: MemberRole;
   onChange: (r: MemberRole) => void;
 }) {
-  const { roleLabels } = useData();
+  const { roles } = useData();
+  const ordered = [
+    ...roles.filter((r) => r.id === "member"),
+    ...roles.filter((r) => r.id !== "member"),
+  ];
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as MemberRole)}
       className={inputCls}
     >
-      {ROLE_ORDER.map((r) => (
-        <option key={r} value={r}>
-          {roleLabels[r]}
+      {ordered.map((r) => (
+        <option key={r.id} value={r.id}>
+          {r.label}
         </option>
       ))}
     </select>

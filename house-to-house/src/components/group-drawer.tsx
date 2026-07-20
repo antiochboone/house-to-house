@@ -44,10 +44,11 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people, groups, role, checkinLog, sections, groupSections, roleLabels } = useData();
-  const h = makeHelpers(people);
+  const { people, groups, role, checkinLog, sections, groupSections, roleLabel, isLeadershipRole, leadershipRoleIds } =
+    useData();
+  const h = makeHelpers(people, leadershipRoleIds);
   const roleName = (r: Person["role"]) =>
-    r === "staff" || r === "member" ? undefined : roleLabels[r];
+    r === "staff" || r === "member" ? undefined : roleLabel(r);
   // Always render the live group from the store so edits reflect immediately;
   // fall back to the passed snapshot while closing.
   const group = groupProp ? (groups.find((g) => g.id === groupProp.id) ?? groupProp) : null;
@@ -75,8 +76,8 @@ export function GroupDrawer({
   useScrollLock(open);
   const ppl = group ? h.groupPeople(group.id) : [];
   const gKids = group ? h.groupKids(group.id) : [];
-  const leadership = ppl.filter((p) => ["leader", "intern", "worship"].includes(p.role));
-  const members = ppl.filter((p) => p.role === "member");
+  const leadership = ppl.filter((p) => isLeadershipRole(p.role));
+  const members = ppl.filter((p) => !isLeadershipRole(p.role));
 
   const row = (p: Person) => (
     <div

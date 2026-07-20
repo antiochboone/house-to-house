@@ -13,8 +13,8 @@ type MapMode = "cards" | "chart" | "timeline";
 type OpenModal = "group" | "person" | null;
 
 export default function MapPage() {
-  const { ready, realMode, role, people, groups, lanes, myGroupIds } = useData();
-  const h = makeHelpers(people);
+  const { ready, realMode, role, people, groups, lanes, myGroupIds, leadershipRoleIds } = useData();
+  const h = makeHelpers(people, leadershipRoleIds);
   const [mode, setMode] = useState<MapMode>("cards");
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
   const [modal, setModal] = useState<OpenModal>(null);
@@ -277,8 +277,9 @@ function CardsView({
   showKids: boolean;
   onOpen: (g: Group) => void;
 }) {
-  const { role, people, wins, realMode, myGroupIds, zones, sections, groupSections } = useData();
-  const h = makeHelpers(people);
+  const { role, people, wins, realMode, myGroupIds, zones, sections, groupSections, leadershipRoleIds } =
+    useData();
+  const h = makeHelpers(people, leadershipRoleIds);
   const staff = role === "staff";
 
   // When the church has grown into sections, cluster the cards under them.
@@ -431,8 +432,8 @@ function CardsView({
 }
 
 function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
-  const { people, tierLabels } = useData();
-  const h = makeHelpers(people);
+  const { people, tierLabels, leadershipRoleIds } = useData();
+  const h = makeHelpers(people, leadershipRoleIds);
   const unplaced = h.unplacedPeople();
 
   return (
