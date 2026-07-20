@@ -107,8 +107,10 @@ export interface Guest {
   phone: string;
   steps: Record<MilestoneKey, boolean>;
   note: string;
-  outcome?: GuestOutcome;
-  archivedAt?: string;
+  outcome?: GuestOutcome | null;
+  archivedAt?: string | null;
+  /** Set when the guest graduates into the people directory. */
+  personId?: string | null;
 }
 
 export interface Win {

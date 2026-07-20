@@ -776,6 +776,115 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
   );
 }
 
+export function GuestForm({
+  guest,
+  onDone,
+}: {
+  guest?: import("@/lib/types").Guest;
+  onDone: () => void;
+}) {
+  const { addGuest, updateGuest } = useData();
+  const [name, setName] = useState(guest?.name ?? "");
+  const [gender, setGender] = useState<Gender>(guest?.gender ?? "M");
+  const [desc, setDesc] = useState(guest?.desc ?? "");
+  const [firstSunday, setFirstSunday] = useState(
+    guest && /^\d{4}-\d{2}-\d{2}$/.test(guest.firstSunday) ? guest.firstSunday : "",
+  );
+  const [attending, setAttending] = useState<import("@/lib/types").GuestAttending>(
+    guest?.attending ?? "new",
+  );
+  const [connectCard, setConnectCard] = useState(guest?.connectCard ?? false);
+  const [email, setEmail] = useState(guest && guest.email !== "—" ? guest.email : "");
+  const [phone, setPhone] = useState(guest && guest.phone !== "—" ? guest.phone : "");
+  const [note, setNote] = useState(guest?.note ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const input = {
+      name: name.trim(),
+      gender,
+      desc: desc.trim(),
+      firstSunday,
+      attending,
+      connectCard,
+      email: email.trim(),
+      phone: phone.trim(),
+      note: note.trim(),
+    };
+    const err = guest ? await updateGuest(guest.id, input) : await addGuest(input);
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <label className={labelCls}>Name</label>
+      <input required autoFocus value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="First Last" />
+      <label className={labelCls}>Who are they?</label>
+      <div className="flex gap-2">
+        {(["M", "F"] as const).map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => setGender(g)}
+            className={`flex-1 rounded-xl border-[1.5px] py-2 text-[14px] font-medium ${
+              gender === g
+                ? g === "M"
+                  ? "border-men bg-men-soft text-men-ink"
+                  : "border-women bg-women-soft text-women-ink"
+                : "border-line text-muted"
+            }`}
+          >
+            {g === "M" ? "Man" : "Woman"}
+          </button>
+        ))}
+      </div>
+      <label className={labelCls}>A line of context</label>
+      <input value={desc} onChange={(e) => setDesc(e.target.value)} className={inputCls} placeholder="New to town, visited with the Smiths…" />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>First Sunday</label>
+          <input type="date" value={firstSunday} onChange={(e) => setFirstSunday(e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Attending</label>
+          <select value={attending} onChange={(e) => setAttending(e.target.value as import("@/lib/types").GuestAttending)} className={inputCls}>
+            <option value="new">Brand new</option>
+            <option value="yes">Still attending</option>
+            <option value="sporadic">Sporadic</option>
+          </select>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => setConnectCard(!connectCard)}
+        className={`mt-3.5 w-full rounded-xl border-[1.5px] py-2 text-[13.5px] font-medium ${
+          connectCard ? "border-accent bg-accent-soft text-accent-ink" : "border-line text-muted"
+        }`}
+      >
+        {connectCard ? "✓ Filled out a connect card" : "Filled out a connect card?"}
+      </button>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Email</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Phone</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+        </div>
+      </div>
+      <label className={labelCls}>Notes</label>
+      <input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} placeholder="Next step, who's connecting with them…" />
+      <SubmitRow busy={busy} error={error} label={guest ? "Save changes" : "Add guest"} />
+    </form>
+  );
+}
+
 export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
   const { people, addRelationship } = useData();
   const helpers = makeHelpers(people);

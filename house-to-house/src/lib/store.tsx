@@ -19,7 +19,9 @@ import type {
   Gender,
   Group,
   Guest,
+  GuestOutcome,
   MemberRole,
+  MilestoneKey,
   Person,
   Season,
   TagCategory,
@@ -58,6 +60,18 @@ export interface AddGroupInput {
   meetingTime?: string;
   meetingPlace?: string;
   tags?: string[];
+}
+
+export interface GuestInput {
+  name: string;
+  gender: Gender;
+  desc: string;
+  firstSunday: string;
+  attending: Guest["attending"];
+  connectCard: boolean;
+  email: string;
+  phone: string;
+  note: string;
 }
 
 export interface CheckinInput {
@@ -103,6 +117,12 @@ interface DataApi {
   ) => Promise<string | null>;
   addTagOption: (categoryId: string, label: string) => Promise<string | null>;
   submitCheckin: (input: CheckinInput) => Promise<string | null>;
+  addGuest: (input: GuestInput) => Promise<string | null>;
+  updateGuest: (id: string, input: GuestInput) => Promise<string | null>;
+  setGuestMilestone: (id: string, key: MilestoneKey, value: boolean) => Promise<string | null>;
+  graduateGuest: (id: string, groupId: string) => Promise<string | null>;
+  archiveGuest: (id: string, outcome: GuestOutcome) => Promise<string | null>;
+  restoreGuest: (id: string) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -182,7 +202,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("memberships").select("*"),
       supabase.from("discipleship_relationships").select("*").is("ended_at", null),
       supabase.from("wins").select("*").order("happened_on", { ascending: false }).limit(20),
-      supabase.from("guests").select("*").is("archived_at", null).order("created_at"),
+      supabase.from("guests").select("*").order("created_at"),
       supabase.from("group_events").select("*").order("happened_on"),
       supabase.from("tags").select("*"),
       supabase.from("group_tags").select("*"),
@@ -316,6 +336,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           discipled: !!g.milestones?.discipled,
         },
         note: g.notes ?? "",
+        outcome: g.outcome ?? null,
+        archivedAt: g.archived_at ?? null,
+        personId: g.person_id ?? null,
       })),
     );
 
@@ -864,6 +887,234 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, mePersonId, addPerson, refresh],
   );
 
+  const splitName = (full: string) => {
+    const space = full.indexOf(" ");
+    return space === -1
+      ? { first: full, last: "" }
+      : { first: full.slice(0, space), last: full.slice(space + 1) };
+  };
+
+  const guestToRow = (input: GuestInput) => ({
+    full_name: input.name,
+    gender: input.gender,
+    description: input.desc || null,
+    first_sunday: input.firstSunday || null,
+    attending: input.attending,
+    connect_card: input.connectCard,
+    email: input.email || null,
+    phone: input.phone || null,
+    notes: input.note || null,
+  });
+
+  const addGuest = useCallback(
+    async (input: GuestInput): Promise<string | null> => {
+      if (!realMode) {
+        setGuests((prev) => [
+          ...prev,
+          {
+            id: `demo-guest-${prev.length}`,
+            name: input.name,
+            gender: input.gender,
+            desc: input.desc,
+            firstSunday: input.firstSunday || "—",
+            attending: input.attending,
+            connectCard: input.connectCard,
+            email: input.email || "—",
+            phone: input.phone || "—",
+            steps: { emailed: false, texted: false, coffee: false, discover: false, lifegroup: false, discipled: false },
+            note: input.note,
+            outcome: null,
+            archivedAt: null,
+          },
+        ]);
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+      const { error } = await supabase
+        .from("guests")
+        .insert({ church_id: church.id, ...guestToRow(input) });
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
+  const updateGuest = useCallback(
+    async (id: string, input: GuestInput): Promise<string | null> => {
+      if (!realMode) {
+        setGuests((prev) =>
+          prev.map((g) =>
+            g.id === id
+              ? {
+                  ...g,
+                  name: input.name,
+                  gender: input.gender,
+                  desc: input.desc,
+                  firstSunday: input.firstSunday || "—",
+                  attending: input.attending,
+                  connectCard: input.connectCard,
+                  email: input.email || "—",
+                  phone: input.phone || "—",
+                  note: input.note,
+                }
+              : g,
+          ),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.from("guests").update(guestToRow(input)).eq("id", id);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
+  const setGuestMilestone = useCallback(
+    async (id: string, key: MilestoneKey, value: boolean): Promise<string | null> => {
+      const guest = guests.find((g) => g.id === id);
+      if (!guest) return "Guest not found.";
+      const steps = { ...guest.steps, [key]: value };
+      if (!realMode) {
+        setGuests((prev) => prev.map((g) => (g.id === id ? { ...g, steps } : g)));
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.from("guests").update({ milestones: steps }).eq("id", id);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [guests, realMode, refresh],
+  );
+
+  const graduateGuest = useCallback(
+    async (id: string, groupId: string): Promise<string | null> => {
+      const guest = guests.find((g) => g.id === id);
+      if (!guest) return "Guest not found.";
+      const { first, last } = splitName(guest.name);
+      if (!realMode) {
+        await addPerson({ firstName: first, lastName: last, gender: guest.gender, groupId, role: "member", statuses: [] });
+        setGuests((prev) =>
+          prev.map((g) =>
+            g.id === id
+              ? { ...g, steps: { ...g.steps, lifegroup: true }, outcome: "landed", archivedAt: new Date().toISOString() }
+              : g,
+          ),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+      const { data: person, error } = await supabase
+        .from("people")
+        .insert({
+          church_id: church.id,
+          first_name: first,
+          last_name: last,
+          gender: guest.gender,
+          email: guest.email === "—" ? null : guest.email || null,
+          phone: guest.phone === "—" ? null : guest.phone || null,
+          discipleship_status: [],
+        })
+        .select("id")
+        .single();
+      if (error) return error.message;
+      const { error: memErr } = await supabase.from("memberships").insert({
+        church_id: church.id,
+        person_id: person.id,
+        group_id: groupId,
+        role: "member",
+      });
+      if (memErr) return memErr.message;
+      const { error: gErr } = await supabase
+        .from("guests")
+        .update({
+          person_id: person.id,
+          milestones: { ...guest.steps, lifegroup: true },
+          outcome: "landed",
+          archived_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (gErr) return gErr.message;
+      await refresh();
+      return null;
+    },
+    [guests, realMode, addPerson, refresh],
+  );
+
+  const archiveGuest = useCallback(
+    async (id: string, outcome: GuestOutcome): Promise<string | null> => {
+      const guest = guests.find((g) => g.id === id);
+      if (!guest) return "Guest not found.";
+      if (!realMode) {
+        setGuests((prev) =>
+          prev.map((g) =>
+            g.id === id ? { ...g, outcome, archivedAt: new Date().toISOString() } : g,
+          ),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      let personId = guest.personId ?? null;
+      // "Attends Sundays" guests join the directory as not-yet-in-a-lifegroup.
+      if (outcome === "sundays_only" && !personId) {
+        const { data: church } = await supabase.from("churches").select("id").single();
+        if (!church) return "Couldn't find your church record.";
+        const { first, last } = splitName(guest.name);
+        const { data: person, error } = await supabase
+          .from("people")
+          .insert({
+            church_id: church.id,
+            first_name: first,
+            last_name: last,
+            gender: guest.gender,
+            email: guest.email === "—" ? null : guest.email || null,
+            phone: guest.phone === "—" ? null : guest.phone || null,
+            discipleship_status: [],
+            notes: "Attends Sundays — from guest follow-up",
+          })
+          .select("id")
+          .single();
+        if (error) return error.message;
+        personId = person.id;
+      }
+      const { error } = await supabase
+        .from("guests")
+        .update({ outcome, archived_at: new Date().toISOString(), person_id: personId })
+        .eq("id", id);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [guests, realMode, refresh],
+  );
+
+  const restoreGuest = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (!realMode) {
+        setGuests((prev) =>
+          prev.map((g) => (g.id === id ? { ...g, outcome: null, archivedAt: null } : g)),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase
+        .from("guests")
+        .update({ outcome: null, archived_at: null })
+        .eq("id", id);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
   const value = useMemo<DataApi>(
     () => ({
       ready,
@@ -898,8 +1149,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setGroupOrigin,
       addTagOption,
       submitCheckin,
+      addGuest,
+      updateGuest,
+      setGuestMilestone,
+      graduateGuest,
+      archiveGuest,
+      restoreGuest,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
