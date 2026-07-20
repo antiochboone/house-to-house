@@ -282,6 +282,15 @@ export const PEOPLE: Person[] = ROWS.map(
       statuses: status && status !== "none" ? [status] : [],
       note,
       isChild,
+      // Demo default: church staff have staff access, group leaders/interns have
+      // leader access, everyone else has none (their email being on file grants
+      // nothing until staff flips it on).
+      access:
+        role === "staff"
+          ? "staff"
+          : role === "leader" || role === "intern"
+            ? "leader"
+            : "none",
     };
   },
 );

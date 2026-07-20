@@ -46,6 +46,9 @@ create table people (
   -- Discipleship statuses (multiple allowed; empty = not yet invited):
   discipleship_status text[] not null default '{}',
   is_child            boolean not null default false,
+  -- Staff-granted app access. Read by the sign-in trigger, so access is
+  -- provisioned before anyone signs in. "none" = signing in gets nothing.
+  app_access          text not null default 'none' check (app_access in ('none','leader','staff')),
   notes               text,
   created_at          timestamptz not null default now()
 );
@@ -362,10 +365,11 @@ begin
   select * into v_person
   from people
   where email is not null and lower(email) = lower(new.email)
+    and app_access in ('leader','staff')
   limit 1;
   if found then
     insert into profiles (id, church_id, person_id, role)
-    values (new.id, v_person.church_id, v_person.id, 'leader')
+    values (new.id, v_person.church_id, v_person.id, v_person.app_access)
     on conflict (id) do nothing;
   end if;
   return new;

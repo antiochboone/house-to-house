@@ -68,6 +68,11 @@ export interface ReportEmailConfig {
 
 export type AppRole = "staff" | "leader";
 
+/** What a person is allowed to do in the app once they sign in. Stored on the
+ * person record (people.app_access) and read by the sign-in trigger, so access
+ * is provisioned by staff BEFORE anyone signs in. "none" = can't get in. */
+export type AppAccess = "none" | "leader" | "staff";
+
 /** A configurable group-tag category (stored per church in churches.settings). */
 export interface TagCategory {
   id: string;
@@ -96,6 +101,10 @@ export interface Person {
   note?: string;
   /** Children attend with their families; excluded from adult views by default. */
   isChild?: boolean;
+  /** Contact email — also what a granted login is matched against at sign-in. */
+  email?: string;
+  /** App access level (staff-granted). "none" = signing in gets them nothing. */
+  access?: AppAccess;
 }
 
 export interface GroupEvent {

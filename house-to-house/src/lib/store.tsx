@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import type {
+  AppAccess,
   AppRole,
   DiscipleshipStatus,
   EngagementTier,
@@ -137,6 +138,8 @@ interface DataApi {
   setGroupTags: (groupId: string, labels: string[]) => Promise<string | null>;
   updatePerson: (id: string, input: AddPersonInput) => Promise<string | null>;
   deletePerson: (id: string) => Promise<string | null>;
+  /** Grant/revoke a person's app access (staff only). Syncs their profile. */
+  setAccess: (personId: string, level: AppAccess) => Promise<string | null>;
   endDiscipleship: (discipleId: string) => Promise<string | null>;
   updateGroup: (id: string, input: AddGroupInput) => Promise<string | null>;
   deleteGroup: (id: string) => Promise<string | null>;
@@ -386,6 +389,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
               : []) as DiscipleshipStatus[],
           note: row.notes ?? undefined,
           isChild: !!row.is_child,
+          email: row.email ?? undefined,
+          access: (row.app_access ?? "none") as AppAccess,
         };
       }),
     );
@@ -732,6 +737,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   lastName: input.lastName,
                   gender: input.gender,
                   isChild: input.isChild,
+                  email: input.email ?? p.email,
                   groupId: input.groupId ?? null,
                   role: input.role ?? "member",
                   statuses: input.statuses ?? p.statuses,
@@ -795,6 +801,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const supabase = supabaseBrowser();
       const { error } = await supabase.from("people").delete().eq("id", id);
       if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
+  const setAccess = useCallback(
+    async (id: string, level: AppAccess): Promise<string | null> => {
+      if (!realMode) {
+        setPeople((prev) => prev.map((p) => (p.id === id ? { ...p, access: level } : p)));
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      // The person record is the source of truth (the sign-in trigger reads it).
+      const { error } = await supabase.from("people").update({ app_access: level }).eq("id", id);
+      if (error) return error.message;
+      // Sync anyone who has ALREADY signed in: revoke deletes their profile, a
+      // grant updates its role. If they've never signed in there's no profile
+      // yet — the trigger will create it correctly from app_access.
+      if (level === "none") {
+        await supabase.from("profiles").delete().eq("person_id", id);
+      } else {
+        await supabase.from("profiles").update({ role: level }).eq("person_id", id);
+      }
       await refresh();
       return null;
     },
@@ -1623,6 +1653,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setGroupTags,
       updatePerson,
       deletePerson,
+      setAccess,
       endDiscipleship,
       updateGroup,
       deleteGroup,
@@ -1657,7 +1688,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reportEmails,
       saveReportEmails,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

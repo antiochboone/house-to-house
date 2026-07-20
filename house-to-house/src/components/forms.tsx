@@ -5,6 +5,7 @@
 
 import { useState, type ReactNode } from "react";
 import type {
+  AppAccess,
   DiscipleshipStatus,
   Gender,
   Group,
@@ -504,7 +505,7 @@ export function AddPersonForm({
 }
 
 export function EditPersonForm({ person, onDone }: { person: Person; onDone: () => void }) {
-  const { groups, people, updatePerson, deletePerson, endDiscipleship } = useData();
+  const { groups, people, updatePerson, deletePerson, endDiscipleship, setAccess } = useData();
   const [first, setFirst] = useState(person.firstName);
   const [last, setLast] = useState(person.lastName);
   const [gender, setGender] = useState<Gender>(person.gender);
@@ -512,6 +513,8 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
   const [groupId, setGroupId] = useState<string>(person.groupId ?? "");
   const [role, setRole] = useState<MemberRole>(person.role === "staff" ? "member" : person.role);
   const [statuses, setStatuses] = useState<DiscipleshipStatus[]>(person.statuses);
+  const [email, setEmail] = useState(person.email ?? "");
+  const [access, setAccessLevel] = useState<AppAccess>(person.access ?? "none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -522,16 +525,24 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (access !== "none" && !email.trim()) {
+      setError("Add a sign-in email before granting app access.");
+      return;
+    }
     setBusy(true);
-    const err = await updatePerson(person.id, {
+    let err = await updatePerson(person.id, {
       firstName: first.trim(),
       lastName: last.trim(),
       gender,
       isChild,
+      email: email.trim(),
       groupId: groupId || null,
       role,
       statuses,
     });
+    if (!err && access !== (person.access ?? "none")) {
+      err = await setAccess(person.id, access);
+    }
     setBusy(false);
     if (err) setError(err);
     else onDone();
@@ -622,6 +633,59 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
         </div>
       )}
       <StatusChips statuses={statuses} setStatuses={setStatuses} />
+
+      {!isChild && (
+        <div className="mt-4 rounded-xl border border-dashed border-line p-3">
+          <label className="label mb-1 block">App access</label>
+          <div className="flex gap-1.5">
+            {(
+              [
+                ["none", "No access"],
+                ["leader", "Leader"],
+                ["staff", "Staff"],
+              ] as const
+            ).map(([lvl, lbl]) => (
+              <button
+                key={lvl}
+                type="button"
+                onClick={() => setAccessLevel(lvl)}
+                className={`flex-1 rounded-xl border-[1.5px] py-2 text-[13px] font-medium ${
+                  access === lvl
+                    ? "border-accent bg-accent-soft text-accent-ink"
+                    : "border-line text-muted"
+                }`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 px-1 text-[11.5px] text-faint">
+            {access === "none"
+              ? "Signing in gets them nothing."
+              : access === "leader"
+                ? "Can sign in, see the church map, and check in for groups they lead."
+                : "Full access, including People, Follow-up, and Settings."}
+          </p>
+          {access !== "none" && (
+            <>
+              <label className={labelCls}>Sign-in email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@email.com"
+                className={inputCls}
+              />
+              {!email.trim() && (
+                <p className="mt-1 px-1 text-[11.5px] text-ember">
+                  An email is required — it&apos;s what they sign in with.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       <SubmitRow busy={busy} error={error} label="Save changes" />
       <div className="mt-3 text-center">
         {confirmDelete ? (

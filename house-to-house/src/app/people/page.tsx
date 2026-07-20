@@ -8,7 +8,7 @@ import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
 import { AddPersonForm, EditPersonForm, Modal } from "@/components/forms";
 
-type Filter = "all" | "unplaced" | "kids" | "staff";
+type Filter = "all" | "unplaced" | "kids" | "staff" | "access";
 type SortBy = "name" | "lastName" | "role" | "group" | "discipleship";
 
 export default function PeoplePage() {
@@ -66,6 +66,7 @@ export default function PeoplePage() {
   if (filter === "unplaced") rows = rows.filter((p) => p.groupId === null && p.role !== "staff");
   if (filter === "kids") rows = rows.filter((p) => p.isChild);
   if (filter === "staff") rows = rows.filter((p) => p.role === "staff");
+  if (filter === "access") rows = rows.filter((p) => p.access && p.access !== "none");
   if (groupFilter) rows = rows.filter((p) => p.groupId === groupFilter);
 
   const byName = (a: Person, b: Person) => a.name.localeCompare(b.name);
@@ -146,6 +147,7 @@ export default function PeoplePage() {
         {filterBtn("unplaced", "not in a group")}
         {filterBtn("kids", "kids")}
         {filterBtn("staff", "staff")}
+        {filterBtn("access", "has app access")}
         <select
           value={groupFilter}
           onChange={(e) => setGroupFilter(e.target.value)}
@@ -204,6 +206,16 @@ export default function PeoplePage() {
                   {p.isChild && (
                     <span className="rounded-full bg-gold-soft px-1.5 py-px text-[10px] font-semibold text-gold">
                       child
+                    </span>
+                  )}
+                  {p.access === "staff" && (
+                    <span className="rounded-full bg-accent-soft px-1.5 py-px text-[10px] font-semibold text-accent-ink">
+                      staff
+                    </span>
+                  )}
+                  {p.access === "leader" && (
+                    <span className="rounded-full bg-men-soft px-1.5 py-px text-[10px] font-semibold text-men-ink">
+                      login
                     </span>
                   )}
                 </div>
