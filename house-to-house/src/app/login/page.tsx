@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { LogoMark } from "@/components/ui";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -45,14 +46,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto mt-24 w-full max-w-sm px-4">
       <div className="mb-8 flex items-center justify-center gap-3">
-        <svg width="46" height="38" viewBox="0 0 46 38" fill="none" aria-hidden>
-          <path d="M20 13 L31 2 L42 13" stroke="var(--beige)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M22.5 11 V27 H39.5 V11" stroke="var(--beige)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-          <rect x="28" y="19.5" width="6" height="7.5" rx="0.8" fill="var(--beige)" />
-          <path d="M6.5 20 V36 H23.5 V20" fill="var(--bg)" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M4 22 L15 11 L26 22" fill="var(--bg)" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-          <rect x="12" y="28.5" width="6" height="7.5" rx="0.8" fill="var(--accent)" />
-        </svg>
+        <LogoMark size={46} className="text-accent" />
         <div>
           <div className="font-display text-2xl leading-none">House to House</div>
           <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Antioch Boone</div>

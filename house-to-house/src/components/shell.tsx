@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useData } from "@/lib/store";
-import { Avatar } from "./ui";
+import { useTheme, type ThemeChoice } from "@/lib/theme";
+import { Avatar, LogoMark } from "./ui";
 import { LEADER_NAME } from "@/lib/data";
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -61,14 +62,7 @@ const ICONS: Record<string, React.ReactNode> = {
 function Wordmark({ collapsed }: { collapsed: boolean }) {
   return (
     <div className={`flex items-center gap-2.5 pb-4 ${collapsed ? "justify-center px-0" : "px-2.5"}`}>
-      <svg width="36" height="30" viewBox="0 0 46 38" fill="none" aria-hidden className="shrink-0">
-        <path d="M20 13 L31 2 L42 13" stroke="var(--beige)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M22.5 11 V27 H39.5 V11" stroke="var(--beige)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-        <rect x="28" y="19.5" width="6" height="7.5" rx="0.8" fill="var(--beige)" />
-        <path d="M6.5 20 V36 H23.5 V20" fill="var(--bg)" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M4 22 L15 11 L26 22" fill="var(--bg)" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-        <rect x="12" y="28.5" width="6" height="7.5" rx="0.8" fill="var(--accent)" />
-      </svg>
+      <LogoMark size={34} className="text-accent" />
       {!collapsed && (
         <div>
           <div className="font-display text-[19px] leading-[1.1]">House to House</div>
@@ -78,6 +72,46 @@ function Wordmark({ collapsed }: { collapsed: boolean }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Cycles light → dark → follow-the-device. */
+function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
+  const { choice, resolved, setChoice } = useTheme();
+  const next: Record<ThemeChoice, ThemeChoice> = {
+    light: "dark",
+    dark: "system",
+    system: "light",
+  };
+  const label =
+    choice === "system" ? `Auto · ${resolved}` : choice === "dark" ? "Dark" : "Light";
+
+  return (
+    <button
+      onClick={() => setChoice(next[choice])}
+      title={`Theme: ${label} — tap for ${next[choice] === "system" ? "auto" : next[choice]}`}
+      aria-label={`Theme: ${label}. Switch to ${next[choice]}.`}
+      className={`flex items-center gap-2 rounded-[10px] text-muted hover:bg-surface-2 hover:text-ink ${
+        collapsed ? "h-9 w-9 justify-center" : "px-2.5 py-1.5"
+      }`}
+    >
+      <span className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+        {resolved === "dark" ? (
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
+            <path d="M16.5 11.8A7 7 0 0 1 8.2 3.5a7 7 0 1 0 8.3 8.3z" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="h-[18px] w-[18px]">
+            <circle cx="10" cy="10" r="3.4" />
+            <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.4 4.4l1.4 1.4M14.2 14.2l1.4 1.4M15.6 4.4l-1.4 1.4M5.8 14.2l-1.4 1.4" />
+          </svg>
+        )}
+        {choice === "system" && (
+          <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-accent ring-2 ring-bg" />
+        )}
+      </span>
+      {!collapsed && <span className="text-[12.5px] font-medium">{label}</span>}
+    </button>
   );
 }
 
@@ -160,16 +194,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </svg>
         </button>
         <div className="flex-1 max-md:hidden" />
-        {role === "staff" && (
-          <Link
-            href="/settings"
-            aria-label="Settings"
-            className="hidden max-md:ml-auto max-md:flex max-md:h-9 max-md:w-9 max-md:items-center max-md:justify-center max-md:rounded-full max-md:text-muted"
-          >
-            {ICONS.gear}
-          </Link>
-        )}
-        <div className={`border-t border-line pt-3.5 max-md:border-0 max-md:pt-0 ${collapsed ? "flex justify-center" : ""} ${role === "staff" ? "" : "max-md:ml-auto"}`}>
+
+        {/* Mobile: theme + settings sit at the right of the top bar. */}
+        <div className="hidden max-md:ml-auto max-md:flex max-md:items-center max-md:gap-0.5">
+          <ThemeToggle collapsed />
+          {role === "staff" && (
+            <Link
+              href="/settings"
+              aria-label="Settings"
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] text-muted"
+            >
+              {ICONS.gear}
+            </Link>
+          )}
+        </div>
+
+        <div className={`max-md:hidden ${collapsed ? "flex justify-center" : ""}`}>
+          <ThemeToggle collapsed={collapsed} />
+        </div>
+
+        <div className={`border-t border-line pt-3.5 max-md:border-0 max-md:pt-0 ${collapsed ? "flex justify-center" : ""}`}>
           {collapsed ? (
             <Avatar name={realMode ? (userEmail ?? "?") : "Hunter R"} gender={realMode ? undefined : "M"} />
           ) : realMode ? (

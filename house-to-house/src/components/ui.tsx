@@ -1,6 +1,36 @@
 import type { Gender, Group } from "@/lib/types";
 import { SEASON_META, initials } from "@/lib/data";
 
+/** The Antioch mark. The source art is white-on-transparent, so we use its
+ * alpha as a CSS mask and paint it with `currentColor` — one asset that takes
+ * whatever color the theme calls for, at any size, with no second file. */
+export function LogoMark({
+  size = 34,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-block shrink-0 bg-current ${className}`}
+      style={{
+        width: size,
+        height: size,
+        maskImage: "url(/logo.png)",
+        WebkitMaskImage: "url(/logo.png)",
+        maskSize: "contain",
+        WebkitMaskSize: "contain",
+        maskRepeat: "no-repeat",
+        WebkitMaskRepeat: "no-repeat",
+        maskPosition: "center",
+        WebkitMaskPosition: "center",
+      }}
+    />
+  );
+}
+
 /** Gender-coded avatar: slate-blue = men, clay-rose = women. */
 export function Avatar({
   name,
