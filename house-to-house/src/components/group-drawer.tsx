@@ -5,7 +5,7 @@ import type { Group, Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Insight, SeasonChip } from "./ui";
-import { EditGroupForm, EditPersonForm, Modal } from "./forms";
+import { EditGroupForm, EditPersonForm, GroupEventForm, Modal, ReadinessForm } from "./forms";
 
 const ROLE_NAME: Partial<Record<Person["role"], string>> = {
   leader: "Leader",
@@ -56,6 +56,8 @@ export function GroupDrawer({
   const group = groupProp ? (groups.find((g) => g.id === groupProp.id) ?? groupProp) : null;
   const [editPerson, setEditPerson] = useState<Person | null>(null);
   const [editGroup, setEditGroup] = useState(false);
+  const [recordEvent, setRecordEvent] = useState(false);
+  const [assessing, setAssessing] = useState(false);
   const staff = role === "staff";
 
   useEffect(() => {
@@ -178,19 +180,42 @@ export function GroupDrawer({
               </section>
             )}
 
-            {showDetail && group.readiness !== undefined && (
+            {showDetail && (group.readiness !== undefined || staff) && (
               <section className="mt-5">
                 <span className="label mb-2 block">Planting readiness</span>
-                <div className="flex items-center gap-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
-                  <div className="font-display text-[26px] tabular-nums">
-                    {group.readiness}
-                    <span className="text-[15px] text-faint">/15</span>
+                {group.readiness !== undefined ? (
+                  <div className="flex items-center gap-3.5 rounded-xl border border-line bg-surface px-4 py-3.5">
+                    <div className="font-display text-[26px] tabular-nums">
+                      {group.readiness}
+                      <span className="text-[15px] text-faint">/15</span>
+                    </div>
+                    <div className="text-[12.5px] leading-snug text-muted">
+                      {group.readiness >= 12
+                        ? "12+ — prepare to plant! 🌱"
+                        : `${12 - group.readiness} more to the plant-ready threshold of 12.`}
+                      {group.readinessData?.date && (
+                        <span className="block text-faint">
+                          Assessed {group.readinessData.date}
+                        </span>
+                      )}
+                      {staff && (
+                        <button
+                          onClick={() => setAssessing(true)}
+                          className="mt-1 block text-[12px] font-semibold text-accent-ink hover:underline"
+                        >
+                          reassess
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-[12.5px] leading-snug text-muted">
-                    12+ means prepare to plant. Leadership balanced, locations set —
-                    worship leader for group two is the open item.
-                  </div>
-                </div>
+                ) : (
+                  <button
+                    onClick={() => setAssessing(true)}
+                    className="w-full rounded-xl border border-dashed border-line px-4 py-2.5 text-left text-[13px] text-muted hover:border-accent hover:text-accent-ink"
+                  >
+                    Run the 15-point planting readiness assessment
+                  </button>
+                )}
               </section>
             )}
 
@@ -266,18 +291,35 @@ export function GroupDrawer({
               </section>
             )}
 
-            {showDetail && group.history.length > 0 && (
+            {showDetail && (group.history.length > 0 || staff) && (
               <section className="mt-5">
-                <span className="label mb-2 block">Story</span>
-                <div className="relative flex flex-col gap-3 pl-[18px] before:absolute before:bottom-1.5 before:left-1 before:top-1.5 before:w-0.5 before:rounded before:bg-line">
-                  {group.history.map((ev) => (
-                    <div key={ev.date + ev.text} className="relative text-[13.5px]">
-                      <span className="absolute -left-[18px] top-1.5 h-2.5 w-2.5 rounded-full bg-accent" />
-                      <span className="block text-[11px] text-faint">{ev.date}</span>
-                      {ev.text}
-                    </div>
-                  ))}
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="label">Story</span>
+                  {staff && (
+                    <button
+                      onClick={() => setRecordEvent(true)}
+                      className="text-[12px] font-semibold text-accent-ink hover:underline"
+                    >
+                      ＋ record an event
+                    </button>
+                  )}
                 </div>
+                {group.history.length === 0 ? (
+                  <p className="text-[12.5px] italic text-muted">
+                    No story recorded yet — start with when it was planted (Edit → origin
+                    story) or record an event.
+                  </p>
+                ) : (
+                  <div className="relative flex flex-col gap-3 pl-[18px] before:absolute before:bottom-1.5 before:left-1 before:top-1.5 before:w-0.5 before:rounded before:bg-line">
+                    {group.history.map((ev) => (
+                      <div key={ev.date + ev.text} className="relative text-[13.5px]">
+                        <span className="absolute -left-[18px] top-1.5 h-2.5 w-2.5 rounded-full bg-accent" />
+                        <span className="block text-[11px] text-faint">{ev.date}</span>
+                        {ev.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
@@ -299,6 +341,16 @@ export function GroupDrawer({
       {editGroup && group && (
         <Modal title={`Edit ${group.name}`} onClose={() => setEditGroup(false)}>
           <EditGroupForm group={group} onDone={() => setEditGroup(false)} />
+        </Modal>
+      )}
+      {recordEvent && group && (
+        <Modal title={`${group.name}'s story`} onClose={() => setRecordEvent(false)}>
+          <GroupEventForm group={group} onDone={() => setRecordEvent(false)} />
+        </Modal>
+      )}
+      {assessing && group && (
+        <Modal title={`Planting readiness — ${group.name}`} onClose={() => setAssessing(false)}>
+          <ReadinessForm group={group} onDone={() => setAssessing(false)} />
         </Modal>
       )}
     </>

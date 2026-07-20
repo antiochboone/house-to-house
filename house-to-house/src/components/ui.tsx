@@ -47,6 +47,9 @@ export function Chip({
 }
 
 export function SeasonChip({ group }: { group: Group }) {
+  if (group.status === "dormant") {
+    return <Chip tone="bg-dormant-soft text-dormant">Dormant</Chip>;
+  }
   const meta = SEASON_META[group.season];
   const label =
     group.id === "oak" && group.season === "start" ? "Starting Up · replant" : meta.label;

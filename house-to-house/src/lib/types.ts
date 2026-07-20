@@ -62,6 +62,23 @@ export interface GroupEvent {
   text: string;
 }
 
+/** Recordable history-ledger event kinds (drawer → "Record an event"). */
+export type GroupEventKind =
+  | "dormant"
+  | "replanted"
+  | "merged"
+  | "dissolved"
+  | "leader_transition"
+  | "milestone";
+
+/** A saved planting-readiness assessment (stored on groups.readiness). */
+export interface ReadinessData {
+  score: number;
+  date: string;
+  attendance: number;
+  checks: Record<string, boolean>;
+}
+
 export interface Group {
   id: string;
   name: string;
@@ -72,6 +89,7 @@ export interface Group {
   dgroups: string;
   lineage: string | null;
   readiness?: number;
+  readinessData?: ReadinessData | null;
   history: GroupEvent[];
   /** Tag labels (geography, season of life, custom). */
   tags: string[];

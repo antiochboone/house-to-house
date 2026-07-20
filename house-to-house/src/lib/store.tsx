@@ -18,11 +18,13 @@ import type {
   DiscipleshipStatus,
   Gender,
   Group,
+  GroupEventKind,
   Guest,
   GuestOutcome,
   MemberRole,
   MilestoneKey,
   Person,
+  ReadinessData,
   Season,
   TagCategory,
   Win,
@@ -74,6 +76,15 @@ export interface GuestInput {
   note: string;
 }
 
+export interface RecordEventInput {
+  groupId: string;
+  kind: GroupEventKind;
+  month: string;
+  notes: string;
+  relatedGroupId?: string;
+  newName?: string;
+}
+
 export interface CheckinInput {
   groupId: string;
   pulseWords: string[];
@@ -123,6 +134,8 @@ interface DataApi {
   graduateGuest: (id: string, groupId: string) => Promise<string | null>;
   archiveGuest: (id: string, outcome: GuestOutcome) => Promise<string | null>;
   restoreGuest: (id: string) => Promise<string | null>;
+  recordGroupEvent: (input: RecordEventInput) => Promise<string | null>;
+  saveReadiness: (groupId: string, data: ReadinessData) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -197,7 +210,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.auth.getUser(),
       supabase.from("profiles").select("role, person_id").maybeSingle(),
       supabase.from("churches").select("settings").single(),
-      supabase.from("groups").select("*").neq("status", "dissolved").order("created_at"),
+      supabase.from("groups").select("*").order("created_at"),
       supabase.from("people").select("*").order("first_name"),
       supabase.from("memberships").select("*"),
       supabase.from("discipleship_relationships").select("*").is("ended_at", null),
@@ -286,30 +299,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
       checkins: checkinRows,
     };
 
+    const allGroupRows = groupsQ.data ?? [];
     setGroups(
-      (groupsQ.data ?? []).map((row) => {
-        const meet = [row.meeting_day, row.meeting_time, row.meeting_place]
-          .filter(Boolean)
-          .join(" · ");
-        const history = events
-          .filter((e) => e.group_id === row.id)
-          .map((e) => ({
-            date: e.happened_on,
-            text: e.notes ?? e.kind,
-          }));
-        return {
-          id: row.id,
-          name: row.name,
-          meet: meet || "meeting time TBD",
-          season: (row.season ?? "start") as Season,
-          status: row.status,
-          insights: computeInsights(row.id, row.season, insightCtx),
-          dgroups: "—",
-          lineage: null,
-          history,
-          tags: tagsByGroup.get(row.id) ?? [],
-        } satisfies Group;
-      }),
+      allGroupRows
+        .filter((row) => row.status !== "dissolved")
+        .map((row) => {
+          const meet = [row.meeting_day, row.meeting_time, row.meeting_place]
+            .filter(Boolean)
+            .join(" · ");
+          const history = events
+            .filter((e) => e.group_id === row.id)
+            .map((e) => ({
+              date: e.happened_on,
+              text: e.notes ?? e.kind,
+            }));
+          return {
+            id: row.id,
+            name: row.name,
+            meet: meet || "meeting time TBD",
+            season: (row.season ?? "start") as Season,
+            status: row.status,
+            insights: computeInsights(row.id, row.season, insightCtx),
+            dgroups: "—",
+            lineage: null,
+            readiness: row.readiness?.score,
+            readinessData: row.readiness ?? null,
+            history,
+            tags: tagsByGroup.get(row.id) ?? [],
+          } satisfies Group;
+        }),
     );
 
     setWins(
@@ -342,14 +360,76 @@ export function DataProvider({ children }: { children: ReactNode }) {
       })),
     );
 
-    // Lineage lanes from the events ledger; groups without events get a simple
-    // active lane starting at their creation month.
-    const rowsById = new Map((groupsQ.data ?? []).map((g) => [g.id, g]));
+    // Lineage lanes from the events ledger — dissolved groups keep their lane,
+    // dormancy breaks the line, replants resume it, merges flow into the
+    // receiving group's lane.
+    const rowsById = new Map(allGroupRows.map((g) => [g.id, g]));
+    const DOT_KIND: Record<string, Lane["events"][number]["kind"]> = {
+      planted: "plant-in",
+      replanted: "replant",
+      dormant: "dormant",
+      merged: "merge-out",
+      dissolved: "merge-out",
+      leader_transition: "milestone",
+      milestone: "milestone",
+      renamed: "milestone",
+    };
     setLanes(
-      (groupsQ.data ?? []).map((row) => {
+      allGroupRows.map((row) => {
         const evs = events.filter((e) => e.group_id === row.id);
         const planted = evs.find((e) => e.kind === "planted");
         const start = monthOf(planted?.happened_on ?? row.created_at);
+
+        const segments: Lane["segments"] = [];
+        let segStart = start;
+        let segKind: Lane["segments"][number]["kind"] = "active";
+        let mergedIntoId: string | undefined;
+        let ended = false;
+        for (const e of evs) {
+          const m = monthOf(e.happened_on);
+          if (e.kind === "dormant") {
+            segments.push({ from: segStart, to: m, kind: segKind, name: row.name });
+            segStart = m;
+            segKind = "dormant";
+          } else if (e.kind === "replanted") {
+            segments.push({ from: segStart, to: m, kind: segKind, name: row.name });
+            segStart = m;
+            segKind = "active";
+          } else if (e.kind === "dissolved" || e.kind === "merged") {
+            segments.push({ from: segStart, to: m, kind: segKind, name: row.name });
+            if (e.kind === "merged" && e.related_group_id && rowsById.has(e.related_group_id)) {
+              mergedIntoId = e.related_group_id;
+            }
+            ended = true;
+            break;
+          }
+        }
+        if (!ended) segments.push({ from: segStart, to: null, kind: segKind, name: row.name });
+
+        const dots: Lane["events"] = evs.map((e) => ({
+          date: monthOf(e.happened_on),
+          label: e.notes ?? e.kind,
+          kind: DOT_KIND[e.kind] ?? "milestone",
+        }));
+        // Plants that left this group, and merges that arrived into it
+        for (const e of events) {
+          if (e.group_id === row.id) continue;
+          if (e.kind === "planted" && e.related_group_id === row.id) {
+            dots.push({
+              date: monthOf(e.happened_on),
+              label: `Planted ${rowsById.get(e.group_id)?.name ?? "a group"}`,
+              kind: "plant-out",
+            });
+          }
+          if (e.kind === "merged" && e.related_group_id === row.id) {
+            dots.push({
+              date: monthOf(e.happened_on),
+              label: `Received ${rowsById.get(e.group_id)?.name ?? "a group"}`,
+              kind: "merge-in",
+            });
+          }
+        }
+
         return {
           id: row.id,
           name: row.name,
@@ -357,19 +437,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             planted?.related_group_id && rowsById.has(planted.related_group_id)
               ? planted.related_group_id
               : undefined,
-          segments: [{ from: start, to: null, kind: "active", name: row.name }],
-          events: evs.map((e) => ({
-            date: monthOf(e.happened_on),
-            label: e.notes ?? e.kind,
-            kind:
-              e.kind === "planted"
-                ? "plant-in"
-                : e.kind === "replanted"
-                  ? "replant"
-                  : e.kind === "dormant"
-                    ? "dormant"
-                    : "milestone",
-          })),
+          mergedIntoId,
+          segments,
+          events: dots,
         } satisfies Lane;
       }),
     );
@@ -1115,6 +1185,142 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, refresh],
   );
 
+  const recordGroupEvent = useCallback(
+    async (input: RecordEventInput): Promise<string | null> => {
+      const label =
+        input.notes.trim() ||
+        {
+          milestone: "Milestone",
+          leader_transition: "Leader transition",
+          dormant: "Went dormant",
+          replanted: input.newName ? `Replanted as ${input.newName}` : "Replanted",
+          merged: `Merged into ${groups.find((g) => g.id === input.relatedGroupId)?.name ?? "another group"}`,
+          dissolved: "Dissolved",
+        }[input.kind];
+
+      if (!realMode) {
+        setGroups((prev) =>
+          prev
+            .map((g) =>
+              g.id === input.groupId
+                ? {
+                    ...g,
+                    name: input.kind === "replanted" && input.newName ? input.newName : g.name,
+                    status:
+                      input.kind === "dormant"
+                        ? ("dormant" as const)
+                        : input.kind === "replanted"
+                          ? ("active" as const)
+                          : g.status,
+                    season: input.kind === "replanted" ? ("start" as const) : g.season,
+                    history: [...g.history, { date: `${input.month}-01`, text: label }],
+                  }
+                : g,
+            )
+            .filter(
+              (g) =>
+                !(
+                  g.id === input.groupId &&
+                  (input.kind === "dissolved" || input.kind === "merged")
+                ),
+            ),
+        );
+        return null;
+      }
+
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+      const happenedOn = `${input.month}-01`;
+
+      if (input.kind === "dissolved" || input.kind === "merged") {
+        if (input.kind === "merged") {
+          if (!input.relatedGroupId) return "Pick the group they merged into.";
+          const { data: moving, error: mvErr } = await supabase
+            .from("memberships")
+            .select("person_id, role")
+            .eq("group_id", input.groupId)
+            .is("left_at", null);
+          if (mvErr) return mvErr.message;
+          if (moving && moving.length) {
+            const { error: insErr } = await supabase.from("memberships").insert(
+              moving.map((m) => ({
+                church_id: church.id,
+                person_id: m.person_id,
+                group_id: input.relatedGroupId,
+                role: m.role,
+                joined_at: happenedOn,
+              })),
+            );
+            if (insErr) return insErr.message;
+          }
+        }
+        const { error: endErr } = await supabase
+          .from("memberships")
+          .update({ left_at: happenedOn })
+          .eq("group_id", input.groupId)
+          .is("left_at", null);
+        if (endErr) return endErr.message;
+        const { error: stErr } = await supabase
+          .from("groups")
+          .update({ status: "dissolved" })
+          .eq("id", input.groupId);
+        if (stErr) return stErr.message;
+      } else if (input.kind === "dormant") {
+        const { error } = await supabase
+          .from("groups")
+          .update({ status: "dormant" })
+          .eq("id", input.groupId);
+        if (error) return error.message;
+      } else if (input.kind === "replanted") {
+        const { error } = await supabase
+          .from("groups")
+          .update({
+            status: "active",
+            season: "start",
+            ...(input.newName ? { name: input.newName } : {}),
+          })
+          .eq("id", input.groupId);
+        if (error) return error.message;
+      }
+
+      const { error } = await supabase.from("group_events").insert({
+        church_id: church.id,
+        group_id: input.groupId,
+        kind: input.kind,
+        related_group_id: input.relatedGroupId ?? null,
+        happened_on: happenedOn,
+        notes: label,
+      });
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [groups, realMode, refresh],
+  );
+
+  const saveReadiness = useCallback(
+    async (groupId: string, data: ReadinessData): Promise<string | null> => {
+      if (!realMode) {
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === groupId ? { ...g, readiness: data.score, readinessData: data } : g,
+          ),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase
+        .from("groups")
+        .update({ readiness: data })
+        .eq("id", groupId);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
   const value = useMemo<DataApi>(
     () => ({
       ready,
@@ -1155,8 +1361,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       graduateGuest,
       archiveGuest,
       restoreGuest,
+      recordGroupEvent,
+      saveReadiness,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

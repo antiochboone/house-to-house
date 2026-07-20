@@ -61,6 +61,8 @@ create table groups (
   meeting_place text,
   is_family     boolean not null default false,
   oversight_id  uuid references oversight_units(id) on delete set null,
+  -- Latest planting-readiness assessment: {score, date, attendance, checks}
+  readiness     jsonb,
   created_at    timestamptz not null default now()
 );
 

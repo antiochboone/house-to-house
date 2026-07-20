@@ -5,7 +5,13 @@
 
 import { useState, type ReactNode } from "react";
 import type { DiscipleshipStatus, Gender, Group, MemberRole, Person, Season } from "@/lib/types";
-import { SELECTABLE_STATUSES, STATUS_LABEL } from "@/lib/data";
+import {
+  GROUP_EVENT_KINDS,
+  READINESS_LEADERSHIP,
+  READINESS_READINESS,
+  SELECTABLE_STATUSES,
+  STATUS_LABEL,
+} from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 
 export function Modal({
@@ -772,6 +778,183 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
           </button>
         )}
       </div>
+    </form>
+  );
+}
+
+export function GroupEventForm({ group, onDone }: { group: Group; onDone: () => void }) {
+  const { groups, recordGroupEvent } = useData();
+  const [kind, setKind] = useState<import("@/lib/types").GroupEventKind>("milestone");
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [notes, setNotes] = useState("");
+  const [relatedGroupId, setRelatedGroupId] = useState("");
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const heavy = kind === "dissolved" || kind === "merged";
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (kind === "merged" && !relatedGroupId) {
+      setError("Pick the group they merged into.");
+      return;
+    }
+    setBusy(true);
+    const err = await recordGroupEvent({
+      groupId: group.id,
+      kind,
+      month,
+      notes: notes.trim(),
+      relatedGroupId: relatedGroupId || undefined,
+      newName: newName.trim() || undefined,
+    });
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <label className={labelCls}>What happened?</label>
+      <select
+        value={kind}
+        onChange={(e) => setKind(e.target.value as import("@/lib/types").GroupEventKind)}
+        className={inputCls}
+      >
+        {GROUP_EVENT_KINDS.map((k) => (
+          <option key={k.kind} value={k.kind}>
+            {k.label}
+          </option>
+        ))}
+      </select>
+      <label className={labelCls}>When (month)</label>
+      <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className={inputCls} />
+      {kind === "merged" && (
+        <>
+          <label className={labelCls}>Merged into which group?</label>
+          <select value={relatedGroupId} onChange={(e) => setRelatedGroupId(e.target.value)} className={inputCls}>
+            <option value="">—</option>
+            {groups
+              .filter((g) => g.id !== group.id && g.status === "active")
+              .map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+          </select>
+        </>
+      )}
+      {kind === "replanted" && (
+        <>
+          <label className={labelCls}>New name (optional)</label>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} className={inputCls} placeholder={group.name} />
+        </>
+      )}
+      <label className={labelCls}>The story in a sentence</label>
+      <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls} placeholder="What happened, for the timeline…" />
+      {heavy && (
+        <p className="mt-3 rounded-lg bg-ember-soft px-3 py-2 text-[12.5px] text-ember">
+          {kind === "merged"
+            ? "This moves everyone onto the receiving group's roster and closes this group's line on the timeline."
+            : "This ends the group — its people become “not in a lifegroup” and its line closes on the timeline. The history stays forever."}
+        </p>
+      )}
+      <SubmitRow busy={busy} error={error} label="Record it" />
+    </form>
+  );
+}
+
+export function ReadinessForm({ group, onDone }: { group: Group; onDone: () => void }) {
+  const { saveReadiness } = useData();
+  const existing = group.readinessData;
+  const [attendance, setAttendance] = useState(existing?.attendance ?? 0);
+  const [checks, setChecks] = useState<Record<string, boolean>>(existing?.checks ?? {});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkedCount = [...READINESS_LEADERSHIP, ...READINESS_READINESS].filter(
+    (c) => checks[c.id],
+  ).length;
+  const score = attendance + checkedCount;
+
+  const toggle = (id: string) => setChecks((c) => ({ ...c, [id]: !c[id] }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const err = await saveReadiness(group.id, {
+      score,
+      date: new Date().toISOString().slice(0, 10),
+      attendance,
+      checks,
+    });
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  const checkRow = (c: { id: string; label: string }) => (
+    <button
+      key={c.id}
+      type="button"
+      onClick={() => toggle(c.id)}
+      className={`flex w-full items-start gap-2.5 rounded-xl border-[1.5px] px-3 py-2 text-left text-[13px] leading-snug ${
+        checks[c.id]
+          ? "border-accent bg-glow font-medium"
+          : "border-line text-muted hover:border-accent"
+      }`}
+    >
+      <span
+        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-md text-[10px] ${
+          checks[c.id] ? "bg-accent text-cta-ink" : "border-[1.5px] border-line"
+        }`}
+      >
+        ✓
+      </span>
+      {c.label}
+    </button>
+  );
+
+  return (
+    <form onSubmit={submit}>
+      <div className="mb-3 flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-2.5">
+        <span className="text-[13px] text-muted">Score so far</span>
+        <span className="font-display text-[24px] tabular-nums">
+          {score}
+          <span className="text-[14px] text-faint">/15</span>
+        </span>
+      </div>
+      <label className={labelCls}>Attendance (0–4)</label>
+      <p className="mb-1.5 text-[12px] text-faint">
+        1 point per 3 core members attending 3–4× a month (not counting the leadership team).
+      </p>
+      <div className="flex gap-1.5">
+        {[0, 1, 2, 3, 4].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setAttendance(n)}
+            className={`flex-1 rounded-xl border-[1.5px] py-2 text-[14px] font-semibold ${
+              attendance === n
+                ? "border-accent bg-accent-soft text-accent-ink"
+                : "border-line text-muted"
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <label className={labelCls}>Leadership (6)</label>
+      <div className="flex flex-col gap-1.5">{READINESS_LEADERSHIP.map(checkRow)}</div>
+      <label className={labelCls}>Readiness (5)</label>
+      <div className="flex flex-col gap-1.5">{READINESS_READINESS.map(checkRow)}</div>
+      <p className="mt-3 text-center text-[12.5px] text-muted">
+        {score >= 12
+          ? "12+ — prepare to plant! 🌱"
+          : `${12 - score} more to the plant-ready threshold of 12.`}
+      </p>
+      <SubmitRow busy={busy} error={error} label="Save assessment" />
     </form>
   );
 }

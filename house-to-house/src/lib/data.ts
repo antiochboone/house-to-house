@@ -8,6 +8,7 @@ import type {
   Group,
   Guest,
   MemberRole,
+  GroupEventKind,
   MilestoneKey,
   Person,
   Season,
@@ -530,6 +531,33 @@ export const DEFAULT_TAG_CATEGORIES: TagCategory[] = [
     options: ["Kids welcome", "Adults only"],
   },
   { id: "location", label: "Area of town", multi: true, options: [] },
+];
+
+/** The Waco 15-point planting readiness rubric (attendance 0–4 + 11 checks). */
+export const READINESS_LEADERSHIP: { id: string; label: string }[] = [
+  { id: "attend", label: "Leaders and interns attend consistently (not sporadically)" },
+  { id: "coed", label: "At least one male and one female leader per new group" },
+  { id: "facilitated", label: "Both leadership teams have led meetings at least 3 times" },
+  { id: "called", label: "Everyone on the teams feels called to lifegroup ministry" },
+  { id: "interned", label: "All leaders have completed the intern process" },
+  { id: "interns", label: "Interns identified for the new groups" },
+];
+
+export const READINESS_READINESS: { id: string; label: string }[] = [
+  { id: "locations", label: "Both new groups have meeting locations" },
+  { id: "vision", label: "Leaders are motivated and communicate vision regularly" },
+  { id: "bonded", label: "Teams have been in the group 2+ months and bonded with members" },
+  { id: "privilege", label: "Leadership is seen as a privilege, not an obligation" },
+  { id: "worship", label: "A worship leader is ready for both groups" },
+];
+
+export const GROUP_EVENT_KINDS: { kind: GroupEventKind; label: string }[] = [
+  { kind: "milestone", label: "Milestone worth remembering" },
+  { kind: "leader_transition", label: "Leader transition" },
+  { kind: "dormant", label: "Went dormant" },
+  { kind: "replanted", label: "Replanted (waking back up)" },
+  { kind: "merged", label: "Merged into another group" },
+  { kind: "dissolved", label: "Dissolved" },
 ];
 
 export const DAYS_OF_WEEK = [
