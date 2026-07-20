@@ -9,22 +9,29 @@ import { Avatar, Chip, Stat } from "@/components/ui";
 import { AddPersonForm, EditPersonForm, Modal } from "@/components/forms";
 
 type Filter = "all" | "unplaced" | "kids" | "staff";
+type SortBy = "name" | "lastName" | "role" | "group" | "discipleship";
 
-const ROLE_LABEL: Record<string, string> = {
-  leader: "Leader",
-  intern: "Intern",
-  worship: "Worship",
-  staff: "Staff",
+/** Leadership rank for role-sorting (higher = more central). */
+const ROLE_RANK: Record<string, number> = {
+  staff: 4,
+  leader: 3,
+  intern: 2,
+  worship: 1,
+  member: 0,
 };
 
 export default function PeoplePage() {
-  const { ready, role, people, groups } = useData();
+  const { ready, role, people, groups, roleLabels } = useData();
   const h = makeHelpers(people);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [groupFilter, setGroupFilter] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortBy>("name");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Person | null>(null);
+
+  const roleLabel = (r: Person["role"]): string | undefined =>
+    r === "staff" ? "Staff" : r === "member" ? undefined : roleLabels[r as keyof typeof roleLabels];
 
   if (role !== "staff") {
     return (
@@ -50,16 +57,45 @@ export default function PeoplePage() {
   const kids = people.filter((p) => p.isChild);
   const unplaced = h.unplacedPeople();
 
+  const groupName = (p: Person) =>
+    p.role === "staff" ? "Staff" : p.groupId ? (groups.find((g) => g.id === p.groupId)?.name ?? "") : "—";
+
   const q = search.trim().toLowerCase();
   let rows = people.filter((p) => !q || p.name.toLowerCase().includes(q));
   if (filter === "unplaced") rows = rows.filter((p) => p.groupId === null && p.role !== "staff");
   if (filter === "kids") rows = rows.filter((p) => p.isChild);
   if (filter === "staff") rows = rows.filter((p) => p.role === "staff");
   if (groupFilter) rows = rows.filter((p) => p.groupId === groupFilter);
-  rows = [...rows].sort((a, b) => a.name.localeCompare(b.name));
 
-  const groupName = (p: Person) =>
-    p.role === "staff" ? "Staff" : p.groupId ? (groups.find((g) => g.id === p.groupId)?.name ?? "") : "—";
+  const byName = (a: Person, b: Person) => a.name.localeCompare(b.name);
+  rows = [...rows].sort((a, b) => {
+    switch (sortBy) {
+      case "lastName": {
+        const la = (a.lastName || a.name).localeCompare(b.lastName || b.name);
+        return la !== 0 ? la : byName(a, b);
+      }
+      case "role": {
+        const r = (ROLE_RANK[b.role] ?? 0) - (ROLE_RANK[a.role] ?? 0);
+        return r !== 0 ? r : byName(a, b);
+      }
+      case "group": {
+        const ga = groupName(a);
+        const gb = groupName(b);
+        // People with a group first (alphabetical), then the placeless.
+        if (ga === "—" && gb !== "—") return 1;
+        if (gb === "—" && ga !== "—") return -1;
+        const g = ga.localeCompare(gb);
+        return g !== 0 ? g : byName(a, b);
+      }
+      case "discipleship": {
+        const rank = (p: Person) => (h.inRelationship(p) ? 2 : p.statuses.length > 0 ? 1 : 0);
+        const d = rank(b) - rank(a);
+        return d !== 0 ? d : byName(a, b);
+      }
+      default:
+        return byName(a, b);
+    }
+  });
 
   const filterBtn = (f: Filter, label: string) => (
     <button
@@ -122,6 +158,21 @@ export default function PeoplePage() {
             </option>
           ))}
         </select>
+        <label className="flex items-center gap-1.5 text-[12px] text-faint">
+          <span className="max-md:hidden">Sort</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="rounded-xl border-[1.5px] border-line bg-surface px-2.5 py-1.5 text-[12.5px] text-muted outline-none focus:border-accent"
+            aria-label="Sort people by"
+          >
+            <option value="name">First name (A–Z)</option>
+            <option value="lastName">Last name (A–Z)</option>
+            <option value="role">Role (leaders first)</option>
+            <option value="group">Lifegroup</option>
+            <option value="discipleship">Discipleship</option>
+          </select>
+        </label>
         <span className="ml-auto text-[12px] text-faint">
           {rows.length} {rows.length === 1 ? "person" : "people"}
         </span>
@@ -155,8 +206,8 @@ export default function PeoplePage() {
                     </span>
                   )}
                 </div>
-                {ROLE_LABEL[p.role] && (
-                  <div className="text-[11px] text-faint">{ROLE_LABEL[p.role]}</div>
+                {roleLabel(p.role) && (
+                  <div className="text-[11px] text-faint">{roleLabel(p.role)}</div>
                 )}
               </div>
             </button>

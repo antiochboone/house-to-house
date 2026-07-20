@@ -8,12 +8,6 @@ import { Avatar, Chip, Insight, SeasonChip } from "./ui";
 import { EditGroupForm, EditPersonForm, GroupEventForm, Modal, ReadinessForm } from "./forms";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
-const ROLE_NAME: Partial<Record<Person["role"], string>> = {
-  leader: "Leader",
-  intern: "Intern",
-  worship: "Worship",
-};
-
 function statusChip(p: Person) {
   if (p.statuses.length === 0) return null;
   return (
@@ -50,8 +44,10 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people, groups, role, checkinLog, sections, groupSections } = useData();
+  const { people, groups, role, checkinLog, sections, groupSections, roleLabels } = useData();
   const h = makeHelpers(people);
+  const roleName = (r: Person["role"]) =>
+    r === "staff" || r === "member" ? undefined : roleLabels[r];
   // Always render the live group from the store so edits reflect immediately;
   // fall back to the passed snapshot while closing.
   const group = groupProp ? (groups.find((g) => g.id === groupProp.id) ?? groupProp) : null;
@@ -94,8 +90,8 @@ export function GroupDrawer({
       <Avatar name={p.name} gender={p.gender} />
       <div>
         <div className="text-sm">{p.name}</div>
-        {ROLE_NAME[p.role] && (
-          <div className="text-[11.5px] text-faint">{ROLE_NAME[p.role]}</div>
+        {roleName(p.role) && (
+          <div className="text-[11.5px] text-faint">{roleName(p.role)}</div>
         )}
       </div>
       <div className="ml-auto flex items-center gap-1.5">

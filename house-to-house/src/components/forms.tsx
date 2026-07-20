@@ -4,7 +4,15 @@
 // relationship. Built for speed of entry — Hunter is typing in a whole church.
 
 import { useState, type ReactNode } from "react";
-import type { DiscipleshipStatus, Gender, Group, MemberRole, Person, Season } from "@/lib/types";
+import type {
+  AssignableRole,
+  DiscipleshipStatus,
+  Gender,
+  Group,
+  MemberRole,
+  Person,
+  Season,
+} from "@/lib/types";
 import {
   GROUP_EVENT_KINDS,
   READINESS_LEADERSHIP,
@@ -339,6 +347,32 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
   );
 }
 
+const ROLE_ORDER: AssignableRole[] = ["member", "leader", "intern", "worship"];
+
+/** Role-in-group dropdown using the church's configurable role labels. */
+function RoleSelect({
+  value,
+  onChange,
+}: {
+  value: MemberRole;
+  onChange: (r: MemberRole) => void;
+}) {
+  const { roleLabels } = useData();
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as MemberRole)}
+      className={inputCls}
+    >
+      {ROLE_ORDER.map((r) => (
+        <option key={r} value={r}>
+          {roleLabels[r]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function AddPersonForm({
   defaultGroupId,
   onDone,
@@ -447,12 +481,7 @@ export function AddPersonForm({
       {groupId && (
         <>
           <label className={labelCls}>Role in group</label>
-          <select value={role} onChange={(e) => setRole(e.target.value as MemberRole)} className={inputCls}>
-            <option value="member">Member</option>
-            <option value="leader">Leader</option>
-            <option value="intern">Intern</option>
-            <option value="worship">Worship leader</option>
-          </select>
+          <RoleSelect value={role} onChange={setRole} />
         </>
       )}
       <label className={labelCls}>Discipleship (pick any that apply)</label>
@@ -566,12 +595,7 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
       {groupId && (
         <>
           <label className={labelCls}>Role in group</label>
-          <select value={role} onChange={(e) => setRole(e.target.value as MemberRole)} className={inputCls}>
-            <option value="member">Member</option>
-            <option value="leader">Leader</option>
-            <option value="intern">Intern</option>
-            <option value="worship">Worship leader</option>
-          </select>
+          <RoleSelect value={role} onChange={setRole} />
         </>
       )}
       <label className={labelCls}>Discipleship (pick any that apply)</label>

@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import type { EngagementTier, Milestone, ReportEmailConfig, Section, Zone } from "@/lib/types";
-import { TIERS, TIER_MEANING } from "@/lib/data";
+import { ASSIGNABLE_ROLES, DEFAULT_ROLE_LABELS, TIERS, TIER_MEANING } from "@/lib/data";
 import { isEmail } from "@/lib/report-email";
 import { useData } from "@/lib/store";
 
@@ -224,6 +224,8 @@ export default function SettingsPage() {
     saveMilestones,
     tierLabels,
     saveTierLabels,
+    roleLabels,
+    saveRoleLabels,
     zones,
     sections,
     groupSections,
@@ -512,6 +514,25 @@ export default function SettingsPage() {
                 <span className="mt-1 block px-1 text-[11.5px] text-faint">
                   {TIER_MEANING[t.key]}
                 </span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Lifegroup roles"
+          blurb="What you call each role inside a group. The behavior stays the same — leaders and interns can run check-ins — but the names are yours."
+        >
+          <div className="flex flex-col gap-3">
+            {ASSIGNABLE_ROLES.map((r) => (
+              <div key={r.key}>
+                <CommitInput
+                  value={roleLabels[r.key]}
+                  placeholder={DEFAULT_ROLE_LABELS[r.key]}
+                  ariaLabel={`Name for the "${DEFAULT_ROLE_LABELS[r.key]}" role`}
+                  onCommit={(v) => void act(() => saveRoleLabels({ ...roleLabels, [r.key]: v }))}
+                />
+                <span className="mt-1 block px-1 text-[11.5px] text-faint">{r.meaning}</span>
               </div>
             ))}
           </div>

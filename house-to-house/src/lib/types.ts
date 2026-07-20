@@ -11,6 +11,11 @@ export type GroupStatus = "active" | "dormant" | "dissolved";
 /** Membership role inside a lifegroup ("staff" = church staff, not in a group). */
 export type MemberRole = "leader" | "intern" | "worship" | "member" | "staff";
 
+/** Roles assignable within a lifegroup. Their display labels are per-church
+ * configurable in Settings; the underlying keys keep their behavior (leader &
+ * intern drive who can lead check-ins, etc.). */
+export type AssignableRole = "leader" | "intern" | "worship" | "member";
+
 /** Where someone stands with discipleship (multiple can apply; empty = not yet invited). */
 export type DiscipleshipStatus =
   | "open"

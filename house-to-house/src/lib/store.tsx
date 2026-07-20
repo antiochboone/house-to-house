@@ -15,6 +15,7 @@ import {
 } from "react";
 import type {
   AppRole,
+  AssignableRole,
   DiscipleshipStatus,
   EngagementTier,
   Gender,
@@ -36,6 +37,7 @@ import type {
 } from "./types";
 import { DEFAULT_REPORT_EMAILS } from "./report-email";
 import {
+  DEFAULT_ROLE_LABELS,
   DEFAULT_TAG_CATEGORIES,
   DEFAULT_TIER_LABELS,
   MILESTONES as DEFAULT_MILESTONES,
@@ -164,6 +166,9 @@ interface DataApi {
   /** Display names for the four engagement tiers (configurable in Settings). */
   tierLabels: Record<EngagementTier, string>;
   saveTierLabels: (labels: Record<EngagementTier, string>) => Promise<string | null>;
+  /** Display names for lifegroup roles (configurable in Settings). */
+  roleLabels: Record<AssignableRole, string>;
+  saveRoleLabels: (labels: Record<AssignableRole, string>) => Promise<string | null>;
   /** Zones & sections — optional structure over the lifegroup map. */
   zones: Zone[];
   sections: Section[];
@@ -233,6 +238,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [milestones, setMilestones] = useState<Milestone[]>(DEFAULT_MILESTONES);
   const [tierLabels, setTierLabels] =
     useState<Record<EngagementTier, string>>(DEFAULT_TIER_LABELS);
+  const [roleLabels, setRoleLabels] =
+    useState<Record<AssignableRole, string>>(DEFAULT_ROLE_LABELS);
   const [zones, setZones] = useState<Zone[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [groupSections, setGroupSections] = useState<Record<string, string>>({});
@@ -287,6 +294,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       | Partial<Record<EngagementTier, string>>
       | undefined;
     setTierLabels({ ...DEFAULT_TIER_LABELS, ...savedTierLabels });
+    const savedRoleLabels = churchQ.data?.settings?.roleLabels as
+      | Partial<Record<AssignableRole, string>>
+      | undefined;
+    setRoleLabels({ ...DEFAULT_ROLE_LABELS, ...savedRoleLabels });
     setZones((churchQ.data?.settings?.zones as Zone[] | undefined) ?? []);
     setSections((churchQ.data?.settings?.sections as Section[] | undefined) ?? []);
     setGroupSections(
@@ -1457,6 +1468,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, patchSettings],
   );
 
+  const saveRoleLabels = useCallback(
+    async (labels: Record<AssignableRole, string>): Promise<string | null> => {
+      const clean = { ...DEFAULT_ROLE_LABELS };
+      for (const key of Object.keys(clean) as AssignableRole[]) {
+        if (labels[key]?.trim()) clean[key] = labels[key].trim();
+      }
+      setRoleLabels(clean);
+      if (!realMode) return null;
+      return patchSettings({ roleLabels: clean });
+    },
+    [realMode, patchSettings],
+  );
+
   const saveZoning = useCallback(
     async (next: {
       zones: Zone[];
@@ -1580,6 +1604,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       saveMilestones,
       tierLabels,
       saveTierLabels,
+      roleLabels,
+      saveRoleLabels,
       zones,
       sections,
       groupSections,
@@ -1587,7 +1613,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reportEmails,
       saveReportEmails,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roleLabels, saveRoleLabels, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
