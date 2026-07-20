@@ -244,17 +244,27 @@ export function Shell({ children }: { children: React.ReactNode }) {
             .filter((it) => it.href !== "/settings")
             .map((it) => {
               const active = it.href === pathname;
+              const short =
+                { "Lifegroup Map": "Map", Discipleship: "Tree", "Follow-up": "Guests" }[
+                  it.label
+                ] ?? it.label;
               return (
                 <Link
                   key={it.href + it.label}
                   href={it.href}
-                  className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${
+                  className={`flex flex-1 flex-col items-center gap-0.5 pb-1.5 pt-1.5 ${
                     active ? "text-accent-ink" : "text-muted"
                   }`}
                 >
-                  {ICONS[it.icon]}
+                  <span
+                    className={`flex items-center justify-center rounded-full px-3.5 py-1 ${
+                      active ? "bg-accent-soft" : ""
+                    }`}
+                  >
+                    {ICONS[it.icon]}
+                  </span>
                   <span className={`text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
-                    {it.label === "Lifegroup Map" ? "Map" : it.label}
+                    {short}
                   </span>
                 </Link>
               );

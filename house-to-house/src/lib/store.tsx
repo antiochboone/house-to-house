@@ -16,21 +16,27 @@ import {
 import type {
   AppRole,
   DiscipleshipStatus,
+  EngagementTier,
   Gender,
   Group,
   GroupEventKind,
   Guest,
   GuestOutcome,
   MemberRole,
+  Milestone,
   MilestoneKey,
   Person,
   ReadinessData,
   Season,
+  Section,
   TagCategory,
   Win,
+  Zone,
 } from "./types";
 import {
   DEFAULT_TAG_CATEGORIES,
+  DEFAULT_TIER_LABELS,
+  MILESTONES as DEFAULT_MILESTONES,
   GROUPS as SEED_GROUPS,
   GUESTS as SEED_GUESTS,
   LINEAGE as SEED_LINEAGE,
@@ -150,6 +156,22 @@ interface DataApi {
   pulseWords: string[];
   savePulseWords: (words: string[]) => Promise<string | null>;
   addTagCategory: (label: string, multi: boolean) => Promise<string | null>;
+  /** The guest follow-up road, in order (configurable in Settings). */
+  milestones: Milestone[];
+  saveMilestones: (list: Milestone[]) => Promise<string | null>;
+  /** Display names for the four engagement tiers (configurable in Settings). */
+  tierLabels: Record<EngagementTier, string>;
+  saveTierLabels: (labels: Record<EngagementTier, string>) => Promise<string | null>;
+  /** Zones & sections — optional structure over the lifegroup map. */
+  zones: Zone[];
+  sections: Section[];
+  /** groupId → sectionId assignments. */
+  groupSections: Record<string, string>;
+  saveZoning: (next: {
+    zones: Zone[];
+    sections: Section[];
+    groupSections: Record<string, string>;
+  }) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -203,6 +225,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [realMyGroupIds, setRealMyGroupIds] = useState<string[]>([]);
   const [checkinLog, setCheckinLog] = useState<CheckinSummary[]>([]);
   const [pulseWords, setPulseWords] = useState<string[]>(DEFAULT_PULSE_WORDS);
+  const [milestones, setMilestones] = useState<Milestone[]>(DEFAULT_MILESTONES);
+  const [tierLabels, setTierLabels] =
+    useState<Record<EngagementTier, string>>(DEFAULT_TIER_LABELS);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [groupSections, setGroupSections] = useState<Record<string, string>>({});
 
   const refresh = useCallback(async () => {
     if (!realMode) return;
@@ -246,6 +274,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setTagCategories(savedCategories?.length ? savedCategories : DEFAULT_TAG_CATEGORIES);
     const savedPulse = churchQ.data?.settings?.pulseWords as string[] | undefined;
     setPulseWords(savedPulse?.length ? savedPulse : DEFAULT_PULSE_WORDS);
+    const savedMilestones = churchQ.data?.settings?.milestones as Milestone[] | undefined;
+    const road = savedMilestones?.length ? savedMilestones : DEFAULT_MILESTONES;
+    setMilestones(road);
+    const savedTierLabels = churchQ.data?.settings?.tierLabels as
+      | Partial<Record<EngagementTier, string>>
+      | undefined;
+    setTierLabels({ ...DEFAULT_TIER_LABELS, ...savedTierLabels });
+    setZones((churchQ.data?.settings?.zones as Zone[] | undefined) ?? []);
+    setSections((churchQ.data?.settings?.sections as Section[] | undefined) ?? []);
+    setGroupSections(
+      (churchQ.data?.settings?.groupSections as Record<string, string> | undefined) ?? {},
+    );
 
     const allMems = memsQ.data ?? [];
     const mems = allMems.filter((m) => !m.left_at);
@@ -372,14 +412,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         connectCard: g.connect_card,
         email: g.email ?? "—",
         phone: g.phone ?? "—",
-        steps: {
-          emailed: !!g.milestones?.emailed,
-          texted: !!g.milestones?.texted,
-          coffee: !!g.milestones?.coffee,
-          discover: !!g.milestones?.discover,
-          lifegroup: !!g.milestones?.lifegroup,
-          discipled: !!g.milestones?.discipled,
-        },
+        steps: Object.fromEntries(road.map((m) => [m.key, !!g.milestones?.[m.key]])),
         note: g.notes ?? "",
         outcome: g.outcome ?? null,
         archivedAt: g.archived_at ?? null,
@@ -1018,7 +1051,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             connectCard: input.connectCard,
             email: input.email || "—",
             phone: input.phone || "—",
-            steps: { emailed: false, texted: false, coffee: false, discover: false, lifegroup: false, discipled: false },
+            steps: Object.fromEntries(milestones.map((m) => [m.key, false])),
             note: input.note,
             outcome: null,
             archivedAt: null,
@@ -1036,7 +1069,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await refresh();
       return null;
     },
-    [realMode, refresh],
+    [realMode, milestones, refresh],
   );
 
   const updateGuest = useCallback(
@@ -1373,6 +1406,58 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, patchSettings],
   );
 
+  const saveMilestones = useCallback(
+    async (list: Milestone[]): Promise<string | null> => {
+      const clean = list
+        .map((m) => ({ ...m, label: m.label.trim() }))
+        .filter((m) => m.label);
+      if (!clean.some((m) => m.key === "lifegroup"))
+        return 'The road needs its "In a lifegroup" step — graduation depends on it.';
+      setMilestones(clean);
+      if (!realMode) return null;
+      return patchSettings({ milestones: clean });
+    },
+    [realMode, patchSettings],
+  );
+
+  const saveTierLabels = useCallback(
+    async (labels: Record<EngagementTier, string>): Promise<string | null> => {
+      const clean = { ...DEFAULT_TIER_LABELS };
+      for (const key of Object.keys(clean) as EngagementTier[]) {
+        if (labels[key]?.trim()) clean[key] = labels[key].trim();
+      }
+      setTierLabels(clean);
+      if (!realMode) return null;
+      return patchSettings({ tierLabels: clean });
+    },
+    [realMode, patchSettings],
+  );
+
+  const saveZoning = useCallback(
+    async (next: {
+      zones: Zone[];
+      sections: Section[];
+      groupSections: Record<string, string>;
+    }): Promise<string | null> => {
+      // Keep references coherent: sections must point at real zones,
+      // assignments at real sections.
+      const zoneIds = new Set(next.zones.map((z) => z.id));
+      const sections = next.sections.map((s) =>
+        s.zoneId && !zoneIds.has(s.zoneId) ? { ...s, zoneId: null } : s,
+      );
+      const sectionIds = new Set(sections.map((s) => s.id));
+      const groupSections = Object.fromEntries(
+        Object.entries(next.groupSections).filter(([, sid]) => sectionIds.has(sid)),
+      );
+      setZones(next.zones);
+      setSections(sections);
+      setGroupSections(groupSections);
+      if (!realMode) return null;
+      return patchSettings({ zones: next.zones, sections, groupSections });
+    },
+    [realMode, patchSettings],
+  );
+
   const addTagCategory = useCallback(
     async (label: string, multi: boolean): Promise<string | null> => {
       const clean = label.trim();
@@ -1442,8 +1527,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       pulseWords,
       savePulseWords,
       addTagCategory,
+      milestones,
+      saveMilestones,
+      tierLabels,
+      saveTierLabels,
+      zones,
+      sections,
+      groupSections,
+      saveZoning,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, zones, sections, groupSections, saveZoning],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

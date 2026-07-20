@@ -165,6 +165,13 @@ button:focus-visible, a:focus-visible {
 }
 .tree > li + li { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
 
+/* Deep chains on a phone: shallower indent so names keep room to breathe. */
+@media (width < 48rem) {
+  .tree ul { padding-left: 24px; }
+  .tree ul::before { left: 8px; }
+  .tree ul li::before { left: -16px; width: 12px; }
+}
+
 /* ---------- Follow-up milestone road ---------- */
 .mile { position: relative; }
 .mile::before {

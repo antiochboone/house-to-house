@@ -6,7 +6,6 @@
 
 import { useState } from "react";
 import type { Guest, GuestOutcome, MilestoneKey } from "@/lib/types";
-import { MILESTONES } from "@/lib/data";
 import { useData } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
 import { GuestForm, Modal } from "@/components/forms";
@@ -26,7 +25,7 @@ function AttendingChip({ a }: { a: Guest["attending"] }) {
 }
 
 export default function FollowUpPage() {
-  const { ready, realMode, role, guests, groups, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest } =
+  const { ready, realMode, role, guests, groups, milestones, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest } =
     useData();
   const [tab, setTab] = useState<"active" | "archive">("active");
   const [showAdd, setShowAdd] = useState(false);
@@ -81,16 +80,16 @@ export default function FollowUpPage() {
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-end gap-4">
+      <div className="mb-5 flex flex-wrap items-end gap-4 max-md:mb-3.5 max-md:gap-2.5">
         <div className="max-w-[680px]">
-          <h1 className="font-display mb-1 text-[27px] max-md:text-[23px]">Guest follow-up</h1>
-          <p className="text-[14.5px] text-muted">
+          <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">Guest follow-up</h1>
+          <p className="text-[14.5px] text-muted max-md:hidden">
             From first Sunday to family. Tap a milestone to mark it done — &quot;In a
             lifegroup&quot; graduates them onto a real roster.
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2.5">
-          <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px]">
+        <div className="ml-auto flex items-center gap-2.5 max-md:ml-0 max-md:w-full max-md:gap-2">
+          <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:flex-1">
             {(
               [
                 ["active", `In motion (${active.length})`],
@@ -100,7 +99,7 @@ export default function FollowUpPage() {
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold ${
+                className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold max-md:flex-1 ${
                   tab === t ? "bg-surface text-ink shadow-card" : "text-muted"
                 }`}
               >
@@ -117,7 +116,7 @@ export default function FollowUpPage() {
         </div>
       </div>
 
-      <div className="mb-5 flex flex-wrap gap-5">
+      <div className="mb-5 flex flex-wrap gap-5 max-md:mb-4">
         <Stat num={active.length} label="guests in motion" />
         <Stat num={landed} label="landed in a lifegroup" />
         <Stat num={archived.length - landed} label="archived other ways" />
@@ -176,17 +175,17 @@ export default function FollowUpPage() {
               </div>
             )}
 
-            <div className="mt-2 flex flex-wrap items-start gap-y-2.5 md:ml-10">
-              {MILESTONES.map((m, i) => {
+            <div className="mt-2 flex flex-wrap items-start gap-y-2.5 md:ml-10 max-md:-mx-2 max-md:flex-nowrap max-md:overflow-x-auto max-md:px-2 max-md:pb-1">
+              {milestones.map((m, i) => {
                 const done = g.steps[m.key];
-                const isNext = !done && MILESTONES.slice(0, i).every((prev) => g.steps[prev.key]);
+                const isNext = !done && milestones.slice(0, i).every((prev) => g.steps[prev.key]);
                 return (
                   <button
                     key={m.key}
                     disabled={!!g.archivedAt || busyId === g.id}
                     onClick={() => toggleMilestone(g, m.key, done)}
                     title={done ? `Un-mark "${m.label}"` : `Mark "${m.label}" done`}
-                    className="mile group flex w-[86px] flex-col items-center gap-1.5 disabled:cursor-default"
+                    className="mile group flex w-[86px] shrink-0 flex-col items-center gap-1.5 disabled:cursor-default"
                   >
                     <span
                       className={`z-10 flex h-5 w-5 items-center justify-center rounded-full text-[11px] transition-colors ${

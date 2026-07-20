@@ -49,7 +49,7 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people, groups, role, checkinLog } = useData();
+  const { people, groups, role, checkinLog, sections, groupSections } = useData();
   const h = makeHelpers(people);
   // Always render the live group from the store so edits reflect immediately;
   // fall back to the passed snapshot while closing.
@@ -148,6 +148,10 @@ export function GroupDrawer({
             <div className="mb-2 text-[13.5px] text-muted">
               {group.meet} · {ppl.length} people
               {gKids.length > 0 ? ` · ${gKids.length} kids` : ""}
+              {(() => {
+                const sec = sections.find((s) => s.id === groupSections[group.id]);
+                return sec ? ` · ${sec.name}` : "";
+              })()}
               {group.lineage ? ` · ${group.lineage}` : ""}
             </div>
 

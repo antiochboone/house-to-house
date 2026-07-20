@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "house-to-house",
       "port": 3000
+    },
+    {
+      "name": "house-to-house-3130",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "-p", "3130"],
+      "cwd": "house-to-house",
+      "port": 3130
     }
   ]
 }

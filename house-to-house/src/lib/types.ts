@@ -22,8 +22,22 @@ export type DiscipleshipStatus =
   | "making"
   | "na";
 
-/** Engagement tiers for the chart view (per-church configurable later). */
+/** Engagement tiers for the chart view (labels per-church configurable in Settings). */
 export type EngagementTier = "lead" | "core" | "consistent" | "fringe";
+
+/** A zone groups sections; a section groups lifegroups (both optional — small
+ * churches keep a flat map). Stored per church in churches.settings. */
+export interface Zone {
+  id: string;
+  name: string;
+}
+
+export interface Section {
+  id: string;
+  name: string;
+  /** Zone this section belongs to (null = no zone layer yet). */
+  zoneId: string | null;
+}
 
 export type AppRole = "staff" | "leader";
 
@@ -104,14 +118,14 @@ export type GuestOutcome =
   | "went_cold"
   | "sundays_only";
 
-/** Milestone keys for the follow-up road (per-church configurable later). */
-export type MilestoneKey =
-  | "emailed"
-  | "texted"
-  | "coffee"
-  | "discover"
-  | "lifegroup"
-  | "discipled";
+/** A step on the guest follow-up road (per-church configurable in Settings).
+ * The "lifegroup" key is special — reaching it graduates the guest. */
+export type MilestoneKey = string;
+
+export interface Milestone {
+  key: MilestoneKey;
+  label: string;
+}
 
 export interface Guest {
   id: string;

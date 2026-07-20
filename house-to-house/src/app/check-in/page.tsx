@@ -190,8 +190,10 @@ export default function CheckInPage() {
 
   return (
     <>
-      <div className="mb-5 max-w-[640px]">
-        <h1 className="font-display mb-1 text-[27px] max-md:text-[23px]">The monthly check-in</h1>
+      {/* On desktop the check-in sits in a phone-shaped card; on an actual
+          phone the frame disappears and the flow owns the screen. */}
+      <div className="mb-5 max-w-[640px] max-md:hidden">
+        <h1 className="font-display mb-1 text-[27px]">The monthly check-in</h1>
         <p className="text-[14.5px] text-muted">
           {realMode
             ? role === "staff"
@@ -201,10 +203,10 @@ export default function CheckInPage() {
         </p>
       </div>
 
-      <div className="flex justify-center pt-1.5">
+      <div className="flex justify-center pt-1.5 max-md:pt-0">
         <div
           ref={phoneRef}
-          className="relative flex min-h-[560px] w-[360px] max-w-full flex-col max-md:min-h-[70vh] max-md:w-full overflow-hidden rounded-[26px] border border-line bg-surface px-5 pb-5 pt-6 shadow-card"
+          className="relative flex min-h-[560px] w-[360px] max-w-full flex-col overflow-hidden rounded-[26px] border border-line bg-surface px-5 pb-5 pt-6 shadow-card max-md:min-h-[76vh] max-md:w-full max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-1 max-md:pt-2 max-md:shadow-none"
         >
           <div className="mb-5 flex justify-center gap-1.5">
             {Array.from({ length: STEPS }, (_, i) => (
@@ -500,7 +502,7 @@ export default function CheckInPage() {
           )}
         </div>
       </div>
-      <p className="mt-4 text-center text-[12.5px] text-faint">
+      <p className="mt-4 text-center text-[12.5px] text-faint max-md:hidden">
         {realMode
           ? "Check-ins land on the group's card and feed the church-wide insights."
           : "Demo mode — nothing is saved."}

@@ -156,7 +156,7 @@ export default function DiscipleshipPage() {
 
   const activeRoots = treeTab === "M" ? menRoots : womenRoots;
   const treePanel = (
-    <div className="rise rounded-[14px] border border-line bg-surface p-5 shadow-card">
+    <div className="rise overflow-x-auto rounded-[14px] border border-line bg-surface p-5 max-md:p-4 shadow-card">
       <div className="mb-4 flex items-center gap-3">
         <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px]">
           {(
@@ -202,10 +202,10 @@ export default function DiscipleshipPage() {
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-end gap-4">
+      <div className="mb-5 flex flex-wrap items-end gap-4 max-md:mb-3.5 max-md:gap-2.5">
         <div className="max-w-[560px]">
-          <h1 className="font-display mb-1 text-[27px] max-md:text-[23px]">Discipleship Tree</h1>
-          <p className="text-[14.5px] text-muted">
+          <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">Discipleship Tree</h1>
+          <p className="text-[14.5px] text-muted max-md:hidden">
             Every chain starts somewhere. Click any name to fold or unfold their branch.
           </p>
         </div>
@@ -217,7 +217,7 @@ export default function DiscipleshipPage() {
         </button>
       </div>
 
-      <div className="mb-5 flex flex-wrap gap-5">
+      <div className="mb-5 flex flex-wrap gap-5 max-md:mb-4">
         <Stat num={inD.length} dim={`of ${all.length}`} label="in a discipleship relationship" />
         <Stat num={counts.wants} label="want to disciple someone" />
         <Stat num={notD.length} label="not yet in a relationship" alert={notD.length > 0} />

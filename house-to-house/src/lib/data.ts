@@ -9,7 +9,7 @@ import type {
   Guest,
   MemberRole,
   GroupEventKind,
-  MilestoneKey,
+  Milestone,
   Person,
   Season,
   TagCategory,
@@ -287,7 +287,8 @@ export const PEOPLE: Person[] = ROWS.map(
 
 /* ---------------- Guests (follow-up pipeline) ---------------- */
 
-export const MILESTONES: { key: MilestoneKey; label: string }[] = [
+/** Default follow-up road; per-church configurable in Settings ("lifegroup" is locked). */
+export const MILESTONES: Milestone[] = [
   { key: "emailed", label: "Emailed" },
   { key: "texted", label: "Text / call" },
   { key: "coffee", label: "Coffee" },
@@ -496,12 +497,25 @@ export const SELECTABLE_STATUSES: DiscipleshipStatus[] = [
   "na",
 ];
 
+/** Engagement tier order + default labels; labels per-church configurable in Settings. */
 export const TIERS: { key: EngagementTier; label: string }[] = [
   { key: "lead", label: "Leading" },
   { key: "core", label: "Core" },
   { key: "consistent", label: "Consistent" },
   { key: "fringe", label: "On the fringe" },
 ];
+
+/** What each tier means — shown beside the rename inputs in Settings. */
+export const TIER_MEANING: Record<EngagementTier, string> = {
+  lead: "leaders, interns, and worship leaders",
+  core: "in a discipleship relationship or making disciples",
+  consistent: "engaged with discipleship — open, invited, or already discipled",
+  fringe: "on the roster but not yet engaged",
+};
+
+export const DEFAULT_TIER_LABELS: Record<EngagementTier, string> = Object.fromEntries(
+  TIERS.map((t) => [t.key, t.label]),
+) as Record<EngagementTier, string>;
 
 /** Baked-in tag categories; a church can extend these (stored in churches.settings). */
 export const DEFAULT_TAG_CATEGORIES: TagCategory[] = [
