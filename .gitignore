@@ -15,3 +15,8 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# Stray env backups
+*.env.bak
+env.local.bak
+*.bak
