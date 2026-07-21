@@ -96,6 +96,12 @@ export interface Person {
   role: MemberRole;
   /** Person id of their discipler (mentoring edge, always same-gender). */
   discipledBy: string | null;
+  /** Peer-discipleship partners (symmetric, same-gender) — "sharpen one
+   * another" relationships that have no discipler/disciple hierarchy. */
+  peers: string[];
+  /** Roadmap progress: step-key -> completion date (ISO). Steps are
+   * church-configurable; see RoadmapStep. */
+  roadmap: Record<string, string>;
   /** Discipleship statuses (multiple allowed; empty = not yet invited). */
   statuses: DiscipleshipStatus[];
   /** For unplaced people: a short shepherding note. */
@@ -175,6 +181,18 @@ export type MilestoneKey = string;
 
 export interface Milestone {
   key: MilestoneKey;
+  label: string;
+}
+
+/** How two people are discipling: a hierarchical mentoring edge (discipler →
+ * disciple) or a symmetric peer partnership. */
+export type RelationshipKind = "mentoring" | "peer";
+
+/** A rung on the per-person Discipleship Roadmap (formation ladder), e.g.
+ * "Shared their testimony", "Made their first disciple". Church-configurable
+ * in Settings; stored in churches.settings.roadmap. */
+export interface RoadmapStep {
+  key: string;
   label: string;
 }
 

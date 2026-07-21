@@ -42,6 +42,14 @@ function TreeNode({
         <Avatar name={person.name} gender={person.gender} size={22} />
         <span>{person.name}</span>
         <span className="text-[11px] text-faint">{groupName(person)}</span>
+        {person.peers.length > 0 && (
+          <span
+            title="peer partnership"
+            className="rounded-full bg-surface px-1.5 py-px text-[10.5px] font-semibold text-muted"
+          >
+            ↔ {person.peers.length}
+          </span>
+        )}
         {hasKids && isCollapsed && (
           <span className="rounded-full bg-accent-soft px-1.5 py-px text-[10.5px] font-bold text-accent-ink">
             +{h.descendantCount(person.id)}
@@ -67,7 +75,7 @@ function TreeNode({
 }
 
 export default function DiscipleshipPage() {
-  const { ready, realMode, role, people, groups } = useData();
+  const { ready, realMode, role, people, groups, roadmapSteps } = useData();
   const h = makeHelpers(people);
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -140,6 +148,26 @@ export default function DiscipleshipPage() {
   const roots = h.treeRoots();
   const menRoots = roots.filter((p) => p.gender === "M");
   const womenRoots = roots.filter((p) => p.gender === "F");
+
+  // Peer partnerships: unique unordered pairs across everyone's peers list.
+  const peerPairs: [Person, Person][] = [];
+  const seenPair = new Set<string>();
+  for (const p of people) {
+    for (const pid of p.peers) {
+      const key = [p.id, pid].sort().join("|");
+      if (seenPair.has(key)) continue;
+      seenPair.add(key);
+      const other = people.find((x) => x.id === pid);
+      if (other) peerPairs.push([p, other]);
+    }
+  }
+
+  // Roadmap progress: how many of the discipleship population reached each step.
+  const roadmapPop = all;
+  const roadmapCounts = roadmapSteps.map((s) => ({
+    ...s,
+    count: roadmapPop.filter((p) => p.roadmap[s.key]).length,
+  }));
 
   const filterBtn = (f: Filter, label: string) => (
     <button
@@ -285,6 +313,49 @@ export default function DiscipleshipPage() {
               </div>
             </div>
           )}
+
+          {peerPairs.length > 0 && (
+            <div className="rise rounded-[14px] border border-line bg-surface p-[18px] shadow-card">
+              <h2 className="font-display mb-0.5 text-[16.5px]">Peer partnerships</h2>
+              <div className="mb-3 text-xs text-muted">Sharpening one another — no hierarchy.</div>
+              <div className="flex flex-col gap-1.5">
+                {peerPairs.map(([a, b]) => (
+                  <div key={`${a.id}|${b.id}`} className="flex items-center gap-2 text-[13px]">
+                    <span
+                      className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
+                        a.gender === "M" ? "bg-men-soft ring-1 ring-men/40" : "bg-women-soft ring-1 ring-women/40"
+                      }`}
+                    />
+                    {a.name.split(" ")[0]} ↔ {b.name.split(" ")[0]}
+                    <span className="text-[11px] text-faint">{groupName(a)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="rise rounded-[14px] border border-line bg-surface p-[18px] shadow-card">
+            <h2 className="font-display mb-0.5 text-[16.5px]">Roadmap progress</h2>
+            <div className="mb-3 text-xs text-muted">
+              How far the {roadmapPop.length} in discipleship view have walked.
+            </div>
+            <div className="flex flex-col gap-2">
+              {roadmapCounts.map((s) => {
+                const pct = roadmapPop.length ? Math.round((s.count / roadmapPop.length) * 100) : 0;
+                return (
+                  <div key={s.key}>
+                    <div className="flex items-baseline justify-between text-[12.5px]">
+                      <span>{s.label}</span>
+                      <span className="tabular-nums text-muted">{s.count}</span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import type {
   GroupEventKind,
   Milestone,
   Person,
+  RoadmapStep,
   RoleDef,
   Season,
   TagCategory,
@@ -268,11 +269,61 @@ const ROWS: Row[] = [
 const slug = (name: string) =>
   name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z]+/g, "-");
 
+// Demo peer-discipleship partnerships (symmetric, same-gender): "sharpen one
+// another" pairs with no discipler/disciple hierarchy.
+const PEER_SEED: [string, string][] = [
+  ["Drew Hollis", "Ben Sizemore"],
+  ["Cal Jennings", "Ty Beckett"],
+  ["Randy Ostwald", "Vic Sloane"],
+];
+const peersBySlug = new Map<string, string[]>();
+for (const [a, b] of PEER_SEED) {
+  const sa = slug(a);
+  const sb = slug(b);
+  peersBySlug.set(sa, [...(peersBySlug.get(sa) ?? []), sb]);
+  peersBySlug.set(sb, [...(peersBySlug.get(sb) ?? []), sa]);
+}
+
+// Demo Roadmap progress (step-key -> completion date). Enough to show the
+// ladder full, partway, and empty across different people.
+const ROADMAP_SEED: Record<string, Record<string, string>> = {
+  "sam-caldwell": {
+    testimony: "2018-02-11",
+    baptized: "2018-04-01",
+    holy_spirit: "2018-05-20",
+    membership: "2018-09-09",
+    first_disciple: "2019-01-15",
+  },
+  "josh-reyes": {
+    testimony: "2020-03-01",
+    baptized: "2020-06-14",
+    holy_spirit: "2020-08-02",
+    membership: "2021-01-10",
+    first_disciple: "2022-02-06",
+  },
+  "nate-bigham": {
+    testimony: "2022-09-04",
+    baptized: "2023-01-08",
+    holy_spirit: "2023-03-19",
+    membership: "2023-06-11",
+  },
+  "hope-sturgill": {
+    testimony: "2022-05-15",
+    baptized: "2022-08-21",
+    holy_spirit: "2023-02-05",
+    membership: "2023-05-07",
+    first_disciple: "2024-03-10",
+  },
+  "drew-hollis": { testimony: "2024-02-18", baptized: "2024-05-26" },
+  "ben-sizemore": { testimony: "2024-03-24" },
+};
+
 export const PEOPLE: Person[] = ROWS.map(
   ([name, gender, groupId, role, by, status, note, isChild]) => {
     const space = name.indexOf(" ");
+    const id = slug(name);
     return {
-      id: slug(name),
+      id,
       name,
       firstName: space === -1 ? name : name.slice(0, space),
       lastName: space === -1 ? "" : name.slice(space + 1),
@@ -280,6 +331,8 @@ export const PEOPLE: Person[] = ROWS.map(
       groupId,
       role,
       discipledBy: by ? slug(by) : null,
+      peers: peersBySlug.get(id) ?? [],
+      roadmap: ROADMAP_SEED[id] ?? {},
       statuses: status && status !== "none" ? [status] : [],
       note,
       isChild,
@@ -295,6 +348,16 @@ export const PEOPLE: Person[] = ROWS.map(
     };
   },
 );
+
+/** Default Discipleship Roadmap — the formation ladder from the model this app
+ * follows. Per-church configurable in Settings. */
+export const ROADMAP: RoadmapStep[] = [
+  { key: "testimony", label: "Shared their testimony" },
+  { key: "baptized", label: "Baptized" },
+  { key: "holy_spirit", label: "Baptized in the Holy Spirit" },
+  { key: "membership", label: "Became a member" },
+  { key: "first_disciple", label: "Made their first disciple" },
+];
 
 /* ---------------- D-groups (the 3-5 person discipleship clusters) ---------------- */
 // Demo seed mirrors each group's mentoring edges; entity counts are the source

@@ -29,7 +29,9 @@ import type {
   MilestoneKey,
   Person,
   ReadinessData,
+  RelationshipKind,
   ReportEmailConfig,
+  RoadmapStep,
   RoleDef,
   Season,
   Section,
@@ -46,6 +48,7 @@ import {
   DEFAULT_TIER_LABELS,
   DGROUPS as SEED_DGROUPS,
   MILESTONES as DEFAULT_MILESTONES,
+  ROADMAP as DEFAULT_ROADMAP,
   GROUPS as SEED_GROUPS,
   GUESTS as SEED_GUESTS,
   LINEAGE as SEED_LINEAGE,
@@ -145,7 +148,11 @@ interface DataApi {
   refresh: () => Promise<void>;
   addPerson: (input: AddPersonInput) => Promise<string | null>;
   addGroup: (input: AddGroupInput) => Promise<string | null>;
-  addRelationship: (disciplerId: string, discipleId: string) => Promise<string | null>;
+  addRelationship: (
+    disciplerId: string,
+    discipleId: string,
+    kind?: RelationshipKind,
+  ) => Promise<string | null>;
   setStatuses: (personId: string, statuses: DiscipleshipStatus[]) => Promise<string | null>;
   setGroupTags: (groupId: string, labels: string[]) => Promise<string | null>;
   updatePerson: (id: string, input: AddPersonInput) => Promise<string | null>;
@@ -155,6 +162,17 @@ interface DataApi {
   /** Email a sign-in link to an invited user (they must already have access). */
   sendInvite: (email: string) => Promise<string | null>;
   endDiscipleship: (discipleId: string) => Promise<string | null>;
+  /** End a peer partnership between two people. */
+  endPeer: (aId: string, bId: string) => Promise<string | null>;
+  /** The Discipleship Roadmap steps (configurable in Settings). */
+  roadmapSteps: RoadmapStep[];
+  saveRoadmap: (list: RoadmapStep[]) => Promise<string | null>;
+  /** Mark/clear a person's roadmap step (date = null clears it). */
+  setRoadmapStep: (
+    personId: string,
+    stepKey: string,
+    date: string | null,
+  ) => Promise<string | null>;
   /** The church's D-groups (the 3-5 person clusters inside lifegroups). */
   dgroups: DGroup[];
   addDgroup: (input: DGroupInput) => Promise<string | null>;
@@ -275,6 +293,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [checkinLog, setCheckinLog] = useState<CheckinSummary[]>([]);
   const [pulseWords, setPulseWords] = useState<string[]>(DEFAULT_PULSE_WORDS);
   const [milestones, setMilestones] = useState<Milestone[]>(DEFAULT_MILESTONES);
+  const [roadmapSteps, setRoadmapSteps] = useState<RoadmapStep[]>(DEFAULT_ROADMAP);
   const [tierLabels, setTierLabels] =
     useState<Record<EngagementTier, string>>(DEFAULT_TIER_LABELS);
   const [roles, setRoles] = useState<RoleDef[]>(DEFAULT_ROLES);
@@ -349,6 +368,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const savedMilestones = churchQ.data?.settings?.milestones as Milestone[] | undefined;
     const road = savedMilestones?.length ? savedMilestones : DEFAULT_MILESTONES;
     setMilestones(road);
+    const savedRoadmap = churchQ.data?.settings?.roadmap as RoadmapStep[] | undefined;
+    setRoadmapSteps(savedRoadmap?.length ? savedRoadmap : DEFAULT_ROADMAP);
     const savedTierLabels = churchQ.data?.settings?.tierLabels as
       | Partial<Record<EngagementTier, string>>
       | undefined;
@@ -417,8 +438,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const memByPerson = new Map<string, (typeof mems)[number]>();
     for (const m of mems) if (!memByPerson.has(m.person_id)) memByPerson.set(m.person_id, m);
 
+    // Mentoring edges build the hierarchy (discipledBy); peer edges are
+    // symmetric and go into each partner's peers list — no false hierarchy.
     const disciplerOf = new Map<string, string>();
-    for (const r of rels) if (!disciplerOf.has(r.disciple_id)) disciplerOf.set(r.disciple_id, r.discipler_id);
+    const peersOf = new Map<string, Set<string>>();
+    const addPeer = (a: string, b: string) => {
+      const set = peersOf.get(a) ?? new Set<string>();
+      set.add(b);
+      peersOf.set(a, set);
+    };
+    for (const r of rels) {
+      if (r.kind === "peer") {
+        addPeer(r.discipler_id, r.disciple_id);
+        addPeer(r.disciple_id, r.discipler_id);
+      } else if (!disciplerOf.has(r.disciple_id)) {
+        disciplerOf.set(r.disciple_id, r.discipler_id);
+      }
+    }
 
     setPeople(
       (peopleQ.data ?? []).map((row) => {
@@ -432,6 +468,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           groupId: mem?.group_id ?? null,
           role: (mem?.role ?? "member") as MemberRole,
           discipledBy: disciplerOf.get(row.id) ?? null,
+          peers: Array.from(peersOf.get(row.id) ?? []),
+          roadmap: (row.roadmap ?? {}) as Record<string, string>,
           statuses: (Array.isArray(row.discipleship_status)
             ? row.discipleship_status
             : row.discipleship_status && row.discipleship_status !== "none"
@@ -639,6 +677,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             groupId: input.groupId ?? null,
             role: input.role ?? "member",
             discipledBy: null,
+            peers: [],
+            roadmap: {},
             statuses: input.statuses ?? [],
             isChild: input.isChild,
           },
@@ -748,15 +788,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addRelationship = useCallback(
-    async (disciplerId: string, discipleId: string): Promise<string | null> => {
+    async (
+      disciplerId: string,
+      discipleId: string,
+      kind: RelationshipKind = "mentoring",
+    ): Promise<string | null> => {
       const discipler = people.find((p) => p.id === disciplerId);
       const disciple = people.find((p) => p.id === discipleId);
       if (!discipler || !disciple) return "Person not found.";
+      if (discipler.id === disciple.id) return "Pick two different people.";
       if (discipler.gender !== disciple.gender)
         return "Discipleship relationships are same-gender (men with men, women with women).";
       if (!realMode) {
         setPeople((prev) =>
-          prev.map((p) => (p.id === discipleId ? { ...p, discipledBy: disciplerId } : p)),
+          prev.map((p) => {
+            if (kind === "peer") {
+              if (p.id === disciplerId) return { ...p, peers: [...new Set([...p.peers, discipleId])] };
+              if (p.id === discipleId) return { ...p, peers: [...new Set([...p.peers, disciplerId])] };
+              return p;
+            }
+            return p.id === discipleId ? { ...p, discipledBy: disciplerId } : p;
+          }),
         );
         return null;
       }
@@ -767,6 +819,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         church_id: church.id,
         discipler_id: disciplerId,
         disciple_id: discipleId,
+        kind,
       });
       if (error) return error.message;
       await refresh();
@@ -947,12 +1000,67 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .from("discipleship_relationships")
         .update({ ended_at: new Date().toISOString().slice(0, 10) })
         .eq("disciple_id", discipleId)
+        .eq("kind", "mentoring")
         .is("ended_at", null);
       if (error) return error.message;
       await refresh();
       return null;
     },
     [realMode, refresh],
+  );
+
+  const endPeer = useCallback(
+    async (aId: string, bId: string): Promise<string | null> => {
+      if (!realMode) {
+        setPeople((prev) =>
+          prev.map((p) => {
+            if (p.id === aId) return { ...p, peers: p.peers.filter((x) => x !== bId) };
+            if (p.id === bId) return { ...p, peers: p.peers.filter((x) => x !== aId) };
+            return p;
+          }),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      // The peer row could be stored in either direction.
+      const { error } = await supabase
+        .from("discipleship_relationships")
+        .update({ ended_at: new Date().toISOString().slice(0, 10) })
+        .eq("kind", "peer")
+        .is("ended_at", null)
+        .or(
+          `and(discipler_id.eq.${aId},disciple_id.eq.${bId}),and(discipler_id.eq.${bId},disciple_id.eq.${aId})`,
+        );
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
+  const setRoadmapStep = useCallback(
+    async (personId: string, stepKey: string, date: string | null): Promise<string | null> => {
+      const person = people.find((p) => p.id === personId);
+      if (!person) return "Person not found.";
+      const nextRoadmap = { ...person.roadmap };
+      if (date) nextRoadmap[stepKey] = date;
+      else delete nextRoadmap[stepKey];
+      if (!realMode) {
+        setPeople((prev) =>
+          prev.map((p) => (p.id === personId ? { ...p, roadmap: nextRoadmap } : p)),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase
+        .from("people")
+        .update({ roadmap: nextRoadmap })
+        .eq("id", personId);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [people, realMode, refresh],
   );
 
   // Demo helper: after a D-group change, refresh the affected group card's
@@ -1734,6 +1842,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, patchSettings],
   );
 
+  const saveRoadmap = useCallback(
+    async (list: RoadmapStep[]): Promise<string | null> => {
+      const clean = list
+        .map((s) => ({ ...s, label: s.label.trim() }))
+        .filter((s) => s.label);
+      if (clean.length === 0) return "Keep at least one roadmap step.";
+      setRoadmapSteps(clean);
+      if (!realMode) return null;
+      return patchSettings({ roadmap: clean });
+    },
+    [realMode, patchSettings],
+  );
+
   const saveTierLabels = useCallback(
     async (labels: Record<EngagementTier, string>): Promise<string | null> => {
       const clean = { ...DEFAULT_TIER_LABELS };
@@ -1889,6 +2010,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setAccess,
       sendInvite,
       endDiscipleship,
+      endPeer,
+      roadmapSteps,
+      saveRoadmap,
+      setRoadmapStep,
       dgroups,
       addDgroup,
       updateDgroup,
@@ -1926,7 +2051,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reportEmails,
       saveReportEmails,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -1957,7 +2082,8 @@ export function makeHelpers(
     }
   }
   const disciplesOf = (id: string): Person[] => kids.get(id) ?? [];
-  const inRelationship = (p: Person) => p.discipledBy !== null || disciplesOf(p.id).length > 0;
+  const inRelationship = (p: Person) =>
+    p.discipledBy !== null || p.peers.length > 0 || disciplesOf(p.id).length > 0;
   const engagementTier = (p: Person) => {
     if (p.role === "staff" || isLead(p.role)) return "lead" as const;
     if (inRelationship(p)) return "core" as const;

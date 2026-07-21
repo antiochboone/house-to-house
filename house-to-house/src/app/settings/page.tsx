@@ -222,6 +222,8 @@ export default function SettingsPage() {
     savePulseWords,
     milestones,
     saveMilestones,
+    roadmapSteps,
+    saveRoadmap,
     tierLabels,
     saveTierLabels,
     roles,
@@ -280,6 +282,23 @@ export default function SettingsPage() {
     next.splice(at === -1 ? next.length : at, 0, { key, label });
     void act(() => saveMilestones(next));
   };
+
+  /* ----- Discipleship Roadmap helpers ----- */
+  const moveRoadmap = (i: number, dir: -1 | 1) => {
+    const next = [...roadmapSteps];
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    void act(() => saveRoadmap(next));
+  };
+  const addRoadmap = (label: string) => {
+    const key = slugId(label, roadmapSteps.map((s) => s.key));
+    void act(() => saveRoadmap([...roadmapSteps, { key, label }]));
+  };
+  const renameRoadmap = (key: string, label: string) =>
+    void act(() => saveRoadmap(roadmapSteps.map((s) => (s.key === key ? { ...s, label } : s))));
+  const removeRoadmap = (key: string) =>
+    void act(() => saveRoadmap(roadmapSteps.filter((s) => s.key !== key)));
 
   /* ----- Zones & sections helpers ----- */
   const zoning = { zones, sections, groupSections };
@@ -498,6 +517,61 @@ export default function SettingsPage() {
           </div>
           <div className="mt-2.5">
             <AddChipInput placeholder="new step…" onAdd={addMilestone} />
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Discipleship Roadmap"
+          blurb="The formation ladder each disciple walks — testimony, baptism, membership, making their first disciple. Set per person on their profile; rename or reorder the rungs here."
+        >
+          <div className="flex flex-col gap-1">
+            {roadmapSteps.map((s, i) => (
+              <div
+                key={s.key}
+                className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-1.5"
+              >
+                <span className="w-5 text-center text-[11px] font-semibold text-faint">
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <CommitInput
+                    value={s.label}
+                    ariaLabel={`Roadmap step ${i + 1}`}
+                    onCommit={(v) => renameRoadmap(s.key, v)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Move "${s.label}" earlier`}
+                  disabled={i === 0}
+                  onClick={() => moveRoadmap(i, -1)}
+                  className={iconBtn}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move "${s.label}" later`}
+                  disabled={i === roadmapSteps.length - 1}
+                  onClick={() => moveRoadmap(i, 1)}
+                  className={iconBtn}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove "${s.label}"`}
+                  disabled={roadmapSteps.length === 1}
+                  onClick={() => removeRoadmap(s.key)}
+                  className={`${iconBtn} hover:text-ember`}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2.5">
+            <AddChipInput placeholder="new rung…" onAdd={addRoadmap} />
           </div>
         </SectionCard>
 

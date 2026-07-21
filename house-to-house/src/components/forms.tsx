@@ -12,6 +12,7 @@ import type {
   Group,
   MemberRole,
   Person,
+  RelationshipKind,
   Season,
 } from "@/lib/types";
 import {
@@ -57,6 +58,13 @@ export function Modal({
 const inputCls =
   "w-full rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[14.5px] max-md:text-[16px] outline-none focus:border-accent";
 const labelCls = "label mb-1.5 mt-3.5 block first:mt-0";
+
+/** "2026-04-15" -> "Apr 2026" for compact roadmap dates. */
+function fmtDate(iso: string): string {
+  const [y, m] = iso.slice(0, 7).split("-").map(Number);
+  if (!y || !m) return iso;
+  return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "short", year: "numeric" });
+}
 
 function SubmitRow({
   busy,
@@ -649,9 +657,22 @@ export function AddPersonForm({
   );
 }
 
-export function EditPersonForm({ person, onDone }: { person: Person; onDone: () => void }) {
-  const { groups, people, updatePerson, deletePerson, endDiscipleship, setAccess, sendInvite } =
-    useData();
+export function EditPersonForm({ person: personProp, onDone }: { person: Person; onDone: () => void }) {
+  const {
+    groups,
+    people,
+    updatePerson,
+    deletePerson,
+    endDiscipleship,
+    endPeer,
+    roadmapSteps,
+    setRoadmapStep,
+    setAccess,
+    sendInvite,
+  } = useData();
+  // Read the live record so roadmap/peer edits (which write to the store)
+  // reflect immediately, instead of the snapshot passed in when opened.
+  const person = people.find((p) => p.id === personProp.id) ?? personProp;
   const [first, setFirst] = useState(person.firstName);
   const [last, setLast] = useState(person.lastName);
   const [gender, setGender] = useState<Gender>(person.gender);
@@ -801,7 +822,84 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
           </button>
         </div>
       )}
+      {person.peers.length > 0 && (
+        <div className="mb-2 flex flex-col gap-1.5">
+          {person.peers.map((pid) => {
+            const peer = people.find((p) => p.id === pid);
+            if (!peer) return null;
+            return (
+              <div
+                key={pid}
+                className="flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[13.5px]"
+              >
+                <span>
+                  ↔ Peers with <strong>{peer.name}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setBusy(true);
+                    const err = await endPeer(person.id, pid);
+                    setBusy(false);
+                    if (err) setError(err);
+                    else onDone();
+                  }}
+                  className="text-[12px] text-ember hover:underline"
+                >
+                  end
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <StatusChips statuses={statuses} setStatuses={setStatuses} />
+
+      {!isChild && (
+        <div className="mt-4">
+          <label className={labelCls}>Discipleship Roadmap</label>
+          <div className="flex flex-col gap-1">
+            {roadmapSteps.map((step, i) => {
+              const done = person.roadmap[step.key];
+              return (
+                <button
+                  key={step.key}
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    const err = await setRoadmapStep(
+                      person.id,
+                      step.key,
+                      done ? null : new Date().toISOString().slice(0, 10),
+                    );
+                    setBusy(false);
+                    if (err) setError(err);
+                  }}
+                  className={`flex items-center gap-2.5 rounded-xl border-[1.5px] px-3 py-2 text-left text-[13.5px] ${
+                    done ? "border-accent bg-accent-soft" : "border-line"
+                  }`}
+                >
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                      done ? "bg-accent text-cta-ink" : "border-[1.5px] border-line text-transparent"
+                    }`}
+                  >
+                    ✓
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="w-5 pr-1 text-[11px] font-semibold text-faint">{i + 1}.</span>{" "}
+                    {step.label}
+                  </span>
+                  {done && (
+                    <span className="shrink-0 text-[11.5px] text-accent-ink">{fmtDate(done)}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -1513,6 +1611,7 @@ export function DGroupForm({
 
 export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
   const { people, groups, addRelationship } = useData();
+  const [kind, setKind] = useState<RelationshipKind>("mentoring");
   const [disciplerId, setDisciplerId] = useState("");
   const [discipleId, setDiscipleId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1531,6 +1630,8 @@ export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
     .filter((p) => p.id !== disciplerId && (!discipler || p.gender === discipler.gender))
     .map((p) => ({ id: p.id, name: p.name, sub: groupName(p.groupId) }));
 
+  const peer = kind === "peer";
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!disciplerId || !discipleId) {
@@ -1538,7 +1639,7 @@ export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
       return;
     }
     setBusy(true);
-    const err = await addRelationship(disciplerId, discipleId);
+    const err = await addRelationship(disciplerId, discipleId, kind);
     setBusy(false);
     if (err) setError(err);
     else onDone();
@@ -1546,7 +1647,28 @@ export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form onSubmit={submit}>
-      <label className={labelCls}>Who is discipling…</label>
+      <label className={labelCls}>What kind?</label>
+      <div className="flex gap-2">
+        {(
+          [
+            ["mentoring", "Mentoring", "one disciples the other"],
+            ["peer", "Peer", "sharpen each other"],
+          ] as const
+        ).map(([k, label, hint]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setKind(k)}
+            className={`flex-1 rounded-xl border-[1.5px] px-2 py-2 text-[13.5px] font-medium ${
+              kind === k ? "border-accent bg-accent-soft text-accent-ink" : "border-line text-muted"
+            }`}
+          >
+            {label}
+            <span className="mt-0.5 block text-[10.5px] font-normal opacity-70">{hint}</span>
+          </button>
+        ))}
+      </div>
+      <label className={labelCls}>{peer ? "One partner…" : "Who is discipling…"}</label>
       <PersonSelect
         value={disciplerId}
         onChange={(id) => {
@@ -1556,7 +1678,7 @@ export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
         options={disciplerOptions}
         placeholder="Type a name or pick from the list"
       />
-      <label className={labelCls}>…whom?</label>
+      <label className={labelCls}>{peer ? "…and who?" : "…whom?"}</label>
       <PersonSelect
         value={discipleId}
         onChange={setDiscipleId}
@@ -1564,13 +1686,19 @@ export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
         disabled={!disciplerId}
         placeholder={
           disciplerId
-            ? `Type a name or pick who ${discipler?.name.split(" ")[0]} disciples`
-            : "Pick a discipler first"
+            ? peer
+              ? `Type a name or pick who ${discipler?.name.split(" ")[0]} partners with`
+              : `Type a name or pick who ${discipler?.name.split(" ")[0]} disciples`
+            : peer
+              ? "Pick a partner first"
+              : "Pick a discipler first"
         }
         emptyText="No same-gender matches"
       />
       <p className="mt-2 text-[12px] text-faint">
-        Same-gender only — the list filters automatically.
+        {peer
+          ? "Peers are symmetric — order doesn't matter. Same-gender only."
+          : "Same-gender only — the list filters automatically."}
       </p>
       <SubmitRow busy={busy} error={error} label="Record relationship" />
     </form>
