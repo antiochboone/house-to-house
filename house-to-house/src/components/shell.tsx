@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useData } from "@/lib/store";
 import { useTheme, type ThemeChoice } from "@/lib/theme";
 import { Avatar, LogoMark } from "./ui";
+import { WelcomeTour } from "./welcome-tour";
 import { LEADER_NAME } from "@/lib/data";
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -219,6 +220,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <ThemeToggle collapsed={collapsed} />
         </div>
 
+        {!collapsed && (
+          <button
+            onClick={() => window.dispatchEvent(new Event("h2h-tour"))}
+            className="px-2 py-1 text-left text-[12px] text-muted underline-offset-2 hover:text-accent-ink hover:underline max-md:hidden"
+          >
+            ✨ Take the tour
+          </button>
+        )}
+
         <div className={`border-t border-line pt-3.5 max-md:border-0 max-md:pt-0 ${collapsed ? "flex justify-center" : ""}`}>
           {collapsed ? (
             <Avatar name={realMode ? (userEmail ?? "?") : "Hunter R"} gender={realMode ? undefined : "M"} />
@@ -321,6 +331,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
             })}
         </div>
       </nav>
+
+      <WelcomeTour />
     </div>
   );
 }
