@@ -1,8 +1,9 @@
 "use client";
 
-// Guest follow-up: the whole journey from first Sunday to lifegroup family.
-// Milestones are clickable; "In a lifegroup" graduates the guest into the
-// people directory; archiving records one of four honest outcomes.
+// Guest follow-up: the whole journey from first Sunday to church family.
+// Milestones just track what's happened, in whatever order. Graduation — a
+// deliberate staff decision — brings the guest into the people directory
+// (placed in a lifegroup or not). Archiving records an honest "didn't stick".
 
 import { useState } from "react";
 import type { Guest, GuestOutcome, MilestoneKey } from "@/lib/types";
@@ -12,11 +13,15 @@ import { GuestForm, Modal } from "@/components/forms";
 
 const OUTCOME_META: Record<GuestOutcome, { label: string; tone: string }> = {
   landed: { label: "landed in a lifegroup", tone: "bg-sprout-soft text-sprout" },
+  sundays_only: { label: "in the directory (no group yet)", tone: "bg-men-soft text-men-ink" },
   moved_away: { label: "moved away", tone: "bg-dormant-soft text-dormant" },
   other_church: { label: "found another church", tone: "bg-gold-soft text-gold" },
   went_cold: { label: "went cold", tone: "bg-dormant-soft text-dormant" },
-  sundays_only: { label: "Sundays for now", tone: "bg-men-soft text-men-ink" },
 };
+
+// Graduation now handles the two "became a Person" outcomes (landed /
+// sundays_only); archiving is only for guests who didn't stick.
+const ARCHIVE_OUTCOMES: GuestOutcome[] = ["moved_away", "other_church", "went_cold"];
 
 function AttendingChip({ a }: { a: Guest["attending"] }) {
   if (a === "yes") return <Chip tone="bg-sprout-soft text-sprout">still attending</Chip>;
@@ -94,10 +99,6 @@ export default function FollowUpPage() {
   };
 
   const toggleMilestone = (g: Guest, key: MilestoneKey, done: boolean) => {
-    if (key === "lifegroup" && !done) {
-      setGraduating(g);
-      return;
-    }
     void act(g.id, () => setGuestMilestone(g.id, key, !done));
   };
 
@@ -235,19 +236,9 @@ export default function FollowUpPage() {
                 return (
                   <button
                     key={m.key}
-                    disabled={
-                      !!g.archivedAt ||
-                      busyId === g.id ||
-                      (!staffView && m.key === "lifegroup")
-                    }
+                    disabled={!!g.archivedAt || busyId === g.id}
                     onClick={() => toggleMilestone(g, m.key, done)}
-                    title={
-                      !staffView && m.key === "lifegroup"
-                        ? "Staff graduates MVPs onto the roster"
-                        : done
-                          ? `Un-mark "${m.label}"`
-                          : `Mark "${m.label}" done`
-                    }
+                    title={done ? `Un-mark "${m.label}"` : `Mark "${m.label}" done`}
                     className="mile group flex w-[86px] shrink-0 flex-col items-center gap-1.5 disabled:cursor-default"
                   >
                     <span
@@ -324,31 +315,37 @@ export default function FollowUpPage() {
               ) : archiving === g.id ? (
                 <>
                   <span className="text-[12px] text-muted">Archive as:</span>
-                  {(Object.keys(OUTCOME_META) as GuestOutcome[])
-                    .filter((o) => o !== "landed")
-                    .map((o) => (
-                      <button
-                        key={o}
-                        onClick={() => {
-                          setArchiving(null);
-                          void act(g.id, () => archiveGuest(g.id, o));
-                        }}
-                        className="rounded-full border border-line px-2.5 py-1 text-[12px] text-muted hover:border-accent hover:text-accent-ink"
-                      >
-                        {OUTCOME_META[o].label}
-                      </button>
-                    ))}
+                  {ARCHIVE_OUTCOMES.map((o) => (
+                    <button
+                      key={o}
+                      onClick={() => {
+                        setArchiving(null);
+                        void act(g.id, () => archiveGuest(g.id, o));
+                      }}
+                      className="rounded-full border border-line px-2.5 py-1 text-[12px] text-muted hover:border-accent hover:text-accent-ink"
+                    >
+                      {OUTCOME_META[o].label}
+                    </button>
+                  ))}
                   <button onClick={() => setArchiving(null)} className="text-[12px] text-faint hover:underline">
                     cancel
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => setArchiving(g.id)}
-                  className="text-[12px] text-faint hover:text-muted hover:underline"
-                >
-                  archive…
-                </button>
+                <>
+                  <button
+                    onClick={() => setGraduating(g)}
+                    className="rounded-full bg-accent px-3 py-1 text-[12px] font-semibold text-cta-ink"
+                  >
+                    🎓 Graduate
+                  </button>
+                  <button
+                    onClick={() => setArchiving(g.id)}
+                    className="text-[12px] text-faint hover:text-muted hover:underline"
+                  >
+                    archive…
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -366,25 +363,53 @@ export default function FollowUpPage() {
         </Modal>
       )}
       {graduating && (
-        <Modal title={`${graduating.name.split(" ")[0]} found home 🏡`} onClose={() => setGraduating(null)}>
+        <Modal title={`Graduate ${graduating.name.split(" ")[0]} 🎓`} onClose={() => setGraduating(null)}>
           <p className="mb-3 text-[13.5px] text-muted">
-            Which lifegroup? This adds {graduating.name.split(" ")[0]} to the roster, moves
-            them into the people directory, and graduates them from the pipeline.
+            You&apos;re bringing {graduating.name.split(" ")[0]} into the people directory as a
+            member of the church. Place them in a lifegroup, or add them unplaced for now.
           </p>
+          <span className="label mb-1.5 block">Into a lifegroup</span>
           <div className="flex flex-col gap-2">
-            {groups.map((grp) => (
-              <button
-                key={grp.id}
-                onClick={() => {
-                  const id = graduating.id;
-                  setGraduating(null);
-                  void act(id, () => graduateGuest(id, grp.id));
-                }}
-                className="rounded-xl border-[1.5px] border-line bg-surface px-3.5 py-2.5 text-left text-[14.5px] hover:border-accent"
-              >
-                {grp.name}
-              </button>
-            ))}
+            {graduating.groupId && groups.some((grp) => grp.id === graduating.groupId) && (
+              <p className="px-1 text-[11.5px] text-faint">
+                Connected to {groups.find((grp) => grp.id === graduating.groupId)?.name} — likely
+                their home.
+              </p>
+            )}
+            {[...groups]
+              .sort((a, b) => (a.id === graduating.groupId ? -1 : b.id === graduating.groupId ? 1 : 0))
+              .map((grp) => (
+                <button
+                  key={grp.id}
+                  onClick={() => {
+                    const id = graduating.id;
+                    setGraduating(null);
+                    void act(id, () => graduateGuest(id, grp.id));
+                  }}
+                  className={`rounded-xl border-[1.5px] px-3.5 py-2.5 text-left text-[14.5px] hover:border-accent ${
+                    grp.id === graduating.groupId
+                      ? "border-accent bg-accent-soft"
+                      : "border-line bg-surface"
+                  }`}
+                >
+                  {grp.name}
+                </button>
+              ))}
+          </div>
+          <div className="mt-3 border-t border-line pt-3">
+            <button
+              onClick={() => {
+                const id = graduating.id;
+                setGraduating(null);
+                void act(id, () => graduateGuest(id, null));
+              }}
+              className="w-full rounded-xl border-[1.5px] border-dashed border-line px-3.5 py-2.5 text-left text-[14px] text-muted hover:border-accent hover:text-accent-ink"
+            >
+              Not in a lifegroup yet — add to the directory as unplaced
+            </button>
+            <p className="mt-1 px-1 text-[11.5px] text-faint">
+              e.g. a believer who comes on Sundays but hasn&apos;t joined a group.
+            </p>
           </div>
         </Modal>
       )}

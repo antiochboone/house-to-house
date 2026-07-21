@@ -201,7 +201,7 @@ interface DataApi {
   addGuest: (input: GuestInput) => Promise<string | null>;
   updateGuest: (id: string, input: GuestInput) => Promise<string | null>;
   setGuestMilestone: (id: string, key: MilestoneKey, value: boolean) => Promise<string | null>;
-  graduateGuest: (id: string, groupId: string) => Promise<string | null>;
+  graduateGuest: (id: string, groupId: string | null) => Promise<string | null>;
   archiveGuest: (id: string, outcome: GuestOutcome) => Promise<string | null>;
   restoreGuest: (id: string) => Promise<string | null>;
   recordGroupEvent: (input: RecordEventInput) => Promise<string | null>;
@@ -1599,18 +1599,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [guests, realMode, refresh],
   );
 
+  // Graduation is now a deliberate staff decision, decoupled from any
+  // milestone: bring the guest into the people directory — placed in a
+  // lifegroup (groupId) or unplaced (null, e.g. a Sunday believer not yet in
+  // a group). Either way a Person is created and the pipeline entry closes.
   const graduateGuest = useCallback(
-    async (id: string, groupId: string): Promise<string | null> => {
+    async (id: string, groupId: string | null): Promise<string | null> => {
       const guest = guests.find((g) => g.id === id);
       if (!guest) return "Guest not found.";
       const { first, last } = splitName(guest.name);
+      const outcome: GuestOutcome = groupId ? "landed" : "sundays_only";
       if (!realMode) {
-        await addPerson({ firstName: first, lastName: last, gender: guest.gender, groupId, role: "member", statuses: [] });
+        await addPerson({
+          firstName: first,
+          lastName: last,
+          gender: guest.gender,
+          groupId: groupId ?? null,
+          role: "member",
+          statuses: [],
+        });
         setGuests((prev) =>
           prev.map((g) =>
-            g.id === id
-              ? { ...g, steps: { ...g.steps, lifegroup: true }, outcome: "landed", archivedAt: new Date().toISOString() }
-              : g,
+            g.id === id ? { ...g, outcome, archivedAt: new Date().toISOString() } : g,
           ),
         );
         return null;
@@ -1628,23 +1638,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
           email: guest.email === "—" ? null : guest.email || null,
           phone: guest.phone === "—" ? null : guest.phone || null,
           discipleship_status: [],
+          notes: groupId ? null : "Graduated from follow-up — not in a lifegroup yet",
         })
         .select("id")
         .single();
       if (error) return error.message;
-      const { error: memErr } = await supabase.from("memberships").insert({
-        church_id: church.id,
-        person_id: person.id,
-        group_id: groupId,
-        role: "member",
-      });
-      if (memErr) return memErr.message;
+      if (groupId) {
+        const { error: memErr } = await supabase.from("memberships").insert({
+          church_id: church.id,
+          person_id: person.id,
+          group_id: groupId,
+          role: "member",
+        });
+        if (memErr) return memErr.message;
+      }
       const { error: gErr } = await supabase
         .from("guests")
         .update({
           person_id: person.id,
-          milestones: { ...guest.steps, lifegroup: true },
-          outcome: "landed",
+          outcome,
           archived_at: new Date().toISOString(),
         })
         .eq("id", id);
@@ -1888,8 +1900,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const clean = list
         .map((m) => ({ ...m, label: m.label.trim() }))
         .filter((m) => m.label);
-      if (!clean.some((m) => m.key === "lifegroup"))
-        return 'The road needs its "In a lifegroup" step — graduation depends on it.';
+      if (clean.length === 0) return "Keep at least one milestone.";
       setMilestones(clean);
       if (!realMode) return null;
       return patchSettings({ milestones: clean });

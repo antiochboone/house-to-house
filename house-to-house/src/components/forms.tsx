@@ -59,6 +59,9 @@ const inputCls =
   "w-full rounded-xl border-[1.5px] border-line bg-surface px-3 py-2 text-[14.5px] max-md:text-[16px] outline-none focus:border-accent";
 const labelCls = "label mb-1.5 mt-3.5 block first:mt-0";
 
+/** Normalize a name for loose duplicate matching (case/whitespace-insensitive). */
+const normName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
 /** "2026-04-15" -> "Apr 2026" for compact roadmap dates. */
 function fmtDate(iso: string): string {
   const [y, m] = iso.slice(0, 7).split("-").map(Number);
@@ -536,7 +539,7 @@ export function AddPersonForm({
   defaultGroupId?: string | null;
   onDone: () => void;
 }) {
-  const { addPerson, groups } = useData();
+  const { addPerson, groups, guests } = useData();
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [gender, setGender] = useState<Gender>("M");
@@ -549,6 +552,13 @@ export function AddPersonForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedName, setSavedName] = useState<string | null>(null);
+
+  // Same-name active guest? Suggest graduating them instead of duplicating.
+  const typedName = `${first} ${last}`.trim();
+  const guestMatch =
+    typedName.length > 1
+      ? guests.find((g) => !g.archivedAt && normName(g.name) === normName(typedName))
+      : undefined;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -585,6 +595,13 @@ export function AddPersonForm({
       {savedName && (
         <p className="mb-2 rounded-lg bg-accent-soft px-3 py-1.5 text-[12.5px] text-accent-ink">
           ✓ Added {savedName} — add another, or close.
+        </p>
+      )}
+      {guestMatch && (
+        <p className="mb-2 rounded-lg bg-gold-soft px-3 py-2 text-[12.5px] text-gold">
+          ⚠ <strong>{guestMatch.name}</strong> is already in guest follow-up. Adding them here
+          makes a second record — better to <strong>graduate</strong> them from Follow-up so
+          their journey carries over.
         </p>
       )}
       <div className="grid grid-cols-2 gap-3">
@@ -1351,7 +1368,7 @@ export function GuestForm({
   guest?: import("@/lib/types").Guest;
   onDone: () => void;
 }) {
-  const { addGuest, updateGuest, groups } = useData();
+  const { addGuest, updateGuest, groups, people } = useData();
   const [name, setName] = useState(guest?.name ?? "");
   const [gender, setGender] = useState<Gender>(guest?.gender ?? "M");
   const [desc, setDesc] = useState(guest?.desc ?? "");
@@ -1390,8 +1407,24 @@ export function GuestForm({
     else onDone();
   };
 
+  // Same-name person already in the directory? They may already be tracked.
+  const personMatch =
+    !guest && normName(name).length > 1
+      ? people.find((p) => normName(p.name) === normName(name))
+      : undefined;
+  const matchGroup = personMatch?.groupId
+    ? groups.find((g) => g.id === personMatch.groupId)?.name
+    : null;
+
   return (
     <form onSubmit={submit}>
+      {personMatch && (
+        <p className="mb-2 rounded-lg bg-gold-soft px-3 py-2 text-[12.5px] text-gold">
+          ⚠ <strong>{personMatch.name}</strong> is already in the directory
+          {matchGroup ? ` (${matchGroup})` : " (not in a lifegroup)"}. If it&apos;s the same
+          person, they may already be tracked — you might not need a guest entry.
+        </p>
+      )}
       <label className={labelCls}>Name</label>
       <input required autoFocus value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="First Last" />
       <label className={labelCls}>Who are they?</label>

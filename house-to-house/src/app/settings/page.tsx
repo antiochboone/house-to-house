@@ -463,8 +463,9 @@ export default function SettingsPage() {
           title="Guest follow-up road"
           blurb={
             <>
-              The milestone steps every guest walks, in order. &quot;In a lifegroup&quot;
-              can&apos;t be removed — graduating a guest onto a roster hangs on it.
+              The milestone steps a guest might walk — rename, reorder, add, or remove
+              freely. They just track what&apos;s happened; graduation is a separate staff
+              decision on the Follow-up page.
             </>
           }
         >
@@ -478,11 +479,6 @@ export default function SettingsPage() {
                   {i + 1}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[13.5px]">{m.label}</span>
-                {m.key === "lifegroup" && (
-                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-semibold text-accent-ink">
-                    graduation step
-                  </span>
-                )}
                 <button
                   type="button"
                   aria-label={`Move "${m.label}" earlier`}
@@ -504,7 +500,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   aria-label={`Remove "${m.label}"`}
-                  disabled={m.key === "lifegroup"}
+                  disabled={milestones.length === 1}
                   onClick={() =>
                     void act(() => saveMilestones(milestones.filter((x) => x.key !== m.key)))
                   }
