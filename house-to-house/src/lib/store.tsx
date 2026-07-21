@@ -260,8 +260,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!realMode) return;
     const supabase = supabaseBrowser();
 
+    // Who am I must be known before loading my profile: staff can read every
+    // profile in the church, so an unfiltered profiles query returns ALL of
+    // them and .maybeSingle() (which errors on >1 row) hands back null — that
+    // silently dropped staff to the leader view the moment a church had a
+    // second login. Scope the profile read to my own id.
+    const { data: auth } = await supabase.auth.getUser();
+    const myUid = auth.user?.id ?? "";
+
     const [
-      { data: auth },
       profileQ,
       churchQ,
       groupsQ,
@@ -275,8 +282,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       groupTagsQ,
       checkinsQ,
     ] = await Promise.all([
-      supabase.auth.getUser(),
-      supabase.from("profiles").select("role, person_id").maybeSingle(),
+      supabase.from("profiles").select("role, person_id").eq("id", myUid).maybeSingle(),
       supabase.from("churches").select("settings").single(),
       supabase.from("groups").select("*").order("created_at"),
       supabase.from("people").select("*").order("first_name"),

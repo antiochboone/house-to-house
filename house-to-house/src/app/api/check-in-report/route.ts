@@ -44,7 +44,10 @@ export async function POST(request: NextRequest) {
       .order("month", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from("profiles").select("person_id").maybeSingle(),
+    // Scope to the caller: staff can read every profile in their church, so an
+    // unfiltered .maybeSingle() would see >1 row and return null, dropping the
+    // submitter's name from the report.
+    supabase.from("profiles").select("person_id").eq("id", user.id).maybeSingle(),
   ]);
 
   const group = groupQ.data;
