@@ -86,7 +86,9 @@ export interface AddGroupInput {
 export interface DGroupInput {
   groupId: string | null;
   gender: Gender;
+  kind: RelationshipKind;
   name?: string;
+  /** Null for peer groups. */
   leaderId: string | null;
   memberIds: string[];
 }
@@ -497,6 +499,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       id: d.id,
       groupId: d.group_id,
       gender: (d.gender ?? "M") as Gender,
+      kind: (d.kind ?? "mentoring") as RelationshipKind,
       name: d.name ?? undefined,
       leaderId: d.leader_id ?? null,
       memberIds: dgroupMemberRows
@@ -1084,6 +1087,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           id: `demo-dg-${Date.now()}`,
           groupId: input.groupId,
           gender: input.gender,
+          kind: input.kind,
           name: input.name?.trim() || undefined,
           leaderId: input.leaderId,
           memberIds: input.memberIds,
@@ -1102,6 +1106,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           church_id: church.id,
           group_id: input.groupId,
           gender: input.gender,
+          kind: input.kind,
           name: input.name?.trim() || null,
           leader_id: input.leaderId,
         })
@@ -1132,6 +1137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             ? {
                 ...d,
                 gender: input.gender,
+                kind: input.kind,
                 name: input.name?.trim() || undefined,
                 leaderId: input.leaderId,
                 memberIds: input.memberIds,
@@ -1149,6 +1155,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .from("dgroups")
         .update({
           gender: input.gender,
+          kind: input.kind,
           name: input.name?.trim() || null,
           leader_id: input.leaderId,
         })

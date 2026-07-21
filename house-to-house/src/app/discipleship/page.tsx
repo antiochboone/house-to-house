@@ -5,7 +5,7 @@ import type { DGroup, DiscipleshipStatus, Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
-import { AddRelationshipForm, DGroupForm, EditPersonForm, Modal } from "@/components/forms";
+import { DGroupForm, EditPersonForm, Modal } from "@/components/forms";
 
 type Filter = "all" | DiscipleshipStatus;
 
@@ -217,9 +217,7 @@ export default function DiscipleshipPage() {
   const h = makeHelpers(people);
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [showAdd, setShowAdd] = useState(false);
   const [showDgroup, setShowDgroup] = useState(false);
-  const [justAddedPeer, setJustAddedPeer] = useState(false);
   const [editPerson, setEditPerson] = useState<Person | null>(null);
   const [treeTab, setTreeTab] = useState<"M" | "F">("M");
 
@@ -254,13 +252,21 @@ export default function DiscipleshipPage() {
       return next;
     });
 
-  // The generation forest: D-groups as clusters, mentoring edges folded in.
-  const { roots: forestRoots, inTree } = buildForest(people, dgroups);
+  // The generation forest: mentoring D-groups as clusters, 1-1 edges folded
+  // in. Peer D-groups have no hierarchy so they stay out of the tree.
+  const { roots: forestRoots, inTree } = buildForest(
+    people,
+    dgroups.filter((d) => d.kind === "mentoring"),
+  );
   const menRoots = forestRoots.filter((n) => n.person.gender === "M");
   const womenRoots = forestRoots.filter((n) => n.person.gender === "F");
   // Anyone in a D-group (leader or member) counts as "in a relationship" even
-  // without a 1-1 edge — the forest's visited set is exactly that population.
-  const isInRel = (p: Person) => h.inRelationship(p) || inTree.has(p.id);
+  // without a 1-1 edge. Peer D-groups don't nest in the tree, so check them too.
+  const peerDgroups = dgroups.filter((d) => d.kind === "peer");
+  const isInRel = (p: Person) =>
+    h.inRelationship(p) ||
+    inTree.has(p.id) ||
+    peerDgroups.some((d) => d.memberIds.includes(p.id));
 
   // Kids are part of discipleship (4th grade and up); "not applicable" people
   // live behind their own filter so they don't clutter the shepherding list.
@@ -360,8 +366,8 @@ export default function DiscipleshipPage() {
       {activeRoots.length === 0 ? (
         <p className="text-[12.5px] italic text-muted">
           {realMode
-            ? "No relationships recorded yet — record a relationship or a D-group to start the tree."
-            : "No relationships yet."}
+            ? "Nothing recorded yet — add a D-group (even a 1-on-1) to start the tree."
+            : "No D-groups yet."}
         </p>
       ) : (
         <ul className="tree">
@@ -391,20 +397,12 @@ export default function DiscipleshipPage() {
             or the arrow to fold a branch.
           </p>
         </div>
-        <div className="ml-auto flex gap-2">
-          <button
-            onClick={() => setShowDgroup(true)}
-            className="rounded-xl border-[1.5px] border-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-ink"
-          >
-            ＋ D-group
-          </button>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink"
-          >
-            ＋ Relationship
-          </button>
-        </div>
+        <button
+          onClick={() => setShowDgroup(true)}
+          className="ml-auto rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink"
+        >
+          ＋ D-group
+        </button>
       </div>
 
       <div className="mb-5 flex flex-wrap gap-5 max-md:mb-4">
@@ -412,18 +410,6 @@ export default function DiscipleshipPage() {
         <Stat num={counts.wants} label="want to disciple someone" />
         <Stat num={notD.length} label="not yet in a relationship" alert={notD.length > 0} />
       </div>
-
-      {justAddedPeer && (
-        <div className="mb-4 flex items-center justify-between rounded-xl bg-accent-soft px-4 py-2.5 text-[13px] text-accent-ink">
-          <span>
-            Peer partnership recorded — peers don&apos;t nest in the tree; find it under{" "}
-            <strong>Peer partnerships</strong> on the right.
-          </span>
-          <button onClick={() => setJustAddedPeer(false)} aria-label="Dismiss" className="ml-3 font-bold">
-            ✕
-          </button>
-        </div>
-      )}
 
       <div className="grid grid-cols-[1fr_300px] items-start gap-6 max-lg:grid-cols-1">
         {treePanel}
@@ -487,11 +473,34 @@ export default function DiscipleshipPage() {
             </div>
           )}
 
-          {peerPairs.length > 0 && (
+          {(peerPairs.length > 0 || peerDgroups.length > 0) && (
             <div className="rise rounded-[14px] border border-line bg-surface p-[18px] shadow-card">
-              <h2 className="font-display mb-0.5 text-[16.5px]">Peer partnerships</h2>
+              <h2 className="font-display mb-0.5 text-[16.5px]">Peer groups</h2>
               <div className="mb-3 text-xs text-muted">Sharpening one another — no hierarchy.</div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
+                {peerDgroups.map((d) => {
+                  const members = d.memberIds
+                    .map((id) => people.find((p) => p.id === id))
+                    .filter(Boolean) as Person[];
+                  if (members.length === 0) return null;
+                  return (
+                    <div key={d.id} className="text-[13px]">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
+                            d.gender === "M"
+                              ? "bg-men-soft ring-1 ring-men/40"
+                              : "bg-women-soft ring-1 ring-women/40"
+                          }`}
+                        />
+                        <span className="min-w-0">
+                          {d.name && <span className="font-medium">{d.name}: </span>}
+                          {members.map((m) => m.name.split(" ")[0]).join(" ↔ ")}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
                 {peerPairs.map(([a, b]) => (
                   <div key={`${a.id}|${b.id}`} className="flex items-center gap-2 text-[13px]">
                     <span
@@ -532,19 +541,6 @@ export default function DiscipleshipPage() {
         </div>
       </div>
 
-      {showAdd && (
-        <Modal title="Record a discipleship relationship" onClose={() => setShowAdd(false)}>
-          <AddRelationshipForm
-            onDone={(result) => {
-              setShowAdd(false);
-              // Jump to the right gender tab so a new mentoring branch is
-              // actually in view. Peers live in the side panel, not the tree.
-              if (result && result.kind === "mentoring") setTreeTab(result.gender);
-              if (result?.kind === "peer") setJustAddedPeer(true);
-            }}
-          />
-        </Modal>
-      )}
       {showDgroup && (
         <Modal title="New D-group" onClose={() => setShowDgroup(false)}>
           <DGroupForm onDone={() => setShowDgroup(false)} />

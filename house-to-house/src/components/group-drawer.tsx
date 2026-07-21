@@ -343,6 +343,7 @@ export function GroupDrawer({
                   id ? (people.find((p) => p.id === id)?.name ?? null) : null;
                 const title = (d: DGroup) => {
                   if (d.name) return d.name;
+                  if (d.kind === "peer") return "Peer group";
                   const leader = personName(d.leaderId);
                   return leader ? `${leader.split(" ")[0]}'s D-group` : "D-group";
                 };
@@ -399,7 +400,7 @@ export function GroupDrawer({
                                 </span>
                               </span>
                               <span className="ml-auto shrink-0 text-[11.5px] text-faint">
-                                {1 + d.memberIds.length}
+                                {(d.kind === "peer" ? 0 : 1) + d.memberIds.length}
                               </span>
                             </button>
                           );

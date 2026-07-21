@@ -373,7 +373,19 @@ const dg = (
   id,
   groupId,
   gender,
+  kind: "mentoring",
   leaderId: slug(leader),
+  memberIds: members.map(slug),
+});
+
+/** Peer D-group: no leader — members sharpen one another. */
+const dgPeer = (id: string, groupId: string | null, gender: Gender, members: string[], name?: string): DGroup => ({
+  id,
+  groupId,
+  gender,
+  kind: "peer",
+  name,
+  leaderId: null,
   memberIds: members.map(slug),
 });
 
@@ -394,6 +406,7 @@ export const DGROUPS: DGroup[] = [
   dg("dg-appstate-f2", "appstate", "F", "Ava Lund", ["Zoe Whitmer", "Nia Coleman"]),
   dg("dg-valle-m", "valle", "M", "Hank Plummer", ["Walt Freeny", "Roy Peck"]),
   dg("dg-valle-f", "valle", "F", "Georgia Plummer", ["Sue Freeny", "Nell Harmon"]),
+  dgPeer("dg-appstate-peer", "appstate", "M", ["Remy Sachs", "Dev Patel"], "College guys"),
 ];
 
 /** "2 men's · 2 women's" — the summary string shown on cards; "—" when none. */

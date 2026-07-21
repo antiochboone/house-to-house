@@ -125,8 +125,12 @@ export interface DGroup {
   /** The lifegroup it belongs to, or null for a free-standing church-wide group. */
   groupId: string | null;
   gender: Gender;
+  /** Mentoring (a leader disciples members — 1-on-1 is leader + one member)
+   * or peer (members sharpen one another; no leader, doesn't nest in the tree). */
+  kind: RelationshipKind;
   /** Optional label; display defaults to "<leader's first name>'s D-group". */
   name?: string;
+  /** The discipler. Null for peer groups. */
   leaderId: string | null;
   memberIds: string[];
 }

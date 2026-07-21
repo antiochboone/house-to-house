@@ -1467,12 +1467,15 @@ export function DGroupForm({
 }) {
   const { people, groups, addDgroup, updateDgroup, deleteDgroup } = useData();
   const [gender, setGender] = useState<Gender>(dgroup?.gender ?? "M");
+  const [kind, setKind] = useState<RelationshipKind>(dgroup?.kind ?? "mentoring");
   const [name, setName] = useState(dgroup?.name ?? "");
   const [leaderId, setLeaderId] = useState<string>(dgroup?.leaderId ?? "");
   const [memberIds, setMemberIds] = useState<string[]>(dgroup?.memberIds ?? []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const peerKind = kind === "peer";
 
   const churchWide = !group;
   // Candidate pool: this lifegroup's same-gender adults, or (church-wide)
@@ -1503,17 +1506,23 @@ export function DGroupForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!leaderId) {
+    if (!peerKind && !leaderId) {
       setError("Pick who leads it.");
+      return;
+    }
+    const cleanMembers = memberIds.filter((id) => peerKind || id !== leaderId);
+    if (peerKind && cleanMembers.length < 2) {
+      setError("A peer group needs at least two people.");
       return;
     }
     setBusy(true);
     const input = {
       groupId: group?.id ?? null,
       gender,
+      kind,
       name: name.trim() || undefined,
-      leaderId,
-      memberIds: memberIds.filter((id) => id !== leaderId),
+      leaderId: peerKind ? null : leaderId,
+      memberIds: cleanMembers,
     };
     const err = dgroup ? await updateDgroup(dgroup.id, input) : await addDgroup(input);
     setBusy(false);
@@ -1556,14 +1565,42 @@ export function DGroupForm({
           </button>
         ))}
       </div>
-      <label className={labelCls}>Led by</label>
-      <PersonSelect
-        value={leaderId}
-        onChange={setLeaderId}
-        options={pool.map(opt)}
-        placeholder={churchWide ? "Type a name…" : "Type a name or pick from the roster"}
-        emptyText="No same-gender people to pick"
-      />
+      <label className={labelCls}>How does it work?</label>
+      <div className="flex gap-2">
+        {(
+          [
+            ["mentoring", "Mentoring", "one disciples the rest"],
+            ["peer", "Peer", "sharpen one another"],
+          ] as const
+        ).map(([k, label, hint]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => {
+              setKind(k);
+              if (k === "peer") setLeaderId("");
+            }}
+            className={`flex-1 rounded-xl border-[1.5px] px-2 py-2 text-[13.5px] font-medium ${
+              kind === k ? "border-accent bg-accent-soft text-accent-ink" : "border-line text-muted"
+            }`}
+          >
+            {label}
+            <span className="mt-0.5 block text-[10.5px] font-normal opacity-70">{hint}</span>
+          </button>
+        ))}
+      </div>
+      {!peerKind && (
+        <>
+          <label className={labelCls}>Led by</label>
+          <PersonSelect
+            value={leaderId}
+            onChange={setLeaderId}
+            options={pool.map(opt)}
+            placeholder={churchWide ? "Type a name…" : "Type a name or pick from the roster"}
+            emptyText="No same-gender people to pick"
+          />
+        </>
+      )}
       <label className={labelCls}>Who&apos;s in it?</label>
       <PersonSelect
         value=""
@@ -1593,7 +1630,7 @@ export function DGroupForm({
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Defaults to the leader's name"
+        placeholder={peerKind ? "e.g. College guys" : "Defaults to the leader's name"}
         className={inputCls}
       />
       <SubmitRow busy={busy} error={error} label={dgroup ? "Save changes" : "Add D-group"} />
@@ -1625,104 +1662,3 @@ export function DGroupForm({
   );
 }
 
-export function AddRelationshipForm({
-  onDone,
-}: {
-  /** Called on success with the pairing's gender + kind so the tree can jump
-   * to the right (gender) tab — the split is the usual "it didn't appear". */
-  onDone: (result?: { gender: Gender; kind: RelationshipKind }) => void;
-}) {
-  const { people, groups, addRelationship } = useData();
-  const [kind, setKind] = useState<RelationshipKind>("mentoring");
-  const [disciplerId, setDisciplerId] = useState("");
-  const [discipleId, setDiscipleId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const groupName = (id: string | null) =>
-    id ? groups.find((g) => g.id === id)?.name : undefined;
-
-  const discipler = people.find((p) => p.id === disciplerId);
-  const disciplerOptions = people.map((p) => ({
-    id: p.id,
-    name: p.name,
-    sub: groupName(p.groupId),
-  }));
-  const discipleOptions = people
-    .filter((p) => p.id !== disciplerId && (!discipler || p.gender === discipler.gender))
-    .map((p) => ({ id: p.id, name: p.name, sub: groupName(p.groupId) }));
-
-  const peer = kind === "peer";
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!disciplerId || !discipleId) {
-      setError("Pick both people.");
-      return;
-    }
-    setBusy(true);
-    const err = await addRelationship(disciplerId, discipleId, kind);
-    setBusy(false);
-    if (err) setError(err);
-    else onDone(discipler ? { gender: discipler.gender, kind } : undefined);
-  };
-
-  return (
-    <form onSubmit={submit}>
-      <label className={labelCls}>What kind?</label>
-      <div className="flex gap-2">
-        {(
-          [
-            ["mentoring", "Mentoring", "one disciples the other"],
-            ["peer", "Peer", "sharpen each other"],
-          ] as const
-        ).map(([k, label, hint]) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setKind(k)}
-            className={`flex-1 rounded-xl border-[1.5px] px-2 py-2 text-[13.5px] font-medium ${
-              kind === k ? "border-accent bg-accent-soft text-accent-ink" : "border-line text-muted"
-            }`}
-          >
-            {label}
-            <span className="mt-0.5 block text-[10.5px] font-normal opacity-70">{hint}</span>
-          </button>
-        ))}
-      </div>
-      <label className={labelCls}>{peer ? "One partner…" : "Who is discipling…"}</label>
-      <PersonSelect
-        value={disciplerId}
-        onChange={(id) => {
-          setDisciplerId(id);
-          setDiscipleId("");
-        }}
-        options={disciplerOptions}
-        placeholder="Type a name or pick from the list"
-      />
-      <label className={labelCls}>{peer ? "…and who?" : "…whom?"}</label>
-      <PersonSelect
-        value={discipleId}
-        onChange={setDiscipleId}
-        options={discipleOptions}
-        disabled={!disciplerId}
-        placeholder={
-          disciplerId
-            ? peer
-              ? `Type a name or pick who ${discipler?.name.split(" ")[0]} partners with`
-              : `Type a name or pick who ${discipler?.name.split(" ")[0]} disciples`
-            : peer
-              ? "Pick a partner first"
-              : "Pick a discipler first"
-        }
-        emptyText="No same-gender matches"
-      />
-      <p className="mt-2 text-[12px] text-faint">
-        {peer
-          ? "Peers are symmetric — order doesn't matter. Same-gender only."
-          : "Same-gender only — the list filters automatically."}
-      </p>
-      <SubmitRow busy={busy} error={error} label="Record relationship" />
-    </form>
-  );
-}
