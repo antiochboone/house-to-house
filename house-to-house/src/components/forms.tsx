@@ -3,7 +3,7 @@
 // Add-flows for M2 hand entry: new lifegroup, new person, new discipleship
 // relationship. Built for speed of entry — Hunter is typing in a whole church.
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   AppAccess,
   DiscipleshipStatus,
@@ -20,7 +20,7 @@ import {
   SELECTABLE_STATUSES,
   STATUS_LABEL,
 } from "@/lib/data";
-import { useData, makeHelpers } from "@/lib/store";
+import { useData } from "@/lib/store";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function Modal({
@@ -349,6 +349,150 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
 
 /** Role-in-group dropdown using the church's configurable roles. Member first,
  * then the rest in configured order. */
+/** Typeable + dropdown person picker. Empty input shows the whole list;
+ * typing narrows it by name. Built for churches with 100+ people, where a raw
+ * <select> is unusable. Reusable for any {id, name, sub?} option list. */
+export function PersonSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled = false,
+  emptyText = "No matches",
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  options: { id: string; name: string; sub?: string }[];
+  placeholder: string;
+  disabled?: boolean;
+  emptyText?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const selected = options.find((o) => o.id === value) ?? null;
+  const q = query.trim().toLowerCase();
+  const filtered = q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
+
+  // Close (and revert to the selected name) when clicking away.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  // Keep the highlighted option in view as you arrow through a long list.
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const el = listRef.current.children[active] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  const choose = (id: string) => {
+    onChange(id);
+    setOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <input
+        type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="person-select-list"
+        autoComplete="off"
+        disabled={disabled}
+        value={open ? query : selected?.name ?? ""}
+        placeholder={selected && !open ? selected.name : placeholder}
+        onFocus={() => {
+          setOpen(true);
+          setActive(0);
+        }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          setActive(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setOpen(true);
+            setActive((a) => Math.min(a + 1, filtered.length - 1));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActive((a) => Math.max(a - 1, 0));
+          } else if (e.key === "Enter") {
+            if (open && filtered[active]) {
+              e.preventDefault();
+              choose(filtered[active].id);
+            }
+          } else if (e.key === "Escape") {
+            setOpen(false);
+            setQuery("");
+          }
+        }}
+        className={`${inputCls} ${value && !open ? "pr-8" : ""}`}
+      />
+      {value && !open && !disabled && (
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onChange("");
+          }}
+          aria-label="Clear selection"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] text-muted hover:text-ink"
+        >
+          ✕
+        </button>
+      )}
+      {open && (
+        <ul
+          ref={listRef}
+          id="person-select-list"
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-line bg-bg py-1 shadow-card"
+        >
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-[13px] text-muted">{emptyText}</li>
+          ) : (
+            filtered.map((o, i) => (
+              <li key={o.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={o.id === value}
+                  onMouseEnter={() => setActive(i)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    choose(o.id);
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[14px] ${
+                    i === active ? "bg-surface-2" : ""
+                  } ${o.id === value ? "font-semibold text-accent-ink" : ""}`}
+                >
+                  <span className="truncate">{o.name}</span>
+                  {o.sub && <span className="shrink-0 text-[12px] text-faint">{o.sub}</span>}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function RoleSelect({
   value,
   onChange,
@@ -1211,21 +1355,31 @@ export function GuestForm({
 }
 
 export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
-  const { people, addRelationship } = useData();
-  const helpers = makeHelpers(people);
+  const { people, groups, addRelationship } = useData();
   const [disciplerId, setDisciplerId] = useState("");
   const [discipleId, setDiscipleId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const candidates = people.filter((p) => p.role !== "staff" || true);
+  const groupName = (id: string | null) =>
+    id ? groups.find((g) => g.id === id)?.name : undefined;
+
   const discipler = people.find((p) => p.id === disciplerId);
-  const disciples = candidates.filter(
-    (p) => p.id !== disciplerId && (!discipler || p.gender === discipler.gender),
-  );
+  const disciplerOptions = people.map((p) => ({
+    id: p.id,
+    name: p.name,
+    sub: groupName(p.groupId),
+  }));
+  const discipleOptions = people
+    .filter((p) => p.id !== disciplerId && (!discipler || p.gender === discipler.gender))
+    .map((p) => ({ id: p.id, name: p.name, sub: groupName(p.groupId) }));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!disciplerId || !discipleId) {
+      setError("Pick both people.");
+      return;
+    }
     setBusy(true);
     const err = await addRelationship(disciplerId, discipleId);
     setBusy(false);
@@ -1233,31 +1387,31 @@ export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
     else onDone();
   };
 
-  const personLabel = (id: string) => {
-    const p = helpers.personById(id);
-    return p ? p.name : "";
-  };
-
   return (
     <form onSubmit={submit}>
       <label className={labelCls}>Who is discipling…</label>
-      <select required value={disciplerId} onChange={(e) => { setDisciplerId(e.target.value); setDiscipleId(""); }} className={inputCls}>
-        <option value="">Choose the discipler</option>
-        {candidates.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
+      <PersonSelect
+        value={disciplerId}
+        onChange={(id) => {
+          setDisciplerId(id);
+          setDiscipleId("");
+        }}
+        options={disciplerOptions}
+        placeholder="Type a name or pick from the list"
+      />
       <label className={labelCls}>…whom?</label>
-      <select required value={discipleId} onChange={(e) => setDiscipleId(e.target.value)} className={inputCls} disabled={!disciplerId}>
-        <option value="">{disciplerId ? `Choose who ${personLabel(disciplerId).split(" ")[0]} disciples` : "Pick a discipler first"}</option>
-        {disciples.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
+      <PersonSelect
+        value={discipleId}
+        onChange={setDiscipleId}
+        options={discipleOptions}
+        disabled={!disciplerId}
+        placeholder={
+          disciplerId
+            ? `Type a name or pick who ${discipler?.name.split(" ")[0]} disciples`
+            : "Pick a discipler first"
+        }
+        emptyText="No same-gender matches"
+      />
       <p className="mt-2 text-[12px] text-faint">
         Same-gender only — the list filters automatically.
       </p>
