@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     supabase.from("groups").select("id, name").eq("id", groupId).maybeSingle(),
     supabase
       .from("checkins")
-      .select("month, pulse_words, roster_notes, meeting_change")
+      .select("month, pulse_words, roster_notes, meeting_change, attendance")
       .eq("group_id", groupId)
       .order("month", { ascending: false })
       .limit(1)
@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
         ? winQ.data.body
         : null,
     peopleCount: peopleCount ?? 0,
+    attended: checkin?.attendance?.length ?? null,
   };
 
   const res = await fetch("https://api.resend.com/emails", {

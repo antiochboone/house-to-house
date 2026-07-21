@@ -215,6 +215,11 @@ export function GroupDrawer({
                               </span>
                             )}
                           </div>
+                          {c.attended > 0 && (
+                            <div className="mt-0.5 text-[12px] text-muted">
+                              {c.attended} there that night
+                            </div>
+                          )}
                           {c.rosterNote && (
                             <div className="mt-0.5 text-[12px] text-muted">🌱 {c.rosterNote}</div>
                           )}

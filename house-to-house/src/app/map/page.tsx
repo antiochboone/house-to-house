@@ -447,6 +447,7 @@ function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
     <div className="grid grid-cols-[repeat(auto-fill,minmax(330px,1fr))] gap-4">
       {visibleGroups.map((g) => {
         const ppl = h.groupPeople(g.id);
+        const kids = h.groupKids(g.id);
         const cell = (tierKey: string, gender: "F" | "M") =>
           ppl
             .filter((p) => h.engagementTier(p) === tierKey && p.gender === gender)
@@ -467,9 +468,16 @@ function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
               {g.name} <SeasonChip group={g} />
             </h3>
             <div className="mb-2.5 text-[11.5px] text-faint">
-              {ppl.length} people{g.dgroups !== "—" ? ` · ${g.dgroups} D-groups` : ""}
+              {ppl.length} people{kids.length > 0 ? ` · ${kids.length} kids` : ""}
+              {g.dgroups !== "—" ? ` · ${g.dgroups} D-groups` : ""}
             </div>
-            <div className="grid grid-cols-[84px_1fr_1fr] border-t border-line">
+            <div
+              className={`grid border-t border-line ${
+                kids.length > 0
+                  ? "grid-cols-[84px_1fr_1fr_minmax(64px,0.55fr)]"
+                  : "grid-cols-[84px_1fr_1fr]"
+              }`}
+            >
               <div />
               <div className="px-1.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-women-ink">
                 Women
@@ -477,9 +485,14 @@ function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
               <div className="border-l border-dashed border-line px-1.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-men-ink">
                 Men
               </div>
+              {kids.length > 0 && (
+                <div className="border-l border-dashed border-line px-1.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gold">
+                  Kids
+                </div>
+              )}
               {TIERS.map((tier) => (
                 <div key={tier.key} className="contents">
-                  <div className="flex items-center border-t border-line px-1.5 py-2 text-[11px] font-semibold text-muted">
+                  <div className="col-start-1 flex items-center border-t border-line px-1.5 py-2 text-[11px] font-semibold text-muted">
                     {tierLabels[tier.key]}
                   </div>
                   <div className="flex flex-wrap content-start gap-1 border-t border-line px-1 py-1.5">
@@ -490,6 +503,19 @@ function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
                   </div>
                 </div>
               ))}
+              {kids.length > 0 && (
+                <div className="col-start-4 row-span-4 row-start-2 flex flex-wrap content-start gap-1 border-l border-dashed border-line border-t px-1 py-1.5">
+                  {kids.map((k) => (
+                    <span
+                      key={k.id}
+                      title={k.name}
+                      className="whitespace-nowrap rounded-full bg-gold-soft px-2 py-[2.5px] text-[11.5px] text-gold"
+                    >
+                      {firstName(k.name)}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );

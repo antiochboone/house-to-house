@@ -63,6 +63,7 @@ export default function CheckInPage() {
   const [ampm, setAmpm] = useState<"AM" | "PM">("PM");
   const [place, setPlace] = useState("");
   const [moods, setMoods] = useState<number[]>([]);
+  const [attend, setAttend] = useState<Set<string>>(new Set());
   const [newFace, setNewFace] = useState<boolean | null>(null);
   const [newFirst, setNewFirst] = useState("");
   const [newLast, setNewLast] = useState("");
@@ -140,6 +141,7 @@ export default function CheckInPage() {
     const input: CheckinInput = {
       groupId: group!.id,
       pulseWords: moods.map((i) => pulseWords[i]),
+      attendance: [...attend],
       newPerson:
         newFace && newFirst.trim()
           ? { firstName: newFirst.trim(), lastName: newLast.trim(), gender: newGender }
@@ -173,6 +175,7 @@ export default function CheckInPage() {
     setGroupId(null);
     setMeetingChanged(false);
     setMoods([]);
+    setAttend(new Set());
     setNewFace(null);
     setNewFirst("");
     setNewLast("");
@@ -309,68 +312,110 @@ export default function CheckInPage() {
             </>
           )}
 
-          {step === 2 && (
-            <>
-              <div className="label mb-2 text-center">Roster</div>
-              <p className="font-display mb-1.5 text-center text-[21px]">Anyone new this month?</p>
-              <p className="mb-5 text-center text-[13.5px] text-muted">
-                New faces go straight onto the roster.
-              </p>
-              <div className="flex flex-1 flex-col gap-2">
-                <Opt selected={newFace === true} onClick={() => setNewFace(true)}>
-                  ＋ Someone joined lifegroup
-                </Opt>
-                {newFace === true && (
-                  <div className="flex flex-col gap-2 rounded-xl border border-dashed border-line p-2.5">
-                    <div className="flex gap-1.5">
-                      <input autoFocus value={newFirst} onChange={(e) => setNewFirst(e.target.value)} placeholder="First name" className={`${inputCls} min-w-0 flex-1`} />
-                      <input value={newLast} onChange={(e) => setNewLast(e.target.value)} placeholder="Last name" className={`${inputCls} min-w-0 flex-1`} />
+          {step === 2 &&
+            (() => {
+              const roster = group
+                ? people
+                    .filter((p) => p.groupId === group.id)
+                    .sort((a, b) => Number(!!a.isChild) - Number(!!b.isChild))
+                : [];
+              const allIn = roster.length > 0 && roster.every((p) => attend.has(p.id));
+              const toggleAttend = (id: string) =>
+                setAttend((prev) => {
+                  const nxt = new Set(prev);
+                  if (nxt.has(id)) nxt.delete(id);
+                  else nxt.add(id);
+                  return nxt;
+                });
+              return (
+                <>
+                  <div className="label mb-2 text-center">Roster</div>
+                  <p className="font-display mb-1.5 text-center text-[21px]">Who came tonight?</p>
+                  <p className="mb-4 text-center text-[13.5px] text-muted">
+                    Tap everyone who was there{attend.size > 0 ? ` · ${attend.size} so far` : ""}.
+                  </p>
+                  <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      <button
+                        onClick={() =>
+                          setAttend(allIn ? new Set() : new Set(roster.map((p) => p.id)))
+                        }
+                        className={`rounded-full border-[1.5px] px-3 py-1.5 text-[12.5px] font-semibold ${
+                          allIn
+                            ? "border-accent bg-accent-soft text-accent-ink"
+                            : "border-line text-muted"
+                        }`}
+                      >
+                        {allIn ? "✓ Everyone" : "Everyone came"}
+                      </button>
+                      {roster.map((p) => {
+                        const on = attend.has(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => toggleAttend(p.id)}
+                            className={`rounded-full border-[1.5px] px-3 py-1.5 text-[13px] ${
+                              on
+                                ? p.isChild
+                                  ? "border-gold bg-gold-soft font-semibold text-gold"
+                                  : p.gender === "M"
+                                    ? "border-men bg-men-soft font-semibold text-men-ink"
+                                    : "border-women bg-women-soft font-semibold text-women-ink"
+                                : "border-line text-muted"
+                            }`}
+                          >
+                            {firstName(p.name)}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div className="flex gap-1.5">
-                      {(["M", "F"] as const).map((g) => (
-                        <button
-                          key={g}
-                          onClick={() => setNewGender(g)}
-                          className={`flex-1 rounded-xl border-[1.5px] py-2 text-[13.5px] font-medium ${
-                            newGender === g
-                              ? g === "M"
-                                ? "border-men bg-men-soft text-men-ink"
-                                : "border-women bg-women-soft text-women-ink"
-                              : "border-line text-muted"
-                          }`}
-                        >
-                          {g === "M" ? "Man" : "Woman"}
-                        </button>
-                      ))}
+                    <div className="rounded-xl border border-dashed border-line p-2.5">
+                      <button
+                        onClick={() => setNewFace(newFace === true ? null : true)}
+                        className="w-full text-left text-[13.5px] font-medium text-accent-ink"
+                      >
+                        ＋ Someone new joined lifegroup
+                      </button>
+                      {newFace === true && (
+                        <div className="mt-2 flex flex-col gap-2">
+                          <div className="flex gap-1.5">
+                            <input autoFocus value={newFirst} onChange={(e) => setNewFirst(e.target.value)} placeholder="First name" className={`${inputCls} min-w-0 flex-1`} />
+                            <input value={newLast} onChange={(e) => setNewLast(e.target.value)} placeholder="Last name" className={`${inputCls} min-w-0 flex-1`} />
+                          </div>
+                          <div className="flex gap-1.5">
+                            {(["M", "F"] as const).map((g) => (
+                              <button
+                                key={g}
+                                onClick={() => setNewGender(g)}
+                                className={`flex-1 rounded-xl border-[1.5px] py-2 text-[13.5px] font-medium ${
+                                  newGender === g
+                                    ? g === "M"
+                                      ? "border-men bg-men-soft text-men-ink"
+                                      : "border-women bg-women-soft text-women-ink"
+                                    : "border-line text-muted"
+                                }`}
+                              >
+                                {g === "M" ? "Man" : "Woman"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-                <Opt
-                  selected={newFace === false}
-                  onClick={() => {
-                    setNewFace(false);
-                    setNewFirst("");
-                    setNewLast("");
-                    next();
-                  }}
-                >
-                  No new faces this month
-                </Opt>
-              </div>
-              {newFace === true && (
-                <button
-                  onClick={next}
-                  disabled={!newFirst.trim()}
-                  className="mt-4 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-cta-ink disabled:opacity-45"
-                >
-                  Next
-                </button>
-              )}
-              <button onClick={back} className="w-full py-2 text-center text-[13px] text-muted">
-                back
-              </button>
-            </>
-          )}
+                  <button
+                    onClick={next}
+                    disabled={newFace === true && !newFirst.trim()}
+                    className="mt-4 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-cta-ink disabled:opacity-45"
+                  >
+                    Next
+                  </button>
+                  <button onClick={back} className="w-full py-2 text-center text-[13px] text-muted">
+                    back
+                  </button>
+                </>
+              );
+            })()}
 
           {step === 3 && (
             <>

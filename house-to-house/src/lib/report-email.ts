@@ -55,6 +55,8 @@ export interface ReportPayload {
   meetingChange: string | null;
   win: string | null;
   peopleCount: number;
+  /** How many were tapped present at the meeting; null = not recorded. */
+  attended: number | null;
 }
 
 const esc = (s: string) =>
@@ -76,6 +78,9 @@ export function reportHtml(r: ReportPayload) {
     row("Month", r.monthLabel),
     row("Submitted by", r.submittedBy),
     row("On the roster", `${r.peopleCount} ${r.peopleCount === 1 ? "person" : "people"}`),
+    r.attended !== null && r.attended > 0
+      ? row("There that night", `${r.attended} of ${r.peopleCount}`)
+      : "",
     r.pulseWords.length ? row("Pulse", r.pulseWords.join(" · ")) : "",
     r.rosterNote ? row("Roster", r.rosterNote) : "",
     r.meetingChange ? row("Meeting change", r.meetingChange) : "",
@@ -101,6 +106,7 @@ export function reportText(r: ReportPayload) {
     r.sectionName ? `Section: ${r.sectionName}` : null,
     `Submitted by: ${r.submittedBy}`,
     `On the roster: ${r.peopleCount}`,
+    r.attended !== null && r.attended > 0 ? `There that night: ${r.attended} of ${r.peopleCount}` : null,
     r.pulseWords.length ? `Pulse: ${r.pulseWords.join(" · ")}` : null,
     r.rosterNote ? `Roster: ${r.rosterNote}` : null,
     r.meetingChange ? `Meeting change: ${r.meetingChange}` : null,

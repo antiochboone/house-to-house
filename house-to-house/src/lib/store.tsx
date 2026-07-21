@@ -111,6 +111,8 @@ export interface CheckinSummary {
   pulseWords: string[];
   rosterNote: string | null;
   meetingChange: string | null;
+  /** How many people were tapped present ("who came tonight?"); 0 = not recorded. */
+  attended: number;
 }
 
 export interface RecordEventInput {
@@ -128,6 +130,8 @@ export interface CheckinInput {
   newPerson?: { firstName: string; lastName: string; gender: Gender };
   win?: { category: WinCategory; note: string };
   meeting?: { day: string; time: string; place: string };
+  /** Person ids tapped present on the "who came tonight?" step. */
+  attendance?: string[];
 }
 
 interface DataApi {
@@ -412,6 +416,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         pulseWords: c.pulse_words ?? [],
         rosterNote: c.roster_notes ?? null,
         meetingChange: c.meeting_change ?? null,
+        attended: c.attendance?.length ?? 0,
       })),
     );
 
@@ -1375,6 +1380,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
 
       let rosterNote: string | null = null;
+      const attendance = [...new Set(input.attendance ?? [])];
       if (input.newPerson) {
         const { data: person, error } = await supabase
           .from("people")
@@ -1396,6 +1402,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
         if (memErr) return memErr.message;
         rosterNote = `${input.newPerson.firstName} ${input.newPerson.lastName}`.trim() + " joined";
+        // Someone new was, by definition, there tonight.
+        attendance.push(person.id);
       }
 
       const month = `${new Date().toISOString().slice(0, 7)}-01`;
@@ -1407,6 +1415,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           submitted_by: mePersonId,
           pulse_words: input.pulseWords,
           roster_notes: rosterNote,
+          attendance,
           meeting_change: input.meeting
             ? [input.meeting.day, input.meeting.time, input.meeting.place]
                 .filter(Boolean)
