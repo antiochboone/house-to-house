@@ -1,85 +1,224 @@
 "use client";
 
 import { useState } from "react";
-import type { DiscipleshipStatus, Person } from "@/lib/types";
+import type { DGroup, DiscipleshipStatus, Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
-import { AddRelationshipForm, EditPersonForm, Modal } from "@/components/forms";
+import { AddRelationshipForm, DGroupForm, EditPersonForm, Modal } from "@/components/forms";
 
 type Filter = "all" | DiscipleshipStatus;
-type Helpers = ReturnType<typeof makeHelpers>;
+
+/** A node in the discipleship generation tree. A person's children are grouped
+ * into clusters: each D-group they lead, plus any loose 1-1 mentees. */
+interface TreeCluster {
+  /** The D-group this cluster represents, or null for loose mentoring edges. */
+  dgroup: DGroup | null;
+  label: string;
+  children: TreeNodeData[];
+}
+interface TreeNodeData {
+  person: Person;
+  clusters: TreeCluster[];
+  /** People in this whole branch, including this person. */
+  count: number;
+}
+
+/** Deeper discipleship generations tint progressively toward the accent, so the
+ * flow of multiplication reads at a glance. Theme-safe (mixes theme tokens). */
+function genTint(depth: number): string {
+  const pct = Math.min(8 + depth * 12, 62);
+  return `color-mix(in srgb, var(--accent) ${pct}%, var(--surface))`;
+}
 
 function TreeNode({
-  person,
-  h,
+  node,
+  depth,
   groupName,
   collapsed,
   toggle,
+  onEdit,
 }: {
-  person: Person;
-  h: Helpers;
+  node: TreeNodeData;
+  depth: number;
   groupName: (p: Person) => string;
   collapsed: Set<string>;
   toggle: (id: string) => void;
+  onEdit: (p: Person) => void;
 }) {
-  const children = h.disciplesOf(person.id);
-  const hasKids = children.length > 0;
+  const { person, clusters, count } = node;
+  const hasKids = clusters.length > 0;
   const isCollapsed = collapsed.has(person.id);
 
   return (
     <li className="relative py-[3px]">
-      <button
-        onClick={hasKids ? () => toggle(person.id) : undefined}
-        title={hasKids ? "Collapse or expand this branch" : undefined}
-        className={`inline-flex items-center gap-2 rounded-full py-[5px] pl-1.5 pr-2.5 text-[13px] ${
-          person.role === "staff" ? "bg-accent-soft" : "bg-surface-2"
-        } ${hasKids ? "cursor-pointer hover:bg-glow" : "cursor-default"}`}
-      >
-        {hasKids && (
-          <span className="w-2.5 text-[10px] text-faint">{isCollapsed ? "▸" : "▾"}</span>
-        )}
-        <Avatar name={person.name} gender={person.gender} size={22} />
-        <span>{person.name}</span>
-        <span className="text-[11px] text-faint">{groupName(person)}</span>
-        {person.peers.length > 0 && (
-          <span
-            title="peer partnership"
-            className="rounded-full bg-surface px-1.5 py-px text-[10.5px] font-semibold text-muted"
+      <span className="inline-flex items-center gap-1">
+        {hasKids ? (
+          <button
+            onClick={() => toggle(person.id)}
+            title="Collapse or expand this branch"
+            className="w-3.5 shrink-0 text-[10px] text-faint hover:text-accent-ink"
           >
-            ↔ {person.peers.length}
-          </span>
+            {isCollapsed ? "▸" : "▾"}
+          </button>
+        ) : (
+          <span className="w-3.5 shrink-0" />
         )}
-        {hasKids && isCollapsed && (
-          <span className="rounded-full bg-accent-soft px-1.5 py-px text-[10.5px] font-bold text-accent-ink">
-            +{h.descendantCount(person.id)}
-          </span>
-        )}
-      </button>
+        <button
+          onClick={() => onEdit(person)}
+          title={`Edit ${person.name}`}
+          className={`inline-flex items-center gap-2 rounded-full py-[5px] pl-1.5 pr-2.5 text-[13px] hover:opacity-80 ${
+            person.role === "staff" ? "bg-accent-soft" : "bg-surface-2"
+          }`}
+        >
+          <Avatar name={person.name} gender={person.gender} size={22} />
+          <span>{person.name}</span>
+          <span className="text-[11px] text-faint">{groupName(person)}</span>
+          {person.peers.length > 0 && (
+            <span
+              title="peer partnership"
+              className="rounded-full bg-surface px-1.5 py-px text-[10.5px] font-semibold text-muted"
+            >
+              ↔ {person.peers.length}
+            </span>
+          )}
+          {hasKids && (
+            <span
+              title={`${count} people in this branch`}
+              className="rounded-full bg-accent-soft px-1.5 py-px text-[10.5px] font-bold text-accent-ink"
+            >
+              {count}
+            </span>
+          )}
+        </button>
+      </span>
       {hasKids && !isCollapsed && (
-        <ul>
-          {children.map((c) => (
-            <TreeNode
-              key={c.id}
-              person={c}
-              h={h}
-              groupName={groupName}
-              collapsed={collapsed}
-              toggle={toggle}
-            />
+        <div className="ml-[7px] mt-1 flex flex-col gap-1.5 border-l border-dashed border-line pl-3">
+          {clusters.map((cl, i) => (
+            <div
+              key={cl.dgroup?.id ?? `mentees-${i}`}
+              className="rounded-xl border border-line p-2"
+              style={{ background: genTint(depth + 1) }}
+            >
+              <div className="mb-1 flex items-center gap-1.5 px-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted">
+                {cl.dgroup ? (
+                  <>
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${
+                        cl.dgroup.gender === "M"
+                          ? "bg-men-soft ring-1 ring-men/40"
+                          : "bg-women-soft ring-1 ring-women/40"
+                      }`}
+                    />
+                    {cl.label}
+                    <span className="font-normal normal-case text-faint">
+                      · {cl.children.length} in group
+                    </span>
+                  </>
+                ) : (
+                  <span className="normal-case">{cl.label}</span>
+                )}
+              </div>
+              <ul className="tree">
+                {cl.children.map((c) => (
+                  <TreeNode
+                    key={c.person.id}
+                    node={c}
+                    depth={depth + 1}
+                    groupName={groupName}
+                    collapsed={collapsed}
+                    toggle={toggle}
+                    onEdit={onEdit}
+                  />
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </li>
   );
 }
 
+/** Build the generation forest from D-groups (primary) + 1-1 mentoring edges
+ * (fallback). Each person is placed once, preferring their D-group. */
+function buildForest(people: Person[], dgroups: DGroup[]) {
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const dgroupsByLeader = new Map<string, DGroup[]>();
+  for (const dg of dgroups) {
+    if (!dg.leaderId) continue;
+    dgroupsByLeader.set(dg.leaderId, [...(dgroupsByLeader.get(dg.leaderId) ?? []), dg]);
+  }
+
+  // Assign each person a single parent: D-group leader first, discipler second.
+  const parentOf = new Map<string, string>();
+  for (const dg of dgroups) {
+    if (!dg.leaderId) continue;
+    for (const mid of dg.memberIds) {
+      if (mid !== dg.leaderId && !parentOf.has(mid)) parentOf.set(mid, dg.leaderId);
+    }
+  }
+  for (const p of people) {
+    if (p.discipledBy && !parentOf.has(p.id)) parentOf.set(p.id, p.discipledBy);
+  }
+
+  const dgTitle = (dg: DGroup) => {
+    if (dg.name) return dg.name;
+    const leader = dg.leaderId ? byId.get(dg.leaderId) : null;
+    return leader ? `${leader.name.split(" ")[0]}'s D-group` : "D-group";
+  };
+
+  const build = (id: string, visited: Set<string>): TreeNodeData => {
+    visited.add(id);
+    const person = byId.get(id)!;
+    const clusters: TreeCluster[] = [];
+    const ledMemberIds = new Set<string>();
+    for (const dg of dgroupsByLeader.get(id) ?? []) {
+      const children = dg.memberIds
+        .filter((mid) => parentOf.get(mid) === id && !visited.has(mid) && byId.has(mid))
+        .map((mid) => build(mid, visited));
+      dg.memberIds.forEach((mid) => ledMemberIds.add(mid));
+      if (children.length) clusters.push({ dgroup: dg, label: dgTitle(dg), children });
+    }
+    const mentees = people.filter(
+      (m) =>
+        parentOf.get(m.id) === id && !ledMemberIds.has(m.id) && !visited.has(m.id),
+    );
+    if (mentees.length) {
+      clusters.push({
+        dgroup: null,
+        label: "Mentoring 1-on-1",
+        children: mentees.map((m) => build(m.id, visited)),
+      });
+    }
+    const count =
+      1 +
+      clusters.reduce((s, c) => s + c.children.reduce((ss, ch) => ss + ch.count, 0), 0);
+    return { person, clusters, count };
+  };
+
+  const hasChildren = (id: string) =>
+    (dgroupsByLeader.get(id)?.some((dg) => dg.memberIds.length > 0) ?? false) ||
+    people.some((m) => parentOf.get(m.id) === id);
+
+  const visited = new Set<string>();
+  const roots: TreeNodeData[] = [];
+  for (const p of people) {
+    if (!parentOf.has(p.id) && hasChildren(p.id) && !visited.has(p.id)) {
+      roots.push(build(p.id, visited));
+    }
+  }
+  const inTree = visited;
+  return { roots, inTree };
+}
+
 export default function DiscipleshipPage() {
-  const { ready, realMode, role, people, groups, roadmapSteps } = useData();
+  const { ready, realMode, role, people, groups, dgroups, roadmapSteps } = useData();
   const h = makeHelpers(people);
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd] = useState(false);
+  const [showDgroup, setShowDgroup] = useState(false);
   const [editPerson, setEditPerson] = useState<Person | null>(null);
   const [treeTab, setTreeTab] = useState<"M" | "F">("M");
 
@@ -114,12 +253,20 @@ export default function DiscipleshipPage() {
       return next;
     });
 
+  // The generation forest: D-groups as clusters, mentoring edges folded in.
+  const { roots: forestRoots, inTree } = buildForest(people, dgroups);
+  const menRoots = forestRoots.filter((n) => n.person.gender === "M");
+  const womenRoots = forestRoots.filter((n) => n.person.gender === "F");
+  // Anyone in a D-group (leader or member) counts as "in a relationship" even
+  // without a 1-1 edge — the forest's visited set is exactly that population.
+  const isInRel = (p: Person) => h.inRelationship(p) || inTree.has(p.id);
+
   // Kids are part of discipleship (4th grade and up); "not applicable" people
   // live behind their own filter so they don't clutter the shepherding list.
   const all = h.discipleshipPeople();
   const na = h.naPeople();
-  const inD = all.filter(h.inRelationship);
-  const notD = all.filter((p) => !h.inRelationship(p));
+  const inD = all.filter(isInRel);
+  const notD = all.filter((p) => !isInRel(p));
   const counts: Record<Filter, number> = {
     all: notD.length,
     wants: 0,
@@ -144,10 +291,6 @@ export default function DiscipleshipPage() {
         : filter === "na"
           ? na
           : notD.filter((p) => p.statuses.includes(filter));
-
-  const roots = h.treeRoots();
-  const menRoots = roots.filter((p) => p.gender === "M");
-  const womenRoots = roots.filter((p) => p.gender === "F");
 
   // Peer partnerships: unique unordered pairs across everyone's peers list.
   const peerPairs: [Person, Person][] = [];
@@ -216,13 +359,21 @@ export default function DiscipleshipPage() {
       {activeRoots.length === 0 ? (
         <p className="text-[12.5px] italic text-muted">
           {realMode
-            ? "No relationships recorded yet — use “Record a relationship” to start the tree."
+            ? "No relationships recorded yet — record a relationship or a D-group to start the tree."
             : "No relationships yet."}
         </p>
       ) : (
         <ul className="tree">
           {activeRoots.map((r) => (
-            <TreeNode key={r.id} person={r} h={h} groupName={groupName} collapsed={collapsed} toggle={toggle} />
+            <TreeNode
+              key={r.person.id}
+              node={r}
+              depth={0}
+              groupName={groupName}
+              collapsed={collapsed}
+              toggle={toggle}
+              onEdit={setEditPerson}
+            />
           ))}
         </ul>
       )}
@@ -235,15 +386,24 @@ export default function DiscipleshipPage() {
         <div className="max-w-[560px]">
           <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">Discipleship Tree</h1>
           <p className="text-[14.5px] text-muted max-md:hidden">
-            Every chain starts somewhere. Click any name to fold or unfold their branch.
+            D-groups show as clusters; each generation tints deeper. Click a name to edit,
+            or the arrow to fold a branch.
           </p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="ml-auto rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink"
-        >
-          ＋ Record a relationship
-        </button>
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={() => setShowDgroup(true)}
+            className="rounded-xl border-[1.5px] border-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-ink"
+          >
+            ＋ D-group
+          </button>
+          <button
+            onClick={() => setShowAdd(true)}
+            className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink"
+          >
+            ＋ Relationship
+          </button>
+        </div>
       </div>
 
       <div className="mb-5 flex flex-wrap gap-5 max-md:mb-4">
@@ -362,6 +522,11 @@ export default function DiscipleshipPage() {
       {showAdd && (
         <Modal title="Record a discipleship relationship" onClose={() => setShowAdd(false)}>
           <AddRelationshipForm onDone={() => setShowAdd(false)} />
+        </Modal>
+      )}
+      {showDgroup && (
+        <Modal title="New D-group" onClose={() => setShowDgroup(false)}>
+          <DGroupForm onDone={() => setShowDgroup(false)} />
         </Modal>
       )}
       {editPerson && (

@@ -84,7 +84,7 @@ export interface AddGroupInput {
 }
 
 export interface DGroupInput {
-  groupId: string;
+  groupId: string | null;
   gender: Gender;
   name?: string;
   leaderId: string | null;
@@ -1064,8 +1064,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   // Demo helper: after a D-group change, refresh the affected group card's
-  // "N men's · N women's" summary from the new entity list.
-  const syncDemoDgroupSummary = useCallback((next: DGroup[], groupId: string) => {
+  // "N men's · N women's" summary from the new entity list. Church-wide
+  // D-groups (null groupId) belong to no card, so there's nothing to sync.
+  const syncDemoDgroupSummary = useCallback((next: DGroup[], groupId: string | null) => {
+    if (!groupId) return;
     setGroups((prev) =>
       prev.map((g) =>
         g.id === groupId

@@ -116,11 +116,14 @@ export interface Person {
   access?: AppAccess;
 }
 
-/** A discipleship group: the 3-5 person, same-gender cluster inside a
- * lifegroup. 2 men's + 2 women's D-groups = the plant-ready pattern. */
+/** A discipleship group: the 3-5 person, same-gender cluster where
+ * multiplication happens. Usually inside a lifegroup (2 men's + 2 women's =
+ * the plant-ready pattern), but may be church-wide (groupId null) — led by
+ * anyone, spanning lifegroups. */
 export interface DGroup {
   id: string;
-  groupId: string;
+  /** The lifegroup it belongs to, or null for a free-standing church-wide group. */
+  groupId: string | null;
   gender: Gender;
   /** Optional label; display defaults to "<leader's first name>'s D-group". */
   name?: string;

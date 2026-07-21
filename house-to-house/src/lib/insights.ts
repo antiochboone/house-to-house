@@ -26,7 +26,7 @@ interface CheckinRow {
 }
 
 interface DgroupRow {
-  group_id: string;
+  group_id: string | null;
   gender: string;
 }
 

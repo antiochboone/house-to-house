@@ -1453,18 +1453,19 @@ export function GuestForm({
   );
 }
 
-/** Create / edit a D-group: the 3-5 person, same-gender cluster inside a
- * lifegroup. Leader + members come from the group's adult roster. */
+/** Create / edit a D-group: the 3-5 person, same-gender discipleship cluster.
+ * Pass a `group` to scope leader + members to that lifegroup's roster; omit it
+ * for a church-wide D-group whose people can come from anywhere. */
 export function DGroupForm({
   group,
   dgroup,
   onDone,
 }: {
-  group: Group;
+  group?: Group | null;
   dgroup?: DGroup | null;
   onDone: () => void;
 }) {
-  const { people, addDgroup, updateDgroup, deleteDgroup } = useData();
+  const { people, groups, addDgroup, updateDgroup, deleteDgroup } = useData();
   const [gender, setGender] = useState<Gender>(dgroup?.gender ?? "M");
   const [name, setName] = useState(dgroup?.name ?? "");
   const [leaderId, setLeaderId] = useState<string>(dgroup?.leaderId ?? "");
@@ -1473,9 +1474,19 @@ export function DGroupForm({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const roster = people.filter(
-    (p) => p.groupId === group.id && !p.isChild && p.gender === gender,
+  const churchWide = !group;
+  // Candidate pool: this lifegroup's same-gender adults, or (church-wide)
+  // every same-gender adult across the church.
+  const pool = people.filter(
+    (p) => !p.isChild && p.gender === gender && (group ? p.groupId === group.id : true),
   );
+  const groupName = (id: string | null) =>
+    id ? groups.find((g) => g.id === id)?.name : "no lifegroup";
+  const opt = (p: Person) => ({
+    id: p.id,
+    name: p.name,
+    sub: churchWide ? groupName(p.groupId) : undefined,
+  });
 
   // Switching gender drops picks that no longer fit.
   const pickGender = (g: Gender) => {
@@ -1484,8 +1495,11 @@ export function DGroupForm({
     setMemberIds((ids) => ids.filter((mid) => people.find((p) => p.id === mid)?.gender === g));
   };
 
-  const toggleMember = (id: string) =>
-    setMemberIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  const addMember = (id: string) => {
+    if (!id || id === leaderId) return;
+    setMemberIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  };
+  const removeMember = (id: string) => setMemberIds((ids) => ids.filter((x) => x !== id));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1495,7 +1509,7 @@ export function DGroupForm({
     }
     setBusy(true);
     const input = {
-      groupId: group.id,
+      groupId: group?.id ?? null,
       gender,
       name: name.trim() || undefined,
       leaderId,
@@ -1515,6 +1529,11 @@ export function DGroupForm({
     if (err) setError(err);
     else onDone();
   };
+
+  const chosenMembers = memberIds
+    .filter((id) => id !== leaderId)
+    .map((id) => people.find((p) => p.id === id))
+    .filter(Boolean) as Person[];
 
   return (
     <form onSubmit={submit}>
@@ -1541,36 +1560,33 @@ export function DGroupForm({
       <PersonSelect
         value={leaderId}
         onChange={setLeaderId}
-        options={roster.map((p) => ({ id: p.id, name: p.name }))}
-        placeholder="Type a name or pick from the roster"
-        emptyText="No one of this gender on the roster"
+        options={pool.map(opt)}
+        placeholder={churchWide ? "Type a name…" : "Type a name or pick from the roster"}
+        emptyText="No same-gender people to pick"
       />
       <label className={labelCls}>Who&apos;s in it?</label>
-      {roster.filter((p) => p.id !== leaderId).length === 0 ? (
-        <p className="text-[12.5px] italic text-muted">
-          No one else of this gender on the roster yet.
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {roster
-            .filter((p) => p.id !== leaderId)
-            .map((p) => {
-              const on = memberIds.includes(p.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => toggleMember(p.id)}
-                  className={`rounded-full border px-2.5 py-1 text-[12px] ${
-                    on
-                      ? "border-accent bg-accent-soft font-semibold text-accent-ink"
-                      : "border-line text-muted"
-                  }`}
-                >
-                  {p.name}
-                </button>
-              );
-            })}
+      <PersonSelect
+        value=""
+        onChange={addMember}
+        options={pool
+          .filter((p) => p.id !== leaderId && !memberIds.includes(p.id))
+          .map(opt)}
+        placeholder="Add a member…"
+        emptyText="No one left to add"
+      />
+      {chosenMembers.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {chosenMembers.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => removeMember(p.id)}
+              title={`Remove ${p.name}`}
+              className="rounded-full border border-accent bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent-ink"
+            >
+              {p.name} ✕
+            </button>
+          ))}
         </div>
       )}
       <label className={labelCls}>Name (optional)</label>
