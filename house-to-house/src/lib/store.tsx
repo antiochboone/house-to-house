@@ -16,6 +16,7 @@ import {
 import type {
   AppAccess,
   AppRole,
+  DGroup,
   DiscipleshipStatus,
   EngagementTier,
   Gender,
@@ -43,12 +44,14 @@ import {
   DEFAULT_ROLES,
   DEFAULT_TAG_CATEGORIES,
   DEFAULT_TIER_LABELS,
+  DGROUPS as SEED_DGROUPS,
   MILESTONES as DEFAULT_MILESTONES,
   GROUPS as SEED_GROUPS,
   GUESTS as SEED_GUESTS,
   LINEAGE as SEED_LINEAGE,
   PEOPLE as SEED_PEOPLE,
   WINS as SEED_WINS,
+  dgroupSummary,
   type Lane,
 } from "./data";
 import { LEADER_HOME, PULSE_WORDS as DEFAULT_PULSE_WORDS } from "./data";
@@ -75,6 +78,14 @@ export interface AddGroupInput {
   meetingTime?: string;
   meetingPlace?: string;
   tags?: string[];
+}
+
+export interface DGroupInput {
+  groupId: string;
+  gender: Gender;
+  name?: string;
+  leaderId: string | null;
+  memberIds: string[];
 }
 
 export interface GuestInput {
@@ -144,6 +155,11 @@ interface DataApi {
   /** Email a sign-in link to an invited user (they must already have access). */
   sendInvite: (email: string) => Promise<string | null>;
   endDiscipleship: (discipleId: string) => Promise<string | null>;
+  /** The church's D-groups (the 3-5 person clusters inside lifegroups). */
+  dgroups: DGroup[];
+  addDgroup: (input: DGroupInput) => Promise<string | null>;
+  updateDgroup: (id: string, input: DGroupInput) => Promise<string | null>;
+  deleteDgroup: (id: string) => Promise<string | null>;
   updateGroup: (id: string, input: AddGroupInput) => Promise<string | null>;
   deleteGroup: (id: string) => Promise<string | null>;
   setGroupOrigin: (
@@ -239,7 +255,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole>("staff");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [people, setPeople] = useState<Person[]>(realMode ? [] : SEED_PEOPLE);
-  const [groups, setGroups] = useState<Group[]>(realMode ? [] : SEED_GROUPS);
+  // Demo group cards derive their D-group summary from the seeded entities so
+  // both modes flow through the same source of truth.
+  const [groups, setGroups] = useState<Group[]>(
+    realMode
+      ? []
+      : SEED_GROUPS.map((g) => ({
+          ...g,
+          dgroups: dgroupSummary(SEED_DGROUPS.filter((d) => d.groupId === g.id)),
+        })),
+  );
+  const [dgroups, setDgroups] = useState<DGroup[]>(realMode ? [] : SEED_DGROUPS);
   const [wins, setWins] = useState<Win[]>(realMode ? [] : SEED_WINS);
   const [guests, setGuests] = useState<Guest[]>(realMode ? [] : SEED_GUESTS);
   const [lanes, setLanes] = useState<Lane[]>(realMode ? [] : SEED_LINEAGE);
@@ -282,6 +308,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       tagsQ,
       groupTagsQ,
       checkinsQ,
+      dgroupsQ,
+      dgroupMembersQ,
     ] = await Promise.all([
       supabase.from("profiles").select("role, person_id").eq("id", myUid).maybeSingle(),
       supabase.from("churches").select("settings").single(),
@@ -295,6 +323,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("tags").select("*"),
       supabase.from("group_tags").select("*"),
       supabase.from("checkins").select("*").order("month", { ascending: false }),
+      supabase.from("dgroups").select("*").order("created_at"),
+      supabase.from("dgroup_members").select("dgroup_id, person_id"),
     ]);
 
     setUserEmail(auth.user?.email ?? null);
@@ -422,11 +452,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
         { isChild: !!p.is_child, gender: p.gender as string | null },
       ]),
     );
+    // D-groups: entities are the source of truth for the card summary and the
+    // plant-ready insight (mentoring edges remain the fallback when none exist).
+    const dgroupMemberRows = dgroupMembersQ.data ?? [];
+    const loadedDgroups: DGroup[] = (dgroupsQ.data ?? []).map((d) => ({
+      id: d.id,
+      groupId: d.group_id,
+      gender: (d.gender ?? "M") as Gender,
+      name: d.name ?? undefined,
+      leaderId: d.leader_id ?? null,
+      memberIds: dgroupMemberRows
+        .filter((m) => m.dgroup_id === d.id)
+        .map((m) => m.person_id),
+    }));
+    setDgroups(loadedDgroups);
+
     const insightCtx = {
       people: peopleLite,
       allMemberships: allMems,
       relationships: rels,
       checkins: checkinRows,
+      dgroups: loadedDgroups.map((d) => ({ group_id: d.groupId, gender: d.gender as string })),
     };
 
     const allGroupRows = groupsQ.data ?? [];
@@ -450,7 +496,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             season: (row.season ?? "start") as Season,
             status: row.status,
             insights: computeInsights(row.id, row.season, insightCtx),
-            dgroups: "—",
+            dgroups: dgroupSummary(loadedDgroups.filter((d) => d.groupId === row.id)),
             lineage: null,
             readiness: row.readiness?.score,
             readinessData: row.readiness ?? null,
@@ -647,7 +693,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             season: input.season,
             status: "active",
             insights: [],
-            dgroups: "forming",
+            dgroups: "—",
             lineage: null,
             history: [],
             tags: input.tags ?? [],
@@ -907,6 +953,132 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return null;
     },
     [realMode, refresh],
+  );
+
+  // Demo helper: after a D-group change, refresh the affected group card's
+  // "N men's · N women's" summary from the new entity list.
+  const syncDemoDgroupSummary = useCallback((next: DGroup[], groupId: string) => {
+    setGroups((prev) =>
+      prev.map((g) =>
+        g.id === groupId
+          ? { ...g, dgroups: dgroupSummary(next.filter((d) => d.groupId === groupId)) }
+          : g,
+      ),
+    );
+  }, []);
+
+  const addDgroup = useCallback(
+    async (input: DGroupInput): Promise<string | null> => {
+      if (!realMode) {
+        const d: DGroup = {
+          id: `demo-dg-${Date.now()}`,
+          groupId: input.groupId,
+          gender: input.gender,
+          name: input.name?.trim() || undefined,
+          leaderId: input.leaderId,
+          memberIds: input.memberIds,
+        };
+        const next = [...dgroups, d];
+        setDgroups(next);
+        syncDemoDgroupSummary(next, input.groupId);
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+      const { data: row, error } = await supabase
+        .from("dgroups")
+        .insert({
+          church_id: church.id,
+          group_id: input.groupId,
+          gender: input.gender,
+          name: input.name?.trim() || null,
+          leader_id: input.leaderId,
+        })
+        .select("id")
+        .single();
+      if (error) return error.message;
+      if (input.memberIds.length > 0) {
+        const { error: memErr } = await supabase.from("dgroup_members").insert(
+          input.memberIds.map((pid) => ({
+            church_id: church.id,
+            dgroup_id: row.id,
+            person_id: pid,
+          })),
+        );
+        if (memErr) return memErr.message;
+      }
+      await refresh();
+      return null;
+    },
+    [realMode, refresh, dgroups, syncDemoDgroupSummary],
+  );
+
+  const updateDgroup = useCallback(
+    async (id: string, input: DGroupInput): Promise<string | null> => {
+      if (!realMode) {
+        const next = dgroups.map((d) =>
+          d.id === id
+            ? {
+                ...d,
+                gender: input.gender,
+                name: input.name?.trim() || undefined,
+                leaderId: input.leaderId,
+                memberIds: input.memberIds,
+              }
+            : d,
+        );
+        setDgroups(next);
+        syncDemoDgroupSummary(next, input.groupId);
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+      const { error } = await supabase
+        .from("dgroups")
+        .update({
+          gender: input.gender,
+          name: input.name?.trim() || null,
+          leader_id: input.leaderId,
+        })
+        .eq("id", id);
+      if (error) return error.message;
+      // Members: replace wholesale — lists are 3-5 people, diffing isn't worth it.
+      const { error: delErr } = await supabase.from("dgroup_members").delete().eq("dgroup_id", id);
+      if (delErr) return delErr.message;
+      if (input.memberIds.length > 0) {
+        const { error: memErr } = await supabase.from("dgroup_members").insert(
+          input.memberIds.map((pid) => ({
+            church_id: church.id,
+            dgroup_id: id,
+            person_id: pid,
+          })),
+        );
+        if (memErr) return memErr.message;
+      }
+      await refresh();
+      return null;
+    },
+    [realMode, refresh, dgroups, syncDemoDgroupSummary],
+  );
+
+  const deleteDgroup = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (!realMode) {
+        const gone = dgroups.find((d) => d.id === id);
+        const next = dgroups.filter((d) => d.id !== id);
+        setDgroups(next);
+        if (gone) syncDemoDgroupSummary(next, gone.groupId);
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.from("dgroups").delete().eq("id", id);
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh, dgroups, syncDemoDgroupSummary],
   );
 
   const updateGroup = useCallback(
@@ -1717,6 +1889,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setAccess,
       sendInvite,
       endDiscipleship,
+      dgroups,
+      addDgroup,
+      updateDgroup,
+      deleteDgroup,
       updateGroup,
       deleteGroup,
       setGroupOrigin,
@@ -1750,7 +1926,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reportEmails,
       saveReportEmails,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

@@ -25,11 +25,19 @@ interface CheckinRow {
   pulse_words: string[] | null;
 }
 
+interface DgroupRow {
+  group_id: string;
+  gender: string;
+}
+
 export interface InsightContext {
   people: Map<string, PersonLite>;
   allMemberships: MembershipRow[];
   relationships: RelationshipRow[];
   checkins: CheckinRow[];
+  /** Real D-group entities; when a group has any, they drive the plant-ready
+   * line instead of the mentoring-edge approximation. */
+  dgroups?: DgroupRow[];
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -106,15 +114,28 @@ export function computeInsights(
     }
     lines.push(`${inRel.size} of ${adults.length} adults in a discipleship relationship`);
 
-    // Plant-ready pattern: 2+ men's and 2+ women's discipleship clusters
-    const disciplersByGender = { M: new Set<string>(), F: new Set<string>() };
-    for (const r of ctx.relationships) {
-      if (!ids.has(r.disciple_id)) continue;
-      const g = ctx.people.get(r.discipler_id)?.gender;
-      if (g === "M" || g === "F") disciplersByGender[g].add(r.discipler_id);
-    }
-    if (disciplersByGender.M.size >= 2 && disciplersByGender.F.size >= 2) {
-      lines.push("2+ men's and 2+ women's discipleship clusters — the plant-ready pattern");
+    // Plant-ready pattern: 2+ men's and 2+ women's D-groups. Real D-group
+    // entities are the truth when they exist; groups that haven't recorded
+    // any yet fall back to approximating clusters from mentoring edges.
+    const gDgroups = (ctx.dgroups ?? []).filter((d) => d.group_id === groupId);
+    if (gDgroups.length > 0) {
+      const men = gDgroups.filter((d) => d.gender === "M").length;
+      const women = gDgroups.filter((d) => d.gender === "F").length;
+      if (men >= 2 && women >= 2) {
+        lines.push(
+          `${men} men's + ${women} women's D-groups — the plant-ready pattern`,
+        );
+      }
+    } else {
+      const disciplersByGender = { M: new Set<string>(), F: new Set<string>() };
+      for (const r of ctx.relationships) {
+        if (!ids.has(r.disciple_id)) continue;
+        const g = ctx.people.get(r.discipler_id)?.gender;
+        if (g === "M" || g === "F") disciplersByGender[g].add(r.discipler_id);
+      }
+      if (disciplersByGender.M.size >= 2 && disciplersByGender.F.size >= 2) {
+        lines.push("2+ men's and 2+ women's discipleship clusters — the plant-ready pattern");
+      }
     }
   }
 

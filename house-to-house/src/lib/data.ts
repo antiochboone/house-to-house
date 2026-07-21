@@ -2,6 +2,7 @@
 // contract the Supabase adapter will implement in Milestone 2.
 
 import type {
+  DGroup,
   DiscipleshipStatus,
   EngagementTier,
   Gender,
@@ -294,6 +295,54 @@ export const PEOPLE: Person[] = ROWS.map(
     };
   },
 );
+
+/* ---------------- D-groups (the 3-5 person discipleship clusters) ---------------- */
+// Demo seed mirrors each group's mentoring edges; entity counts are the source
+// of truth for the "N men's · N women's" summary on cards and in the drawer.
+
+const dg = (
+  id: string,
+  groupId: string,
+  gender: Gender,
+  leader: string,
+  members: string[],
+): DGroup => ({
+  id,
+  groupId,
+  gender,
+  leaderId: slug(leader),
+  memberIds: members.map(slug),
+});
+
+export const DGROUPS: DGroup[] = [
+  dg("dg-king-m", "king", "M", "Sam Caldwell", ["Micah Dunn", "Drew Hollis", "Ben Sizemore"]),
+  dg("dg-king-f", "king", "F", "Ruthie Caldwell", ["Jess Whitaker", "Lena Ford", "Anna Kerr"]),
+  dg("dg-howard-m", "howard", "M", "Marcus Toliver", ["Andre Fields", "Paul Yancey"]),
+  dg("dg-howard-f", "howard", "F", "Deb Toliver", ["Kim Ostrander", "Rita Chen"]),
+  dg("dg-hardin-m1", "hardin", "M", "Josh Reyes", ["Nate Bigham", "Owen Priddy", "Grant Ellison"]),
+  dg("dg-hardin-m2", "hardin", "M", "Nate Bigham", ["Wes Calloway", "Rob Tatum"]),
+  dg("dg-hardin-f1", "hardin", "F", "Carly Reyes", ["Hope Sturgill", "Faith Neely"]),
+  dg("dg-hardin-f2", "hardin", "F", "Hope Sturgill", ["Amara Diaz", "Dana Corbin"]),
+  dg("dg-perkins-m", "perkins", "M", "Cole Brandt", ["Ray Mercer", "Gil Hodge"]),
+  dg("dg-perkins-f", "perkins", "F", "Dana Whitfield", ["Tina Falk", "Liz Penley"]),
+  dg("dg-appstate-m1", "appstate", "M", "Tyler Nguyen", ["Beau Hastings", "Remy Sachs"]),
+  dg("dg-appstate-m2", "appstate", "M", "Beau Hastings", ["Jon Park", "Chris Dole", "Max Torres"]),
+  dg("dg-appstate-f1", "appstate", "F", "Maddie Ross", ["Kaylee Strand", "Ava Lund"]),
+  dg("dg-appstate-f2", "appstate", "F", "Ava Lund", ["Zoe Whitmer", "Nia Coleman"]),
+  dg("dg-valle-m", "valle", "M", "Hank Plummer", ["Walt Freeny", "Roy Peck"]),
+  dg("dg-valle-f", "valle", "F", "Georgia Plummer", ["Sue Freeny", "Nell Harmon"]),
+];
+
+/** "2 men's · 2 women's" — the summary string shown on cards; "—" when none. */
+export function dgroupSummary(list: DGroup[]): string {
+  const m = list.filter((d) => d.gender === "M").length;
+  const f = list.filter((d) => d.gender === "F").length;
+  if (m === 0 && f === 0) return "—";
+  const parts: string[] = [];
+  if (m > 0) parts.push(`${m} men's`);
+  if (f > 0) parts.push(`${f} women's`);
+  return parts.join(" · ");
+}
 
 /* ---------------- Guests (follow-up pipeline) ---------------- */
 

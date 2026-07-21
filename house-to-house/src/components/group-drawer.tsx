@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Group, Person } from "@/lib/types";
+import type { DGroup, Group, Person } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Insight, SeasonChip } from "./ui";
-import { EditGroupForm, EditPersonForm, GroupEventForm, Modal, ReadinessForm } from "./forms";
+import { DGroupForm, EditGroupForm, EditPersonForm, GroupEventForm, Modal, ReadinessForm } from "./forms";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
 function statusChip(p: Person) {
@@ -46,7 +46,7 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people, groups, role, checkinLog, sections, groupSections, roleLabel, isLeadershipRole, leadershipRoleIds } =
+  const { people, groups, dgroups, role, checkinLog, sections, groupSections, roleLabel, isLeadershipRole, leadershipRoleIds } =
     useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const roleName = (r: Person["role"]) =>
@@ -58,6 +58,7 @@ export function GroupDrawer({
   const [editGroup, setEditGroup] = useState(false);
   const [recordEvent, setRecordEvent] = useState(false);
   const [assessing, setAssessing] = useState(false);
+  const [dgroupModal, setDgroupModal] = useState<DGroup | "new" | null>(null);
   const staff = role === "staff";
 
   useEffect(() => {
@@ -333,19 +334,81 @@ export function GroupDrawer({
               </section>
             )}
 
-            {showDetail && group.dgroups !== "—" && (
-              <section className="mt-5">
-                <span className="label mb-2 block">Discipleship groups</span>
-                <div className="text-sm">
-                  {group.dgroups}{" "}
-                  {group.dgroups === "2 men's · 2 women's" && (
-                    <Chip tone="bg-sprout-soft text-sprout" className="ml-1.5 font-medium">
-                      plant-ready pattern
-                    </Chip>
-                  )}
-                </div>
-              </section>
-            )}
+            {showDetail &&
+              (() => {
+                const list = dgroups.filter((d) => d.groupId === group.id);
+                const men = list.filter((d) => d.gender === "M").length;
+                const women = list.filter((d) => d.gender === "F").length;
+                const personName = (id: string | null) =>
+                  id ? (people.find((p) => p.id === id)?.name ?? null) : null;
+                const title = (d: DGroup) => {
+                  if (d.name) return d.name;
+                  const leader = personName(d.leaderId);
+                  return leader ? `${leader.split(" ")[0]}'s D-group` : "D-group";
+                };
+                return (
+                  <section className="mt-5">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="label">
+                        Discipleship groups
+                        {men >= 2 && women >= 2 && (
+                          <Chip tone="bg-sprout-soft text-sprout" className="ml-2 font-medium">
+                            plant-ready pattern
+                          </Chip>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => setDgroupModal("new")}
+                        className="text-[12px] font-semibold text-accent-ink hover:underline"
+                      >
+                        ＋ add D-group
+                      </button>
+                    </div>
+                    {list.length === 0 ? (
+                      <p className="text-[12.5px] italic text-muted">
+                        None yet — D-groups are the 3-5 person clusters where multiplication
+                        starts. 2 men&apos;s + 2 women&apos;s is the plant-ready pattern.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {list.map((d) => {
+                          const memberNames = d.memberIds
+                            .map((id) => personName(id))
+                            .filter(Boolean)
+                            .map((n) => n!.split(" ")[0]);
+                          return (
+                            <button
+                              key={d.id}
+                              onClick={() => setDgroupModal(d)}
+                              title={`Edit ${title(d)}`}
+                              className="flex items-start gap-2.5 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-left hover:border-accent"
+                            >
+                              <span
+                                className={`mt-1 inline-block h-3 w-3 shrink-0 rounded-full ${
+                                  d.gender === "M"
+                                    ? "bg-men-soft ring-1 ring-men/40"
+                                    : "bg-women-soft ring-1 ring-women/40"
+                                }`}
+                              />
+                              <span className="min-w-0">
+                                <span className="block text-sm font-medium">{title(d)}</span>
+                                <span className="block text-[12px] text-muted">
+                                  {memberNames.length > 0
+                                    ? memberNames.join(", ")
+                                    : "no members recorded yet"}
+                                </span>
+                              </span>
+                              <span className="ml-auto shrink-0 text-[11.5px] text-faint">
+                                {1 + d.memberIds.length}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                );
+              })()}
 
             {showDetail && (group.history.length > 0 || staff) && (
               <section className="mt-5">
@@ -407,6 +470,18 @@ export function GroupDrawer({
       {assessing && group && (
         <Modal title={`Planting readiness — ${group.name}`} onClose={() => setAssessing(false)}>
           <ReadinessForm group={group} onDone={() => setAssessing(false)} />
+        </Modal>
+      )}
+      {dgroupModal && group && (
+        <Modal
+          title={dgroupModal === "new" ? "New D-group" : "Edit D-group"}
+          onClose={() => setDgroupModal(null)}
+        >
+          <DGroupForm
+            group={group}
+            dgroup={dgroupModal === "new" ? null : dgroupModal}
+            onDone={() => setDgroupModal(null)}
+          />
         </Modal>
       )}
     </>

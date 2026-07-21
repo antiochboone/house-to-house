@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   AppAccess,
+  DGroup,
   DiscipleshipStatus,
   Gender,
   Group,
@@ -1350,6 +1351,162 @@ export function GuestForm({
       <label className={labelCls}>Notes</label>
       <input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} placeholder="Next step, who's connecting with them…" />
       <SubmitRow busy={busy} error={error} label={guest ? "Save changes" : "Add guest"} />
+    </form>
+  );
+}
+
+/** Create / edit a D-group: the 3-5 person, same-gender cluster inside a
+ * lifegroup. Leader + members come from the group's adult roster. */
+export function DGroupForm({
+  group,
+  dgroup,
+  onDone,
+}: {
+  group: Group;
+  dgroup?: DGroup | null;
+  onDone: () => void;
+}) {
+  const { people, addDgroup, updateDgroup, deleteDgroup } = useData();
+  const [gender, setGender] = useState<Gender>(dgroup?.gender ?? "M");
+  const [name, setName] = useState(dgroup?.name ?? "");
+  const [leaderId, setLeaderId] = useState<string>(dgroup?.leaderId ?? "");
+  const [memberIds, setMemberIds] = useState<string[]>(dgroup?.memberIds ?? []);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const roster = people.filter(
+    (p) => p.groupId === group.id && !p.isChild && p.gender === gender,
+  );
+
+  // Switching gender drops picks that no longer fit.
+  const pickGender = (g: Gender) => {
+    setGender(g);
+    setLeaderId((id) => (people.find((p) => p.id === id)?.gender === g ? id : ""));
+    setMemberIds((ids) => ids.filter((mid) => people.find((p) => p.id === mid)?.gender === g));
+  };
+
+  const toggleMember = (id: string) =>
+    setMemberIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leaderId) {
+      setError("Pick who leads it.");
+      return;
+    }
+    setBusy(true);
+    const input = {
+      groupId: group.id,
+      gender,
+      name: name.trim() || undefined,
+      leaderId,
+      memberIds: memberIds.filter((id) => id !== leaderId),
+    };
+    const err = dgroup ? await updateDgroup(dgroup.id, input) : await addDgroup(input);
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  const remove = async () => {
+    if (!dgroup) return;
+    setBusy(true);
+    const err = await deleteDgroup(dgroup.id);
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <label className={labelCls}>Who&apos;s it for?</label>
+      <div className="flex gap-2">
+        {(["M", "F"] as const).map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => pickGender(g)}
+            className={`flex-1 rounded-xl border-[1.5px] py-2 text-[14px] font-medium ${
+              gender === g
+                ? g === "M"
+                  ? "border-men bg-men-soft text-men-ink"
+                  : "border-women bg-women-soft text-women-ink"
+                : "border-line text-muted"
+            }`}
+          >
+            {g === "M" ? "Men" : "Women"}
+          </button>
+        ))}
+      </div>
+      <label className={labelCls}>Led by</label>
+      <PersonSelect
+        value={leaderId}
+        onChange={setLeaderId}
+        options={roster.map((p) => ({ id: p.id, name: p.name }))}
+        placeholder="Type a name or pick from the roster"
+        emptyText="No one of this gender on the roster"
+      />
+      <label className={labelCls}>Who&apos;s in it?</label>
+      {roster.filter((p) => p.id !== leaderId).length === 0 ? (
+        <p className="text-[12.5px] italic text-muted">
+          No one else of this gender on the roster yet.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {roster
+            .filter((p) => p.id !== leaderId)
+            .map((p) => {
+              const on = memberIds.includes(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => toggleMember(p.id)}
+                  className={`rounded-full border px-2.5 py-1 text-[12px] ${
+                    on
+                      ? "border-accent bg-accent-soft font-semibold text-accent-ink"
+                      : "border-line text-muted"
+                  }`}
+                >
+                  {p.name}
+                </button>
+              );
+            })}
+        </div>
+      )}
+      <label className={labelCls}>Name (optional)</label>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Defaults to the leader's name"
+        className={inputCls}
+      />
+      <SubmitRow busy={busy} error={error} label={dgroup ? "Save changes" : "Add D-group"} />
+      {dgroup && (
+        <div className="mt-3 text-center">
+          {confirmDelete ? (
+            <span className="text-[12.5px] text-muted">
+              Really remove this D-group?{" "}
+              <button type="button" onClick={remove} className="font-semibold text-ember hover:underline">
+                yes, remove
+              </button>{" "}
+              ·{" "}
+              <button type="button" onClick={() => setConfirmDelete(false)} className="hover:underline">
+                keep it
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="text-[12.5px] text-faint hover:text-ember hover:underline"
+            >
+              remove this D-group
+            </button>
+          )}
+        </div>
+      )}
     </form>
   );
 }
