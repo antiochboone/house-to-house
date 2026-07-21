@@ -292,13 +292,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     setUserEmail(auth.user?.email ?? null);
     setMePersonId(profileQ.data?.person_id ?? null);
-    // What the app lets you SEE follows the access grant staff set on your
-    // person record (None / Leader / Staff) — never your lifegroup role and
-    // never a stale profiles.role mirror. app_access is the source of truth;
-    // profiles.role is only a fallback for the split second before people load.
+    // What the app lets you SEE follows the access grant (None / Leader /
+    // Staff) — never your lifegroup role. Two signals can carry it: the
+    // app_access grant on your person record (what staff set today) and the
+    // profiles.role stamped at sign-in. Either can lag the other — a fresh
+    // grant hasn't re-stamped the profile yet; an account created before
+    // app_access existed never got the column backfilled — so we honor Staff
+    // from EITHER. Neither your membership role nor a stale mirror can lock a
+    // real staff member out of the staff view.
     const myRow = peopleQ.data?.find((p) => p.id === profileQ.data?.person_id);
-    const access = (myRow?.app_access as AppAccess | undefined) ?? (profileQ.data?.role as AppAccess | undefined);
-    setRole(access === "staff" ? "staff" : "leader");
+    const grant = myRow?.app_access as AppAccess | undefined;
+    const stamped = profileQ.data?.role as AppAccess | undefined;
+    setRole(grant === "staff" || stamped === "staff" ? "staff" : "leader");
 
     const savedCategories = churchQ.data?.settings?.tagCategories as TagCategory[] | undefined;
     setTagCategories(savedCategories?.length ? savedCategories : DEFAULT_TAG_CATEGORIES);
