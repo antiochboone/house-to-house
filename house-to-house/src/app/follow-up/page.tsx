@@ -25,23 +25,26 @@ function AttendingChip({ a }: { a: Guest["attending"] }) {
 }
 
 export default function FollowUpPage() {
-  const { ready, realMode, role, guests, groups, milestones, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest } =
+  const { ready, realMode, role, guests, groups, milestones, myGroupIds, setGuestMilestone, updateGuest, graduateGuest, archiveGuest, restoreGuest } =
     useData();
   const [tab, setTab] = useState<"active" | "archive">("active");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Guest | null>(null);
   const [graduating, setGraduating] = useState<Guest | null>(null);
   const [archiving, setArchiving] = useState<string | null>(null);
+  const [noteEdit, setNoteEdit] = useState<{ id: string; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (role !== "staff") {
+  const staffView = role === "staff";
+
+  if (!staffView && myGroupIds.length === 0) {
     return (
       <div className="mx-auto mt-20 max-w-md text-center">
-        <h1 className="font-display mb-2 text-2xl">Staff view</h1>
+        <h1 className="font-display mb-2 text-2xl">MVP board</h1>
         <p className="text-[14.5px] text-muted">
-          Guest follow-up is a staff workflow. If someone new lands in your group, they&apos;ll
-          show up on your roster automatically.
+          When your login is connected to a lifegroup you lead, the MVPs connected to
+          your group show up here — to pray for, track, and pursue.
         </p>
       </div>
     );
@@ -55,12 +58,32 @@ export default function FollowUpPage() {
     );
   }
 
+  const groupName = (id?: string | null) =>
+    id ? groups.find((x) => x.id === id)?.name : undefined;
+
   const active = guests.filter((g) => !g.archivedAt);
   const archived = guests
     .filter((g) => g.archivedAt)
     .sort((a, b) => (b.archivedAt ?? "").localeCompare(a.archivedAt ?? ""));
   const landed = archived.filter((g) => g.outcome === "landed").length;
-  const shown = tab === "active" ? active : archived;
+  // Leaders see their groups' MVPs; RLS enforces this server-side too — the
+  // client filter matters for demo mode and staff-turned-leader previews.
+  const mine = active.filter((g) => g.groupId && myGroupIds.includes(g.groupId));
+  const shown = staffView ? (tab === "active" ? active : archived) : mine;
+
+  // Full GuestInput from an existing guest (leaders only touch the note).
+  const toInput = (g: Guest, note: string) => ({
+    name: g.name,
+    gender: g.gender,
+    desc: g.desc,
+    firstSunday: /^\d{4}-\d{2}-\d{2}$/.test(g.firstSunday) ? g.firstSunday : "",
+    attending: g.attending,
+    connectCard: g.connectCard,
+    email: g.email === "—" ? "" : g.email,
+    phone: g.phone === "—" ? "" : g.phone,
+    note,
+    groupId: g.groupId ?? null,
+  });
 
   const act = async (id: string, fn: () => Promise<string | null>) => {
     setBusyId(id);
@@ -82,44 +105,63 @@ export default function FollowUpPage() {
     <>
       <div className="mb-5 flex flex-wrap items-end gap-4 max-md:mb-3.5 max-md:gap-2.5">
         <div className="max-w-[680px]">
-          <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">Guest follow-up</h1>
+          <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">
+            {staffView ? "Guest follow-up" : "MVP board"}
+          </h1>
           <p className="text-[14.5px] text-muted max-md:hidden">
-            From first Sunday to family. Tap a milestone to mark it done — &quot;In a
-            lifegroup&quot; graduates them onto a real roster.
+            {staffView ? (
+              <>
+                From first Sunday to family. Tap a milestone to mark it done — &quot;In a
+                lifegroup&quot; graduates them onto a real roster.
+              </>
+            ) : (
+              <>
+                New folks connected to your lifegroup — pray for them, track the journey,
+                tap milestones as they happen. Staff walks alongside you.
+              </>
+            )}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2.5 max-md:ml-0 max-md:w-full max-md:gap-2">
-          <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:flex-1">
-            {(
-              [
-                ["active", `In motion (${active.length})`],
-                ["archive", `Archive (${archived.length})`],
-              ] as const
-            ).map(([t, label]) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold max-md:flex-1 ${
-                  tab === t ? "bg-surface text-ink shadow-card" : "text-muted"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+        {staffView && (
+          <div className="ml-auto flex items-center gap-2.5 max-md:ml-0 max-md:w-full max-md:gap-2">
+            <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:flex-1">
+              {(
+                [
+                  ["active", `In motion (${active.length})`],
+                  ["archive", `Archive (${archived.length})`],
+                ] as const
+              ).map(([t, label]) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold max-md:flex-1 ${
+                    tab === t ? "bg-surface text-ink shadow-card" : "text-muted"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink"
+            >
+              ＋ Guest
+            </button>
           </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink"
-          >
-            ＋ Guest
-          </button>
-        </div>
+        )}
       </div>
 
       <div className="mb-5 flex flex-wrap gap-5 max-md:mb-4">
-        <Stat num={active.length} label="guests in motion" />
-        <Stat num={landed} label="landed in a lifegroup" />
-        <Stat num={archived.length - landed} label="archived other ways" />
+        {staffView ? (
+          <>
+            <Stat num={active.length} label="guests in motion" />
+            <Stat num={landed} label="landed in a lifegroup" />
+            <Stat num={archived.length - landed} label="archived other ways" />
+          </>
+        ) : (
+          <Stat num={mine.length} label="MVPs in your group's care" alert={mine.length > 0} />
+        )}
       </div>
 
       {error && (
@@ -131,14 +173,20 @@ export default function FollowUpPage() {
       {shown.length === 0 && (
         <div className="mx-auto mt-10 max-w-md rounded-[14px] border border-line bg-surface p-8 text-center shadow-card">
           <p className="font-display mb-2 text-lg">
-            {tab === "active" ? "No guests in the pipeline" : "Nothing archived yet"}
+            {!staffView
+              ? "No MVPs connected yet"
+              : tab === "active"
+                ? "No guests in the pipeline"
+                : "Nothing archived yet"}
           </p>
           <p className="text-[13.5px] text-muted">
-            {tab === "active"
-              ? realMode
-                ? "When someone visits on a Sunday, add them here and walk the road together."
-                : "Add a demo guest to try the flow."
-              : "Graduations and archived journeys will collect here."}
+            {!staffView
+              ? "When staff connects a new person to your lifegroup, they'll show up here to pray for and pursue."
+              : tab === "active"
+                ? realMode
+                  ? "When someone visits on a Sunday, add them here and walk the road together."
+                  : "Add a demo guest to try the flow."
+                : "Graduations and archived journeys will collect here."}
           </p>
         </div>
       )}
@@ -148,9 +196,11 @@ export default function FollowUpPage() {
           <div key={g.id} className={`rise rounded-[14px] border border-line bg-surface px-5 py-[18px] shadow-card ${busyId === g.id ? "opacity-60" : ""}`}>
             <div className="flex flex-wrap items-start gap-3">
               <button
-                onClick={() => setEditing(g)}
-                title={`Edit ${g.name}`}
-                className="flex min-w-0 items-center gap-3 text-left hover:opacity-70"
+                onClick={staffView ? () => setEditing(g) : undefined}
+                title={staffView ? `Edit ${g.name}` : undefined}
+                className={`flex min-w-0 items-center gap-3 text-left ${
+                  staffView ? "hover:opacity-70" : "cursor-default"
+                }`}
               >
                 <Avatar name={g.name} gender={g.gender} />
                 <div className="min-w-0">
@@ -163,6 +213,9 @@ export default function FollowUpPage() {
                   <Chip tone={OUTCOME_META[g.outcome].tone}>{OUTCOME_META[g.outcome].label}</Chip>
                 ) : (
                   <AttendingChip a={g.attending} />
+                )}
+                {groupName(g.groupId) && (
+                  <Chip tone="bg-accent-soft text-accent-ink">{groupName(g.groupId)}</Chip>
                 )}
                 {g.connectCard && <Chip>connect card ✓</Chip>}
                 {g.firstSunday !== "—" && <Chip>first Sunday: {g.firstSunday}</Chip>}
@@ -182,9 +235,19 @@ export default function FollowUpPage() {
                 return (
                   <button
                     key={m.key}
-                    disabled={!!g.archivedAt || busyId === g.id}
+                    disabled={
+                      !!g.archivedAt ||
+                      busyId === g.id ||
+                      (!staffView && m.key === "lifegroup")
+                    }
                     onClick={() => toggleMilestone(g, m.key, done)}
-                    title={done ? `Un-mark "${m.label}"` : `Mark "${m.label}" done`}
+                    title={
+                      !staffView && m.key === "lifegroup"
+                        ? "Staff graduates MVPs onto the roster"
+                        : done
+                          ? `Un-mark "${m.label}"`
+                          : `Mark "${m.label}" done`
+                    }
                     className="mile group flex w-[86px] shrink-0 flex-col items-center gap-1.5 disabled:cursor-default"
                   >
                     <span
@@ -210,10 +273,48 @@ export default function FollowUpPage() {
               })}
             </div>
 
-            {g.note && <div className="mt-2.5 text-[12.5px] italic text-muted md:ml-10">{g.note}</div>}
+            {noteEdit?.id === g.id ? (
+              <div className="mt-2.5 flex flex-col gap-2 md:ml-10">
+                <textarea
+                  autoFocus
+                  value={noteEdit.text}
+                  onChange={(e) => setNoteEdit({ id: g.id, text: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-xl border-[1.5px] border-line bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
+                  placeholder="How's the pursuit going? Prayer points, next step…"
+                />
+                <div className="flex gap-3 text-[12px]">
+                  <button
+                    onClick={() => {
+                      const text = noteEdit.text.trim();
+                      setNoteEdit(null);
+                      void act(g.id, () => updateGuest(g.id, toInput(g, text)));
+                    }}
+                    className="font-semibold text-accent-ink hover:underline"
+                  >
+                    save note
+                  </button>
+                  <button onClick={() => setNoteEdit(null)} className="text-faint hover:underline">
+                    cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2.5 flex flex-wrap items-baseline gap-2 md:ml-10">
+                {g.note && <span className="text-[12.5px] italic text-muted">{g.note}</span>}
+                {!staffView && !g.archivedAt && (
+                  <button
+                    onClick={() => setNoteEdit({ id: g.id, text: g.note })}
+                    className="text-[12px] text-accent-ink hover:underline"
+                  >
+                    {g.note ? "edit note" : "＋ add a note"}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="mt-3 flex flex-wrap items-center gap-2 md:ml-10">
-              {g.archivedAt ? (
+              {!staffView ? null : g.archivedAt ? (
                 <button
                   onClick={() => void act(g.id, () => restoreGuest(g.id))}
                   className="text-[12px] text-accent-ink hover:underline"

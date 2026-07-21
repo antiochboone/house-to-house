@@ -30,6 +30,7 @@ import type {
   Person,
   ReadinessData,
   RelationshipKind,
+  ReminderConfig,
   ReportEmailConfig,
   RoadmapStep,
   RoleDef,
@@ -103,6 +104,8 @@ export interface GuestInput {
   email: string;
   phone: string;
   note: string;
+  /** Lifegroup this MVP is connected to (leaders of it see + contribute). */
+  groupId?: string | null;
 }
 
 export interface CheckinSummary {
@@ -185,6 +188,8 @@ interface DataApi {
   updateDgroup: (id: string, input: DGroupInput) => Promise<string | null>;
   deleteDgroup: (id: string) => Promise<string | null>;
   updateGroup: (id: string, input: AddGroupInput) => Promise<string | null>;
+  /** Set a group's check-in reminder (leaders: own group; staff: any). */
+  saveReminder: (groupId: string, cfg: ReminderConfig) => Promise<string | null>;
   deleteGroup: (id: string) => Promise<string | null>;
   setGroupOrigin: (
     id: string,
@@ -548,6 +553,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
             readinessData: row.readiness ?? null,
             history,
             tags: tagsByGroup.get(row.id) ?? [],
+            reminder: {
+              frequency: (row.reminder?.frequency ?? "off") as ReminderConfig["frequency"],
+              recipients: (row.reminder?.recipients ?? []) as string[],
+              lastSent: row.reminder?.lastSent,
+            },
           } satisfies Group;
         }),
     );
@@ -573,6 +583,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         phone: g.phone ?? "—",
         steps: Object.fromEntries(road.map((m) => [m.key, !!g.milestones?.[m.key]])),
         note: g.notes ?? "",
+        groupId: g.group_id ?? null,
         outcome: g.outcome ?? null,
         archivedAt: g.archived_at ?? null,
         personId: g.person_id ?? null,
@@ -1203,6 +1214,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, refresh, dgroups, syncDemoDgroupSummary],
   );
 
+  // Leaders may set their own group's reminder (groups_update_leader policy);
+  // staff can set any group's.
+  const saveReminder = useCallback(
+    async (groupId: string, cfg: ReminderConfig): Promise<string | null> => {
+      const clean: ReminderConfig = {
+        frequency: cfg.frequency,
+        recipients: [...new Set(cfg.recipients.map((r) => r.trim()).filter(Boolean))],
+        lastSent: cfg.lastSent,
+      };
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupId ? { ...g, reminder: clean } : g)),
+      );
+      if (!realMode) return null;
+      const supabase = supabaseBrowser();
+      const { error } = await supabase
+        .from("groups")
+        .update({ reminder: clean })
+        .eq("id", groupId);
+      return error ? error.message : null;
+    },
+    [realMode],
+  );
+
   const updateGroup = useCallback(
     async (id: string, input: AddGroupInput): Promise<string | null> => {
       if (!realMode) {
@@ -1474,6 +1508,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     email: input.email || null,
     phone: input.phone || null,
     notes: input.note || null,
+    group_id: input.groupId ?? null,
   });
 
   const addGuest = useCallback(
@@ -1493,6 +1528,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             phone: input.phone || "—",
             steps: Object.fromEntries(milestones.map((m) => [m.key, false])),
             note: input.note,
+            groupId: input.groupId ?? null,
             outcome: null,
             archivedAt: null,
           },
@@ -1529,6 +1565,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   email: input.email || "—",
                   phone: input.phone || "—",
                   note: input.note,
+                  groupId: input.groupId ?? null,
                 }
               : g,
           ),
@@ -2037,6 +2074,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateDgroup,
       deleteDgroup,
       updateGroup,
+      saveReminder,
       deleteGroup,
       setGroupOrigin,
       addTagOption,
@@ -2069,7 +2107,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reportEmails,
       saveReportEmails,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
+    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

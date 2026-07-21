@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { DGroup, Group, Person } from "@/lib/types";
+import type { DGroup, Group, Person, ReminderConfig } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/data";
+import { isEmail } from "@/lib/report-email";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Insight, SeasonChip } from "./ui";
 import { DGroupForm, EditGroupForm, EditPersonForm, GroupEventForm, Modal, ReadinessForm } from "./forms";
@@ -46,7 +47,7 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people, groups, dgroups, role, checkinLog, sections, groupSections, roleLabel, isLeadershipRole, leadershipRoleIds } =
+  const { people, groups, dgroups, role, checkinLog, sections, groupSections, roleLabel, isLeadershipRole, leadershipRoleIds, myGroupIds, saveReminder } =
     useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const roleName = (r: Person["role"]) =>
@@ -59,6 +60,7 @@ export function GroupDrawer({
   const [recordEvent, setRecordEvent] = useState(false);
   const [assessing, setAssessing] = useState(false);
   const [dgroupModal, setDgroupModal] = useState<DGroup | "new" | null>(null);
+  const [remEmail, setRemEmail] = useState("");
   const staff = role === "staff";
 
   useEffect(() => {
@@ -231,6 +233,95 @@ export function GroupDrawer({
                         </div>
                       ))}
                     </div>
+                  </section>
+                );
+              })()}
+
+            {showDetail &&
+              (() => {
+                const cfg: ReminderConfig = group.reminder ?? { frequency: "off", recipients: [] };
+                const canEdit = staff || myGroupIds.includes(group.id);
+                const save = (patch: Partial<ReminderConfig>) =>
+                  void saveReminder(group.id, { ...cfg, ...patch });
+                const meetDay = group.meet.split(" · ")[0];
+                return (
+                  <section className="mt-5">
+                    <span className="label mb-2 block">Check-in reminder</span>
+                    <div className="flex gap-1.5">
+                      {(
+                        [
+                          ["off", "Off"],
+                          ["weekly", "Weekly"],
+                          ["monthly", "Monthly"],
+                        ] as const
+                      ).map(([f, label]) => (
+                        <button
+                          key={f}
+                          disabled={!canEdit}
+                          onClick={() => save({ frequency: f })}
+                          className={`flex-1 rounded-xl border-[1.5px] py-1.5 text-[12.5px] font-medium disabled:opacity-60 ${
+                            cfg.frequency === f
+                              ? "border-accent bg-accent-soft text-accent-ink"
+                              : "border-line text-muted"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {cfg.frequency !== "off" && (
+                      <>
+                        <p className="mt-1.5 px-1 text-[11.5px] text-faint">
+                          A &quot;how was lifegroup?&quot; email lands a couple hours after the
+                          meeting ({meetDay}).{" "}
+                          {cfg.recipients.length === 0 &&
+                            "No recipients listed — it goes to the group's leaders' emails."}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {cfg.recipients.map((r) => (
+                            <button
+                              key={r}
+                              disabled={!canEdit}
+                              onClick={() =>
+                                save({ recipients: cfg.recipients.filter((x) => x !== r) })
+                              }
+                              title={canEdit ? `Remove ${r}` : undefined}
+                              className="rounded-full border border-accent bg-accent-soft px-2.5 py-1 text-[11.5px] font-medium text-accent-ink"
+                            >
+                              {r}
+                              {canEdit && " ✕"}
+                            </button>
+                          ))}
+                        </div>
+                        {canEdit && (
+                          <form
+                            className="mt-2 flex gap-1.5"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const addr = remEmail.trim();
+                              if (!isEmail(addr)) return;
+                              save({ recipients: [...cfg.recipients, addr] });
+                              setRemEmail("");
+                            }}
+                          >
+                            <input
+                              type="email"
+                              value={remEmail}
+                              onChange={(e) => setRemEmail(e.target.value)}
+                              placeholder="add a recipient…"
+                              className="min-w-0 flex-1 rounded-xl border-[1.5px] border-line bg-surface px-3 py-1.5 text-[12.5px] outline-none focus:border-accent"
+                            />
+                            <button
+                              type="submit"
+                              disabled={!isEmail(remEmail)}
+                              className="rounded-xl border-[1.5px] border-accent px-3 py-1.5 text-[12.5px] font-semibold text-accent-ink disabled:opacity-50"
+                            >
+                              add
+                            </button>
+                          </form>
+                        )}
+                      </>
+                    )}
                   </section>
                 );
               })()}

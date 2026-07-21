@@ -434,7 +434,7 @@ export const MILESTONES: Milestone[] = [
 
 export const GUESTS: Guest[] = [
   {
-    id: "sofia-trent", name: "Sofia Trent", gender: "F",
+    id: "sofia-trent", name: "Sofia Trent", gender: "F", groupId: "king",
     desc: "Moved from Charlotte, works at the hospital",
     firstSunday: "Mar 1", attending: "yes", connectCard: true,
     email: "sofia@…", phone: "(828) …",
@@ -442,7 +442,7 @@ export const GUESTS: Guest[] = [
     note: "Landed in King Street in April — next step: a discipleship invitation (she's marked open).",
   },
   {
-    id: "troy-mercer", name: "Troy Mercer", gender: "M",
+    id: "troy-mercer", name: "Troy Mercer", gender: "M", groupId: "perkins",
     desc: "Ray's brother — came to Perkinsville group before ever visiting a Sunday",
     firstSunday: "Jun 25*", attending: "new", connectCard: false,
     email: "—", phone: "(828) …",
@@ -450,7 +450,7 @@ export const GUESTS: Guest[] = [
     note: "*First contact was a lifegroup night, not a Sunday. Ray is on it — pray and stay close.",
   },
   {
-    id: "kara-jessup", name: "Kara Jessup", gender: "F",
+    id: "kara-jessup", name: "Kara Jessup", gender: "F", groupId: "king",
     desc: "App State grad student, visited with a coworker",
     firstSunday: "Jun 28", attending: "yes", connectCard: true,
     email: "kara@…", phone: "(828) …",

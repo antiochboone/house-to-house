@@ -52,6 +52,17 @@ export interface Section {
   zoneId: string | null;
 }
 
+/** Per-group check-in reminder: emailed shortly after the group's meeting
+ * time. Leaders configure their own group's; staff can configure any.
+ * Stored on groups.reminder (jsonb). */
+export interface ReminderConfig {
+  frequency: "off" | "weekly" | "monthly";
+  /** Who gets the nudge; empty = fall back to the group's leaders' emails. */
+  recipients: string[];
+  /** Set by the cron route after each send (dedupe). */
+  lastSent?: string;
+}
+
 /** Who gets emailed when a check-in comes in. Recipients accumulate down the
  * tree: a group's report goes to its section's list, that section's zone list,
  * and the church-wide list. */
@@ -171,6 +182,8 @@ export interface Group {
   history: GroupEvent[];
   /** Tag labels (geography, season of life, custom). */
   tags: string[];
+  /** Check-in reminder config (frequency + recipients). */
+  reminder?: ReminderConfig;
 }
 
 export type GuestAttending = "yes" | "sporadic" | "new";
@@ -215,6 +228,9 @@ export interface Guest {
   phone: string;
   steps: Record<MilestoneKey, boolean>;
   note: string;
+  /** Lifegroup this MVP is connected to — that group's leaders see them on
+   * their MVP board and can contribute (milestones, note). */
+  groupId?: string | null;
   outcome?: GuestOutcome | null;
   archivedAt?: string | null;
   /** Set when the guest graduates into the people directory. */

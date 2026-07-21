@@ -1351,7 +1351,7 @@ export function GuestForm({
   guest?: import("@/lib/types").Guest;
   onDone: () => void;
 }) {
-  const { addGuest, updateGuest } = useData();
+  const { addGuest, updateGuest, groups } = useData();
   const [name, setName] = useState(guest?.name ?? "");
   const [gender, setGender] = useState<Gender>(guest?.gender ?? "M");
   const [desc, setDesc] = useState(guest?.desc ?? "");
@@ -1365,6 +1365,7 @@ export function GuestForm({
   const [email, setEmail] = useState(guest && guest.email !== "—" ? guest.email : "");
   const [phone, setPhone] = useState(guest && guest.phone !== "—" ? guest.phone : "");
   const [note, setNote] = useState(guest?.note ?? "");
+  const [groupId, setGroupId] = useState(guest?.groupId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1381,6 +1382,7 @@ export function GuestForm({
       email: email.trim(),
       phone: phone.trim(),
       note: note.trim(),
+      groupId: groupId || null,
     };
     const err = guest ? await updateGuest(guest.id, input) : await addGuest(input);
     setBusy(false);
@@ -1446,6 +1448,18 @@ export function GuestForm({
           <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
         </div>
       </div>
+      <label className={labelCls}>Connected to lifegroup</label>
+      <select value={groupId ?? ""} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
+        <option value="">Not connected yet</option>
+        {groups.map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.name}
+          </option>
+        ))}
+      </select>
+      <p className="mt-1 px-1 text-[11.5px] text-faint">
+        That group&apos;s leaders will see them on their MVP board and can help pursue them.
+      </p>
       <label className={labelCls}>Notes</label>
       <input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} placeholder="Next step, who's connecting with them…" />
       <SubmitRow busy={busy} error={error} label={guest ? "Save changes" : "Add guest"} />

@@ -150,7 +150,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       : [
           { href: "/map", label: "Lifegroup Map", icon: "map" },
           ...(myGroupIds.length > 0
-            ? [{ href: `/map?open=${myGroupIds[0]}`, label: "My Group", icon: "group" }]
+            ? [
+                { href: `/map?open=${myGroupIds[0]}`, label: "My Group", icon: "group" },
+                { href: "/follow-up", label: "MVPs", icon: "guest" },
+              ]
             : []),
           { href: "/check-in", label: "Check-in", icon: "checkin" },
         ];
