@@ -409,6 +409,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           note: row.notes ?? undefined,
           isChild: !!row.is_child,
           email: row.email ?? undefined,
+          phone: row.phone ?? undefined,
           access: (row.app_access ?? "none") as AppAccess,
         };
       }),
@@ -757,6 +758,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   gender: input.gender,
                   isChild: input.isChild,
                   email: input.email ?? p.email,
+                  phone: input.phone ?? p.phone,
                   groupId: input.groupId ?? null,
                   role: input.role ?? "member",
                   statuses: input.statuses ?? p.statuses,
@@ -783,7 +785,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       const groupChanged = (input.groupId ?? null) !== current.groupId;
       const roleChanged = (input.role ?? "member") !== current.role;
-      if (groupChanged || roleChanged) {
+      if (!groupChanged && roleChanged && input.groupId) {
+        // Same group, new role: change it on the live row. Ending + re-adding
+        // here would collide with the active-membership uniqueness and, worse,
+        // drop the person from the roster when the re-add failed.
+        const { error: roleErr } = await supabase
+          .from("memberships")
+          .update({ role: input.role ?? "member" })
+          .eq("person_id", id)
+          .eq("group_id", input.groupId)
+          .is("left_at", null);
+        if (roleErr) return roleErr.message;
+      } else if (groupChanged) {
         const { error: endErr } = await supabase
           .from("memberships")
           .update({ left_at: new Date().toISOString().slice(0, 10) })
@@ -833,17 +846,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return null;
       }
       const supabase = supabaseBrowser();
-      // The person record is the source of truth (the sign-in trigger reads it).
-      const { error } = await supabase.from("people").update({ app_access: level }).eq("id", id);
+      // One server-side call (set_app_access RPC) updates the person record
+      // AND connects any existing auth account for their email. Direct table
+      // writes couldn't do that: if someone had ever requested a login link
+      // before being granted, they had an auth user but no profile, the
+      // sign-in trigger (creation-only) never re-fired, and the grant
+      // stranded them in an empty app.
+      const { error } = await supabase.rpc("set_app_access", {
+        p_person_id: id,
+        p_level: level,
+      });
       if (error) return error.message;
-      // Sync anyone who has ALREADY signed in: revoke deletes their profile, a
-      // grant updates its role. If they've never signed in there's no profile
-      // yet — the trigger will create it correctly from app_access.
-      if (level === "none") {
-        await supabase.from("profiles").delete().eq("person_id", id);
-      } else {
-        await supabase.from("profiles").update({ role: level }).eq("person_id", id);
-      }
       await refresh();
       return null;
     },

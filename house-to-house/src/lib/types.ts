@@ -103,6 +103,8 @@ export interface Person {
   isChild?: boolean;
   /** Contact email — also what a granted login is matched against at sign-in. */
   email?: string;
+  /** Contact phone. */
+  phone?: string;
   /** App access level (staff-granted). "none" = signing in gets them nothing. */
   access?: AppAccess;
 }

@@ -515,6 +515,7 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
   const [role, setRole] = useState<MemberRole>(person.role === "staff" ? "member" : person.role);
   const [statuses, setStatuses] = useState<DiscipleshipStatus[]>(person.statuses);
   const [email, setEmail] = useState(person.email ?? "");
+  const [phone, setPhone] = useState(person.phone ?? "");
   const [access, setAccessLevel] = useState<AppAccess>(person.access ?? "none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -532,6 +533,7 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
       gender,
       isChild,
       email: email.trim(),
+      phone: phone.trim(),
       groupId: groupId || null,
       role,
       statuses,
@@ -655,6 +657,9 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
         </div>
       )}
       <StatusChips statuses={statuses} setStatuses={setStatuses} />
+
+      <label className={labelCls}>Phone</label>
+      <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
 
       {!isChild && (
         <div className="mt-4 rounded-xl border border-dashed border-line p-3">
