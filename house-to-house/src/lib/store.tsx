@@ -291,8 +291,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ]);
 
     setUserEmail(auth.user?.email ?? null);
-    setRole((profileQ.data?.role as AppRole) ?? "leader");
     setMePersonId(profileQ.data?.person_id ?? null);
+    // What the app lets you SEE follows the access grant staff set on your
+    // person record (None / Leader / Staff) — never your lifegroup role and
+    // never a stale profiles.role mirror. app_access is the source of truth;
+    // profiles.role is only a fallback for the split second before people load.
+    const myRow = peopleQ.data?.find((p) => p.id === profileQ.data?.person_id);
+    const access = (myRow?.app_access as AppAccess | undefined) ?? (profileQ.data?.role as AppAccess | undefined);
+    setRole(access === "staff" ? "staff" : "leader");
 
     const savedCategories = churchQ.data?.settings?.tagCategories as TagCategory[] | undefined;
     setTagCategories(savedCategories?.length ? savedCategories : DEFAULT_TAG_CATEGORIES);
