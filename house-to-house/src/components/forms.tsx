@@ -658,8 +658,25 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
       )}
       <StatusChips statuses={statuses} setStatuses={setStatuses} />
 
-      <label className={labelCls}>Phone</label>
-      <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setInvited(null);
+            }}
+            placeholder="name@email.com"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Phone</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+        </div>
+      </div>
 
       {!isChild && (
         <div className="mt-4 rounded-xl border border-dashed border-line p-3">
@@ -695,20 +712,9 @@ export function EditPersonForm({ person, onDone }: { person: Person; onDone: () 
           </p>
           {access !== "none" && (
             <>
-              <label className={labelCls}>Sign-in email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setInvited(null);
-                }}
-                placeholder="name@email.com"
-                className={inputCls}
-              />
               {!email.trim() ? (
-                <p className="mt-1 px-1 text-[11.5px] text-ember">
-                  An email is required — it&apos;s what they sign in with.
+                <p className="mt-1.5 px-1 text-[11.5px] text-ember">
+                  Add their email above — it&apos;s what they sign in with.
                 </p>
               ) : invited ? (
                 <p className="mt-2 rounded-lg bg-accent-soft px-2.5 py-1.5 text-[12px] text-accent-ink">
