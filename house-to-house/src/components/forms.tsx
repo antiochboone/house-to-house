@@ -1625,7 +1625,13 @@ export function DGroupForm({
   );
 }
 
-export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
+export function AddRelationshipForm({
+  onDone,
+}: {
+  /** Called on success with the pairing's gender + kind so the tree can jump
+   * to the right (gender) tab — the split is the usual "it didn't appear". */
+  onDone: (result?: { gender: Gender; kind: RelationshipKind }) => void;
+}) {
   const { people, groups, addRelationship } = useData();
   const [kind, setKind] = useState<RelationshipKind>("mentoring");
   const [disciplerId, setDisciplerId] = useState("");
@@ -1658,7 +1664,7 @@ export function AddRelationshipForm({ onDone }: { onDone: () => void }) {
     const err = await addRelationship(disciplerId, discipleId, kind);
     setBusy(false);
     if (err) setError(err);
-    else onDone();
+    else onDone(discipler ? { gender: discipler.gender, kind } : undefined);
   };
 
   return (

@@ -219,6 +219,7 @@ export default function DiscipleshipPage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd] = useState(false);
   const [showDgroup, setShowDgroup] = useState(false);
+  const [justAddedPeer, setJustAddedPeer] = useState(false);
   const [editPerson, setEditPerson] = useState<Person | null>(null);
   const [treeTab, setTreeTab] = useState<"M" | "F">("M");
 
@@ -412,6 +413,18 @@ export default function DiscipleshipPage() {
         <Stat num={notD.length} label="not yet in a relationship" alert={notD.length > 0} />
       </div>
 
+      {justAddedPeer && (
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-accent-soft px-4 py-2.5 text-[13px] text-accent-ink">
+          <span>
+            Peer partnership recorded — peers don&apos;t nest in the tree; find it under{" "}
+            <strong>Peer partnerships</strong> on the right.
+          </span>
+          <button onClick={() => setJustAddedPeer(false)} aria-label="Dismiss" className="ml-3 font-bold">
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-[1fr_300px] items-start gap-6 max-lg:grid-cols-1">
         {treePanel}
 
@@ -521,7 +534,15 @@ export default function DiscipleshipPage() {
 
       {showAdd && (
         <Modal title="Record a discipleship relationship" onClose={() => setShowAdd(false)}>
-          <AddRelationshipForm onDone={() => setShowAdd(false)} />
+          <AddRelationshipForm
+            onDone={(result) => {
+              setShowAdd(false);
+              // Jump to the right gender tab so a new mentoring branch is
+              // actually in view. Peers live in the side panel, not the tree.
+              if (result && result.kind === "mentoring") setTreeTab(result.gender);
+              if (result?.kind === "peer") setJustAddedPeer(true);
+            }}
+          />
         </Modal>
       )}
       {showDgroup && (
