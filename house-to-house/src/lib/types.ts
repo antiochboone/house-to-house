@@ -32,6 +32,7 @@ export type DiscipleshipStatus =
   | "none"
   | "discipled"
   | "making"
+  | "emerging"
   | "na";
 
 /** Engagement tiers for the chart view (labels per-church configurable in Settings). */
@@ -183,7 +184,17 @@ export interface Guest {
   personId?: string | null;
 }
 
+/** The kinds of win a group can celebrate at check-in. Matches the
+ * wins.category CHECK in the database. */
+export type WinCategory =
+  | "answered_prayer"
+  | "salvation"
+  | "baptism"
+  | "new_dship"
+  | "other";
+
 export interface Win {
   text: string;
   date: string;
+  category: WinCategory;
 }

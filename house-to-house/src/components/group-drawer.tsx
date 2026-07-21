@@ -16,13 +16,15 @@ function statusChip(p: Person) {
         <Chip
           key={s}
           tone={
-            s === "wants" || s === "making"
-              ? "bg-sprout-soft text-sprout"
-              : s === "invited" || s === "discipled"
-                ? "bg-gold-soft text-gold"
-                : s === "declined"
-                  ? "bg-dormant-soft text-dormant"
-                  : "bg-surface-2 text-muted"
+            s === "emerging"
+              ? "bg-accent-soft text-accent-ink"
+              : s === "wants" || s === "making"
+                ? "bg-sprout-soft text-sprout"
+                : s === "invited" || s === "discipled"
+                  ? "bg-gold-soft text-gold"
+                  : s === "declined"
+                    ? "bg-dormant-soft text-dormant"
+                    : "bg-surface-2 text-muted"
           }
           className="font-medium"
         >
@@ -78,6 +80,7 @@ export function GroupDrawer({
   const gKids = group ? h.groupKids(group.id) : [];
   const leadership = ppl.filter((p) => isLeadershipRole(p.role));
   const members = ppl.filter((p) => !isLeadershipRole(p.role));
+  const emergingLeaders = ppl.filter((p) => p.statuses.includes("emerging"));
 
   const row = (p: Person) => (
     <div
@@ -261,6 +264,13 @@ export function GroupDrawer({
                   >
                     Run the 15-point planting readiness assessment
                   </button>
+                )}
+                {emergingLeaders.length > 0 && (
+                  <p className="mt-2 text-[12.5px] text-muted">
+                    🌱 {emergingLeaders.length} emerging leader
+                    {emergingLeaders.length > 1 ? "s" : ""} being raised up —{" "}
+                    {emergingLeaders.map((p) => p.name.split(" ")[0]).join(", ")}
+                  </p>
                 )}
               </section>
             )}

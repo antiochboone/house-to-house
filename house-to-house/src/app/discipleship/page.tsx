@@ -120,6 +120,7 @@ export default function DiscipleshipPage() {
     declined: 0,
     discipled: 0,
     making: 0,
+    emerging: 0,
     na: na.length,
     none: 0,
   };
@@ -239,6 +240,7 @@ export default function DiscipleshipPage() {
               {filterBtn("invited", "invited")}
               {filterBtn("discipled", "already discipled")}
               {filterBtn("making", "disciple-making")}
+              {filterBtn("emerging", "emerging leaders")}
               {filterBtn("declined", "declined for now")}
               {filterBtn("none", "not yet invited")}
               {filterBtn("na", "not applicable")}

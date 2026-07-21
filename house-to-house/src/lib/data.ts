@@ -359,12 +359,24 @@ export const GUESTS: Guest[] = [
 ];
 
 export const WINS: Win[] = [
-  { text: "Kaylee (App State) was baptized in the Watauga River", date: "May 31" },
-  { text: "Hardin Creek scored 13/15 on planting readiness — plant night Aug 25", date: "Jun 8" },
-  { text: "Max joined Jon's D-group — a 4th generation from Tyler", date: "Jun 14" },
-  { text: "Answered prayer: Ray's brother visited Perkinsville for the first time", date: "Jun 25" },
-  { text: "Oak Grove's replant core hit 7 — every seat at the table full", date: "Jul 2" },
+  { text: "Kaylee (App State) was baptized in the Watauga River", date: "May 31", category: "baptism" },
+  { text: "Hardin Creek scored 13/15 on planting readiness — plant night Aug 25", date: "Jun 8", category: "other" },
+  { text: "Max joined Jon's D-group — a 4th generation from Tyler", date: "Jun 14", category: "new_dship" },
+  { text: "Answered prayer: Ray's brother visited Perkinsville for the first time", date: "Jun 25", category: "answered_prayer" },
+  { text: "Oak Grove's replant core hit 7 — every seat at the table full", date: "Jul 2", category: "other" },
 ];
+
+/** Display label + tone for each win category (small tag on the wins board). */
+export const WIN_CATEGORY_META: Record<
+  import("./types").WinCategory,
+  { label: string; tone: string }
+> = {
+  answered_prayer: { label: "answered prayer", tone: "bg-gold-soft text-gold" },
+  salvation: { label: "salvation", tone: "bg-sprout-soft text-sprout" },
+  baptism: { label: "baptism", tone: "bg-accent-soft text-accent-ink" },
+  new_dship: { label: "new discipleship", tone: "bg-men-soft text-men-ink" },
+  other: { label: "celebration", tone: "bg-surface-2 text-muted" },
+};
 
 /* ---------------- Lineage (the web of lifegroups over time) ---------------- */
 // Structured group history for the timeline visualization. In M5 this becomes the
@@ -493,6 +505,7 @@ export const STATUS_LABEL: Record<DiscipleshipStatus, string> = {
   none: "not yet invited",
   discipled: "already discipled",
   making: "disciple-making",
+  emerging: "emerging leader",
   na: "not applicable",
 };
 
@@ -504,6 +517,7 @@ export const SELECTABLE_STATUSES: DiscipleshipStatus[] = [
   "wants",
   "discipled",
   "making",
+  "emerging",
   "na",
 ];
 

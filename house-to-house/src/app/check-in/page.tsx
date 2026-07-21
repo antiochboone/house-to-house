@@ -130,7 +130,13 @@ export default function CheckInPage() {
   const finishAndSave = async () => {
     setSaving(true);
     setSaveError(null);
-    const winCategories = ["answered_prayer", "salvation", "new_dship"] as const;
+    const winCategories = [
+      "answered_prayer",
+      "salvation",
+      "baptism",
+      "new_dship",
+      "other",
+    ] as const;
     const input: CheckinInput = {
       groupId: group!.id,
       pulseWords: moods.map((i) => pulseWords[i]),
@@ -403,7 +409,13 @@ export default function CheckInPage() {
                 Wins go on the church-wide board.
               </p>
               <div className="flex flex-1 flex-col gap-2">
-                {["Answered prayer", "Someone met Jesus", "New discipleship relationship"].map(
+                {[
+                  "Answered prayer",
+                  "Someone met Jesus",
+                  "Baptism",
+                  "New discipleship relationship",
+                  "Something else",
+                ].map(
                   (w, i) => (
                     <Opt
                       key={w}
@@ -433,7 +445,11 @@ export default function CheckInPage() {
                         ? "Share it in one sentence…"
                         : win === 1
                           ? "Who? A first name is enough"
-                          : "Who's discipling whom?"
+                          : win === 2
+                            ? "Who was baptized?"
+                            : win === 3
+                              ? "Who's discipling whom?"
+                              : "Share it in one sentence…"
                     }
                     className={inputCls}
                   />

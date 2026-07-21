@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Group } from "@/lib/types";
-import { TIERS, firstName } from "@/lib/data";
+import { TIERS, WIN_CATEGORY_META, firstName } from "@/lib/data";
 import { useData, makeHelpers } from "@/lib/store";
 import { Avatar, Chip, Flame, Insight, SeasonChip, Stat } from "@/components/ui";
 import { GroupDrawer } from "@/components/group-drawer";
@@ -421,7 +421,14 @@ function CardsView({
               <Flame />
               <div>
                 {w.text}
-                <span className="mt-0.5 block text-[11px] text-faint">{w.date}</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${WIN_CATEGORY_META[w.category].tone}`}
+                  >
+                    {WIN_CATEGORY_META[w.category].label}
+                  </span>
+                  <span className="text-[11px] text-faint">{w.date}</span>
+                </div>
               </div>
             </div>
           ))

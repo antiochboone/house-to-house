@@ -34,6 +34,7 @@ import type {
   Section,
   TagCategory,
   Win,
+  WinCategory,
   Zone,
 } from "./types";
 import { DEFAULT_REPORT_EMAILS } from "./report-email";
@@ -109,7 +110,7 @@ export interface CheckinInput {
   groupId: string;
   pulseWords: string[];
   newPerson?: { firstName: string; lastName: string; gender: Gender };
-  win?: { category: "answered_prayer" | "salvation" | "new_dship"; note: string };
+  win?: { category: WinCategory; note: string };
   meeting?: { day: string; time: string; place: string };
 }
 
@@ -460,7 +461,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
 
     setWins(
-      (winsQ.data ?? []).map((w) => ({ text: w.body, date: w.happened_on })),
+      (winsQ.data ?? []).map((w) => ({
+        text: w.body,
+        date: w.happened_on,
+        category: (w.category ?? "other") as WinCategory,
+      })),
     );
 
     setGuests(
@@ -1046,7 +1051,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!realMode) {
         if (input.win) {
           setWins((prev) => [
-            { text: input.win!.note, date: new Date().toISOString().slice(0, 10) },
+            {
+              text: input.win!.note,
+              date: new Date().toISOString().slice(0, 10),
+              category: input.win!.category,
+            },
             ...prev,
           ]);
         }
