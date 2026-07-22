@@ -3,6 +3,7 @@ import "./globals.css";
 import { DataProvider } from "@/lib/store";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/lib/theme";
 import { Shell } from "@/components/shell";
+import { PwaInstall } from "@/components/pwa-install";
 
 export const metadata: Metadata = {
   title: "House to House · Antioch Boone",
@@ -30,6 +31,7 @@ export default function RootLayout({
         <ThemeProvider>
           <DataProvider>
             <Shell>{children}</Shell>
+            <PwaInstall />
           </DataProvider>
         </ThemeProvider>
       </body>
