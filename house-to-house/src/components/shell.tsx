@@ -294,11 +294,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Mobile bottom tab bar — always keep a little room below the buttons
-          on top of the device's safe-area inset (which is 0 on many phones,
-          especially installed PWAs), so they never hug the screen edge. */}
+      {/* Mobile bottom tab bar. env(safe-area-inset-bottom) only reports real
+          values under viewport-fit=cover (which we don't use), so it's ~0
+          here — in the browser a small pad is fine (Safari's own chrome adds
+          room), but the INSTALLED PWA has no chrome, so give standalone mode
+          real clearance above the home indicator. */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[calc(env(safe-area-inset-bottom)+12px)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-2 [@media(display-mode:standalone)]:pb-8 md:hidden"
         aria-label="Primary"
       >
         <div className="flex">
