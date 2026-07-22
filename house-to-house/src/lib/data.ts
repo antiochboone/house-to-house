@@ -320,7 +320,8 @@ const ROADMAP_SEED: Record<string, Record<string, string>> = {
 
 export const PEOPLE: Person[] = ROWS.map(
   ([name, gender, groupId, role, by, status, note, isChild]) => {
-    const space = name.indexOf(" ");
+    // Last space, not the first: "Ruth Ann Bly" is a Bly, not an Ann Bly.
+    const space = name.lastIndexOf(" ");
     const id = slug(name);
     return {
       id,

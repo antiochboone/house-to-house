@@ -99,6 +99,13 @@ export default function PeoplePage() {
     }
   });
 
+  // Sorting by last name reads like a phone book, so lead with the key you're
+  // actually scanning down.
+  const displayName = (p: Person) =>
+    sortBy === "lastName" && p.lastName && p.firstName
+      ? `${p.lastName}, ${p.firstName}`
+      : p.name;
+
   const filterBtn = (f: Filter, label: string) => (
     <button
       key={f}
@@ -202,7 +209,7 @@ export default function PeoplePage() {
               <Avatar name={p.name} gender={p.gender} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[14px]">
-                  <span className="truncate">{p.name}</span>
+                  <span className="truncate">{displayName(p)}</span>
                   {p.isChild && (
                     <span className="rounded-full bg-gold-soft px-1.5 py-px text-[10px] font-semibold text-gold">
                       child

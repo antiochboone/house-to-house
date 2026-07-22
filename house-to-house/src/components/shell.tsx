@@ -120,7 +120,7 @@ function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { role, demoRole, setDemoRole, realMode, userEmail, myGroupIds } = useData();
+  const { role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, groups } = useData();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -138,15 +138,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  // Your own lifegroup isn't a section of the app, it's a bookmark into the
+  // map - so it gets a shortcut that looks like one, not a nav tab.
+  const myGroup = myGroupIds.length > 0 ? groups.find((g) => g.id === myGroupIds[0]) : undefined;
+  const myGroupHref = myGroup ? `/map?open=${myGroup.id}` : "";
+
   const items =
     role === "staff"
       ? [
           { href: "/map", label: "Lifegroup Map", icon: "map" },
-          // Staff who ALSO lead a lifegroup get a shortcut to their own group,
-          // right alongside the church-wide tools.
-          ...(myGroupIds.length > 0
-            ? [{ href: `/map?open=${myGroupIds[0]}`, label: "My Group", icon: "group" }]
-            : []),
           { href: "/people", label: "People", icon: "people" },
           { href: "/discipleship", label: "Discipleship", icon: "disc" },
           { href: "/follow-up", label: "Follow-up", icon: "guest" },
@@ -155,12 +155,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         ]
       : [
           { href: "/map", label: "Lifegroup Map", icon: "map" },
-          ...(myGroupIds.length > 0
-            ? [
-                { href: `/map?open=${myGroupIds[0]}`, label: "My Group", icon: "group" },
-                { href: "/follow-up", label: "MVPs", icon: "guest" },
-              ]
-            : []),
+          ...(myGroupIds.length > 0 ? [{ href: "/follow-up", label: "MVPs", icon: "guest" }] : []),
           { href: "/check-in", label: "Check-in", icon: "checkin" },
         ];
 
@@ -195,6 +190,36 @@ export function Shell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        {/* Shortcut, not a destination: a card with the group's actual name so
+            it's obvious what it opens. */}
+        {myGroup && (
+          <Link
+            href={myGroupHref}
+            title={`Open ${myGroup.name}`}
+            className={`group mt-1 flex items-center gap-2.5 rounded-[10px] border border-line bg-surface-2 hover:border-accent max-md:hidden ${
+              collapsed ? "justify-center px-0 py-1.5" : "px-2 py-1.5"
+            }`}
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
+              {ICONS.group}
+            </span>
+            {!collapsed && (
+              <>
+                <span className="min-w-0 leading-tight">
+                  <span className="block text-[9.5px] uppercase tracking-wider text-faint">
+                    My group
+                  </span>
+                  <span className="block truncate text-[13px] font-semibold">{myGroup.name}</span>
+                </span>
+                <span className="ml-auto pr-1 text-[11px] text-faint group-hover:text-accent-ink">
+                  ↗
+                </span>
+              </>
+            )}
+          </Link>
+        )}
+
         <button
           onClick={toggleCollapsed}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -207,8 +232,23 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </button>
         <div className="flex-1 max-md:hidden" />
 
-        {/* Mobile: theme + settings sit at the right of the top bar. */}
-        <div className="hidden max-md:ml-auto max-md:flex max-md:items-center max-md:gap-0.5">
+        {/* Mobile: the group shortcut, theme + settings sit at the right of the
+            top bar - the bottom tabs stay reserved for actual sections. */}
+        <div className="hidden max-md:ml-auto max-md:flex max-md:items-center max-md:gap-1">
+          {myGroup && (
+            <Link
+              href={myGroupHref}
+              title={`Open ${myGroup.name}`}
+              className="flex min-w-0 items-center gap-1.5 rounded-full border border-line bg-surface-2 py-1 pl-1.5 pr-2.5 text-muted"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
+                <span className="scale-[0.7]">{ICONS.group}</span>
+              </span>
+              <span className="min-w-0 max-w-[92px] truncate text-[11.5px] font-semibold">
+                {myGroup.name}
+              </span>
+            </Link>
+          )}
           <ThemeToggle collapsed />
           {role === "staff" && (
             <Link
