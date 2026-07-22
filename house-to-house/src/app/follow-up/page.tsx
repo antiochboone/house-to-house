@@ -10,6 +10,18 @@ import type { Guest, GuestOutcome, MilestoneKey } from "@/lib/types";
 import { useData } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
 import { GuestForm, Modal } from "@/components/forms";
+import { DensityToggle, useDensity } from "@/components/density";
+
+type GuestFilter =
+  | "all"
+  | "attending"
+  | "sporadic"
+  | "new"
+  | "untouched"
+  | "started"
+  | "connect_card"
+  | "in_group";
+type GuestSort = "newest" | "oldest" | "name" | "most_progress" | "least_progress";
 
 const OUTCOME_META: Record<GuestOutcome, { label: string; tone: string }> = {
   landed: { label: "landed in a lifegroup", tone: "bg-sprout-soft text-sprout" },
@@ -40,6 +52,11 @@ export default function FollowUpPage() {
   const [noteEdit, setNoteEdit] = useState<{ id: string; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<GuestFilter>("all");
+  const [sort, setSort] = useState<GuestSort>("newest");
+  // The pipeline runs long, so it starts scannable.
+  const [density, setDensity] = useDensity("h2h-density-followup", "condensed");
 
   const staffView = role === "staff";
 
@@ -74,7 +91,50 @@ export default function FollowUpPage() {
   // Leaders see their groups' MVPs; RLS enforces this server-side too — the
   // client filter matters for demo mode and staff-turned-leader previews.
   const mine = active.filter((g) => g.groupId && myGroupIds.includes(g.groupId));
-  const shown = staffView ? (tab === "active" ? active : archived) : mine;
+  const base = staffView ? (tab === "active" ? active : archived) : mine;
+
+  // How far along the road they are, used for both filtering and sorting.
+  const stepsDone = (g: Guest) => milestones.filter((m) => g.steps[m.key]).length;
+  const matches = (g: Guest, f: GuestFilter) => {
+    switch (f) {
+      case "attending":
+        return g.attending === "yes";
+      case "sporadic":
+        return g.attending === "sporadic";
+      case "new":
+        return g.attending === "new";
+      case "untouched":
+        return stepsDone(g) === 0;
+      case "started":
+        return stepsDone(g) > 0;
+      case "connect_card":
+        return g.connectCard;
+      case "in_group":
+        return !!g.groupId;
+      default:
+        return true;
+    }
+  };
+  const q = query.trim().toLowerCase();
+  const searched = q
+    ? base.filter((g) => `${g.name} ${g.desc}`.toLowerCase().includes(q))
+    : base;
+  const shown = [...searched.filter((g) => matches(g, filter))].sort((a, b) => {
+    const da = a.firstSunday || "";
+    const db = b.firstSunday || "";
+    switch (sort) {
+      case "oldest":
+        return da.localeCompare(db);
+      case "name":
+        return a.name.localeCompare(b.name);
+      case "most_progress":
+        return stepsDone(b) - stepsDone(a) || a.name.localeCompare(b.name);
+      case "least_progress":
+        return stepsDone(a) - stepsDone(b) || a.name.localeCompare(b.name);
+      default:
+        return db.localeCompare(da);
+    }
+  });
 
   // Full GuestInput from an existing guest (leaders only touch the note).
   const toInput = (g: Guest, note: string) => ({
@@ -165,6 +225,56 @@ export default function FollowUpPage() {
         )}
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name…"
+          className="w-[220px] rounded-xl border-[1.5px] border-line bg-surface px-3 py-1.5 text-[13px] outline-none focus:border-accent max-md:w-full"
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ["all", "everyone"],
+              ["attending", "still attending"],
+              ["sporadic", "sporadic"],
+              ["new", "brand new"],
+              ["started", "in progress"],
+              ["untouched", "not started"],
+              ["connect_card", "connect card"],
+              ["in_group", "in a lifegroup"],
+            ] as const
+          ).map(([f, label]) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`rounded-full border px-2.5 py-1 text-xs ${
+                filter === f
+                  ? "border-accent bg-accent-soft font-semibold text-accent-ink"
+                  : "border-line text-muted"
+              }`}
+            >
+              {label} · {searched.filter((g) => matches(g, f)).length}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2.5 max-md:ml-0 max-md:w-full">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as GuestSort)}
+            aria-label="Sort guests"
+            className="rounded-xl border-[1.5px] border-line bg-surface px-3 py-1.5 text-[13px] outline-none focus:border-accent max-md:flex-1"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="most_progress">Most progress</option>
+            <option value="least_progress">Least progress</option>
+          </select>
+          <DensityToggle value={density} onChange={setDensity} />
+        </div>
+      </div>
+
       {error && (
         <p className="mb-4 rounded-lg bg-ember-soft px-3 py-2 text-[13px] text-ember">
           Couldn&apos;t save: {error}
@@ -192,8 +302,73 @@ export default function FollowUpPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3.5">
-        {shown.map((g) => (
+      <div className={`flex flex-col ${density === "condensed" ? "gap-1.5" : "gap-3.5"}`}>
+        {shown.map((g) =>
+          density === "condensed" ? (
+            <div
+              key={g.id}
+              className={`rise flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[12px] border border-line bg-surface px-3.5 py-2.5 shadow-card ${
+                busyId === g.id ? "opacity-60" : ""
+              }`}
+            >
+              <button
+                onClick={staffView ? () => setEditing(g) : undefined}
+                title={staffView ? `Edit ${g.name}` : undefined}
+                className={`flex min-w-0 items-center gap-2.5 text-left ${
+                  staffView ? "hover:opacity-70" : "cursor-default"
+                }`}
+              >
+                <Avatar name={g.name} gender={g.gender} size={26} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px] font-medium">{g.name}</span>
+                  <span className="block truncate text-[11.5px] text-faint">
+                    {g.firstSunday && g.firstSunday !== " - " ? g.firstSunday : "no first visit on file"}
+                  </span>
+                </span>
+              </button>
+
+              {/* Progress at a glance: one dot per milestone, still tappable. */}
+              <div className="flex items-center gap-1">
+                {milestones.map((m) => {
+                  const done = g.steps[m.key];
+                  return (
+                    <button
+                      key={m.key}
+                      disabled={!!g.archivedAt || busyId === g.id}
+                      onClick={() => toggleMilestone(g, m.key, done)}
+                      title={`${m.label}${done ? " ✓" : ""}`}
+                      className={`h-2.5 w-2.5 rounded-full disabled:cursor-default ${
+                        done ? "bg-accent" : "border-[1.5px] border-line"
+                      }`}
+                    />
+                  );
+                })}
+                <span className="ml-1 text-[11px] tabular-nums text-faint">
+                  {stepsDone(g)}/{milestones.length}
+                </span>
+              </div>
+
+              <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                {g.archivedAt && g.outcome ? (
+                  <Chip tone={OUTCOME_META[g.outcome].tone}>{OUTCOME_META[g.outcome].label}</Chip>
+                ) : (
+                  <AttendingChip a={g.attending} />
+                )}
+                {groupName(g.groupId) && (
+                  <Chip tone="bg-accent-soft text-accent-ink">{groupName(g.groupId)}</Chip>
+                )}
+                {staffView && !g.archivedAt && (
+                  <button
+                    onClick={() => setGraduating(g)}
+                    title="Graduate into the directory"
+                    className="rounded-full bg-accent px-2.5 py-1 text-[11.5px] font-semibold text-cta-ink"
+                  >
+                    🎓
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
           <div key={g.id} className={`rise rounded-[14px] border border-line bg-surface px-5 py-[18px] shadow-card ${busyId === g.id ? "opacity-60" : ""}`}>
             <div className="flex flex-wrap items-start gap-3">
               <button
@@ -349,7 +524,8 @@ export default function FollowUpPage() {
               )}
             </div>
           </div>
-        ))}
+          ),
+        )}
       </div>
 
       {showAdd && (

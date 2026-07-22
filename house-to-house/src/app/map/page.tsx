@@ -8,6 +8,7 @@ import { Avatar, Chip, Flame, Insight, SeasonChip, Stat } from "@/components/ui"
 import { GroupDrawer } from "@/components/group-drawer";
 import { LineageTimeline } from "@/components/lineage-timeline";
 import { AddGroupForm, AddPersonForm, Modal } from "@/components/forms";
+import { DensityToggle, useDensity, type Density } from "@/components/density";
 
 type MapMode = "cards" | "chart" | "timeline";
 type OpenModal = "group" | "person" | null;
@@ -16,6 +17,8 @@ export default function MapPage() {
   const { ready, realMode, role, people, groups, lanes, myGroupIds, leadershipRoleIds } = useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const [mode, setMode] = useState<MapMode>("cards");
+  // Lifegroups are few and worth seeing in full, so they default to expanded.
+  const [density, setDensity] = useDensity("h2h-density-map", "expanded");
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
   const [modal, setModal] = useState<OpenModal>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -92,6 +95,11 @@ export default function MapPage() {
                     {label}
                   </button>
                 ))}
+              </div>
+            )}
+            {!emptyChurch && mode === "cards" && (
+              <div className="max-md:order-3">
+                <DensityToggle value={density} onChange={setDensity} />
               </div>
             )}
             <div className="flex items-center gap-2.5 max-md:order-1 max-md:gap-2">
@@ -242,7 +250,12 @@ export default function MapPage() {
           ) : showChart ? (
             <EngagementChart visibleGroups={visibleGroups} />
           ) : (
-            <CardsView visibleGroups={visibleGroups} showKids={showKids} onOpen={setOpenGroup} />
+            <CardsView
+              visibleGroups={visibleGroups}
+              showKids={showKids}
+              onOpen={setOpenGroup}
+              density={density}
+            />
           )}
         </>
       )}
@@ -272,10 +285,12 @@ function CardsView({
   visibleGroups,
   showKids,
   onOpen,
+  density,
 }: {
   visibleGroups: Group[];
   showKids: boolean;
   onOpen: (g: Group) => void;
+  density: Density;
 }) {
   const { role, people, wins, realMode, myGroupIds, zones, sections, groupSections, leadershipRoleIds } =
     useData();
@@ -312,6 +327,31 @@ function CardsView({
     const ppl = h.groupPeople(g.id);
     const gKids = h.groupKids(g.id);
     const leaders = h.groupLeaders(g.id);
+
+    if (density === "condensed") {
+      return (
+        <button
+          key={g.id}
+          onClick={() => onOpen(g)}
+          aria-label={`Open ${g.name}`}
+          className="rise flex w-full flex-col gap-1 rounded-[12px] border border-line bg-surface px-3.5 py-2.5 text-left shadow-card transition-[border-color] duration-150 hover:border-accent"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-display truncate text-[15.5px] leading-tight">
+              {g.name}
+              {mine && <span className="label ml-1.5 tracking-wide">· yours</span>}
+            </h3>
+            <SeasonChip group={g} />
+          </div>
+          <div className="truncate text-[12px] text-muted">
+            {leaders.length > 0 ? `${leaders.map((l) => firstName(l.name)).join(" & ")} · ` : ""}
+            {ppl.length} people
+            {gKids.length > 0 ? ` · ${gKids.length} kids` : ""}
+          </div>
+        </button>
+      );
+    }
+
     return (
       <button
         key={g.id}
@@ -397,7 +437,13 @@ function CardsView({
                 </span>
               </div>
             )}
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-4">
+            <div
+              className={`grid gap-4 ${
+                density === "condensed"
+                  ? "grid-cols-[repeat(auto-fill,minmax(215px,1fr))] gap-2"
+                  : "grid-cols-[repeat(auto-fill,minmax(290px,1fr))]"
+              }`}
+            >
               {c.groups.map(card)}
             </div>
           </section>
