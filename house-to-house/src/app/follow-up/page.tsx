@@ -10,7 +10,6 @@ import type { Guest, GuestOutcome, MilestoneKey } from "@/lib/types";
 import { useData } from "@/lib/store";
 import { Avatar, Chip, Stat } from "@/components/ui";
 import { GuestForm, Modal } from "@/components/forms";
-import { DensityToggle, useDensity } from "@/components/density";
 
 type GuestFilter =
   | "all"
@@ -55,8 +54,17 @@ export default function FollowUpPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<GuestFilter>("all");
   const [sort, setSort] = useState<GuestSort>("newest");
-  // The pipeline runs long, so it starts scannable.
-  const [density, setDensity] = useDensity("h2h-density-followup", "condensed");
+  // The pipeline runs long, so blocks start condensed; expand all, or open
+  // individual ones with their arrow.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const isOpen = (id: string) => expanded.has(id);
+  const toggleOne = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const staffView = role === "staff";
 
@@ -160,6 +168,15 @@ export default function FollowUpPage() {
 
   const toggleMilestone = (g: Guest, key: MilestoneKey, done: boolean) => {
     void act(g.id, () => setGuestMilestone(g.id, key, !done));
+  };
+
+  // Clicking anywhere on a block opens the record (staff) or expands it
+  // (leaders, who don't edit guests). Clicks that land on a real control
+  // inside the block are left alone.
+  const onBlockClick = (g: Guest) => (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button, a, input, textarea, select")) return;
+    if (staffView) setEditing(g);
+    else toggleOne(g.id);
   };
 
   return (
@@ -271,7 +288,20 @@ export default function FollowUpPage() {
             <option value="most_progress">Most progress</option>
             <option value="least_progress">Least progress</option>
           </select>
-          <DensityToggle value={density} onChange={setDensity} />
+          <button
+            onClick={() =>
+              setExpanded(
+                shown.every((g) => isOpen(g.id))
+                  ? new Set()
+                  : new Set(shown.map((g) => g.id)),
+              )
+            }
+            className="whitespace-nowrap rounded-xl border-[1.5px] border-line px-3 py-1.5 text-[13px] font-semibold text-muted hover:border-accent hover:text-accent-ink"
+          >
+            {shown.length > 0 && shown.every((g) => isOpen(g.id))
+              ? "Condense all"
+              : "Expand all"}
+          </button>
         </div>
       </div>
 
@@ -302,22 +332,27 @@ export default function FollowUpPage() {
         </div>
       )}
 
-      <div className={`flex flex-col ${density === "condensed" ? "gap-1.5" : "gap-3.5"}`}>
+      <div className="flex flex-col gap-2">
         {shown.map((g) =>
-          density === "condensed" ? (
+          !isOpen(g.id) ? (
             <div
               key={g.id}
-              className={`rise flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[12px] border border-line bg-surface px-3.5 py-2.5 shadow-card ${
+              onClick={onBlockClick(g)}
+              title={staffView ? `Open ${g.name}` : undefined}
+              className={`rise flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[12px] border border-line bg-surface px-3.5 py-2.5 shadow-card hover:border-accent ${
                 busyId === g.id ? "opacity-60" : ""
               }`}
             >
               <button
-                onClick={staffView ? () => setEditing(g) : undefined}
-                title={staffView ? `Edit ${g.name}` : undefined}
-                className={`flex min-w-0 items-center gap-2.5 text-left ${
-                  staffView ? "hover:opacity-70" : "cursor-default"
-                }`}
+                onClick={() => toggleOne(g.id)}
+                aria-expanded={false}
+                aria-label={`Expand ${g.name}`}
+                title="Expand"
+                className="-ml-1 w-4 shrink-0 text-[11px] text-faint hover:text-accent-ink"
               >
+                ▸
+              </button>
+              <span className="flex min-w-0 items-center gap-2.5 text-left">
                 <Avatar name={g.name} gender={g.gender} size={26} />
                 <span className="min-w-0">
                   <span className="block truncate text-[14px] font-medium">{g.name}</span>
@@ -325,7 +360,7 @@ export default function FollowUpPage() {
                     {g.firstSunday && g.firstSunday !== " - " ? g.firstSunday : "no first visit on file"}
                   </span>
                 </span>
-              </button>
+              </span>
 
               {/* Progress at a glance: one dot per milestone, still tappable. */}
               <div className="flex items-center gap-1">
@@ -369,21 +404,33 @@ export default function FollowUpPage() {
               </div>
             </div>
           ) : (
-          <div key={g.id} className={`rise rounded-[14px] border border-line bg-surface px-5 py-[18px] shadow-card ${busyId === g.id ? "opacity-60" : ""}`}>
+          <div
+            key={g.id}
+            onClick={onBlockClick(g)}
+            title={staffView ? `Open ${g.name}` : undefined}
+            className={`rise cursor-pointer rounded-[14px] border border-line bg-surface px-5 py-[18px] shadow-card hover:border-accent ${busyId === g.id ? "opacity-60" : ""}`}
+          >
             <div className="flex flex-wrap items-start gap-3">
               <button
-                onClick={staffView ? () => setEditing(g) : undefined}
-                title={staffView ? `Edit ${g.name}` : undefined}
+                onClick={() => toggleOne(g.id)}
+                aria-expanded
+                aria-label={`Condense ${g.name}`}
+                title="Condense"
+                className="-ml-1 mt-1.5 w-4 shrink-0 text-[11px] text-faint hover:text-accent-ink"
+              >
+                ▾
+              </button>
+              <span
                 className={`flex min-w-0 items-center gap-3 text-left ${
-                  staffView ? "hover:opacity-70" : "cursor-default"
+                  staffView ? "" : "cursor-default"
                 }`}
               >
                 <Avatar name={g.name} gender={g.gender} />
-                <div className="min-w-0">
-                  <div className="font-display text-[17px]">{g.name}</div>
-                  {g.desc && <div className="text-[13px] text-muted">{g.desc}</div>}
-                </div>
-              </button>
+                <span className="min-w-0">
+                  <span className="font-display block text-[17px]">{g.name}</span>
+                  {g.desc && <span className="block text-[13px] text-muted">{g.desc}</span>}
+                </span>
+              </span>
               <div className="ml-auto flex flex-wrap items-center gap-1.5">
                 {g.archivedAt && g.outcome ? (
                   <Chip tone={OUTCOME_META[g.outcome].tone}>{OUTCOME_META[g.outcome].label}</Chip>
