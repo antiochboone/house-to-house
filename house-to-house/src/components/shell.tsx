@@ -294,9 +294,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Mobile bottom tab bar */}
+      {/* Mobile bottom tab bar — always keep a little room below the buttons
+          on top of the device's safe-area inset (which is 0 on many phones,
+          especially installed PWAs), so they never hug the screen edge. */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[calc(env(safe-area-inset-bottom)+12px)] md:hidden"
         aria-label="Primary"
       >
         <div className="flex">
