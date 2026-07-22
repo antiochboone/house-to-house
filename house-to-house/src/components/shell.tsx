@@ -93,7 +93,7 @@ function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <button
       onClick={() => setChoice(next[choice])}
-      title={`Theme: ${label} — tap for ${next[choice] === "system" ? "auto" : next[choice]}`}
+      title={`Theme: ${label} - tap for ${next[choice] === "system" ? "auto" : next[choice]}`}
       aria-label={`Theme: ${label}. Switch to ${next[choice]}.`}
       className={`flex items-center gap-2 rounded-[10px] text-muted hover:bg-surface-2 hover:text-ink ${
         collapsed ? "h-9 w-9 justify-center" : "px-2.5 py-1.5"
@@ -142,6 +142,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
     role === "staff"
       ? [
           { href: "/map", label: "Lifegroup Map", icon: "map" },
+          // Staff who ALSO lead a lifegroup get a shortcut to their own group,
+          // right alongside the church-wide tools.
+          ...(myGroupIds.length > 0
+            ? [{ href: `/map?open=${myGroupIds[0]}`, label: "My Group", icon: "group" }]
+            : []),
           { href: "/people", label: "People", icon: "people" },
           { href: "/discipleship", label: "Discipleship", icon: "disc" },
           { href: "/follow-up", label: "Follow-up", icon: "guest" },
@@ -296,7 +301,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom tab bar. env(safe-area-inset-bottom) only reports real
           values under viewport-fit=cover (which we don't use), so it's ~0
-          here — in the browser a small pad is fine (Safari's own chrome adds
+          here - in the browser a small pad is fine (Safari's own chrome adds
           room), but the INSTALLED PWA has no chrome, so give standalone mode
           real clearance above the home indicator. */}
       <nav

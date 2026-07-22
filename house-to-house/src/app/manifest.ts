@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "House to House · Antioch Boone",
     short_name: "House to House",
     description:
-      "Stewarding lifegroups and discipleship at Antioch Boone — plant, lead, and multiply house to house community.",
+      "Stewarding lifegroups and discipleship at Antioch Boone - plant, lead, and multiply house to house community.",
     start_url: "/map",
     scope: "/",
     display: "standalone",

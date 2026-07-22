@@ -8,7 +8,7 @@ import { PwaInstall } from "@/components/pwa-install";
 export const metadata: Metadata = {
   title: "House to House · Antioch Boone",
   description:
-    "Stewarding lifegroups and discipleship at Antioch Boone — plant, lead, and multiply house to house community.",
+    "Stewarding lifegroups and discipleship at Antioch Boone - plant, lead, and multiply house to house community.",
   appleWebApp: { capable: true, title: "House to House", statusBarStyle: "default" },
 };
 

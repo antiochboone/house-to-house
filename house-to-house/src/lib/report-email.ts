@@ -63,7 +63,7 @@ const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function reportSubject(r: ReportPayload) {
-  return `${r.groupName} — ${r.monthLabel} check-in`;
+  return `${r.groupName} - ${r.monthLabel} check-in`;
 }
 
 export function reportHtml(r: ReportPayload) {
@@ -102,7 +102,7 @@ export function reportHtml(r: ReportPayload) {
 
 export function reportText(r: ReportPayload) {
   return [
-    `${r.groupName} — ${r.monthLabel} check-in`,
+    `${r.groupName} - ${r.monthLabel} check-in`,
     r.sectionName ? `Section: ${r.sectionName}` : null,
     `Submitted by: ${r.submittedBy}`,
     `On the roster: ${r.peopleCount}`,

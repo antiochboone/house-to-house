@@ -275,7 +275,7 @@ export function GroupDrawer({
                           A &quot;how was lifegroup?&quot; email lands a couple hours after the
                           meeting ({meetDay}).{" "}
                           {cfg.recipients.length === 0 &&
-                            "No recipients listed — it goes to the group's leaders' emails."}
+                            "No recipients listed - it goes to the group's leaders' emails."}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           {cfg.recipients.map((r) => (
@@ -337,7 +337,7 @@ export function GroupDrawer({
                     </div>
                     <div className="text-[12.5px] leading-snug text-muted">
                       {group.readiness >= 12
-                        ? "12+ — prepare to plant! 🌱"
+                        ? "12+ - prepare to plant! 🌱"
                         : `${12 - group.readiness} more to the plant-ready threshold of 12.`}
                       {group.readinessData?.date && (
                         <span className="block text-faint">
@@ -365,7 +365,7 @@ export function GroupDrawer({
                 {emergingLeaders.length > 0 && (
                   <p className="mt-2 text-[12.5px] text-muted">
                     🌱 {emergingLeaders.length} emerging leader
-                    {emergingLeaders.length > 1 ? "s" : ""} being raised up —{" "}
+                    {emergingLeaders.length > 1 ? "s" : ""} being raised up - {" "}
                     {emergingLeaders.map((p) => p.name.split(" ")[0]).join(", ")}
                   </p>
                 )}
@@ -463,7 +463,7 @@ export function GroupDrawer({
                     </div>
                     {list.length === 0 ? (
                       <p className="text-[12.5px] italic text-muted">
-                        None yet — D-groups are the 3-5 person clusters where multiplication
+                        None yet - D-groups are the 3-5 person clusters where multiplication
                         starts. 2 men&apos;s + 2 women&apos;s is the plant-ready pattern.
                       </p>
                     ) : (
@@ -522,7 +522,7 @@ export function GroupDrawer({
                 </div>
                 {group.history.length === 0 ? (
                   <p className="text-[12.5px] italic text-muted">
-                    No story recorded yet — start with when it was planted (Edit → origin
+                    No story recorded yet - start with when it was planted (Edit → origin
                     story) or record an event.
                   </p>
                 ) : (
@@ -541,7 +541,7 @@ export function GroupDrawer({
 
             {!showDetail && (
               <p className="mt-5 text-[11.5px] leading-relaxed text-faint">
-                Roster names only — health insights and discipleship detail are visible to
+                Roster names only - health insights and discipleship detail are visible to
                 staff and this group&apos;s own leaders.
               </p>
             )}
@@ -565,7 +565,7 @@ export function GroupDrawer({
         </Modal>
       )}
       {assessing && group && (
-        <Modal title={`Planting readiness — ${group.name}`} onClose={() => setAssessing(false)}>
+        <Modal title={`Planting readiness - ${group.name}`} onClose={() => setAssessing(false)}>
           <ReadinessForm group={group} onDone={() => setAssessing(false)} />
         </Modal>
       )}

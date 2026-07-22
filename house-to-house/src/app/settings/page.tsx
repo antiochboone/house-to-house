@@ -463,7 +463,7 @@ export default function SettingsPage() {
           title="Guest follow-up road"
           blurb={
             <>
-              The milestone steps a guest might walk — rename, reorder, add, or remove
+              The milestone steps a guest might walk - rename, reorder, add, or remove
               freely. They just track what&apos;s happened; graduation is a separate staff
               decision on the Follow-up page.
             </>
@@ -518,7 +518,7 @@ export default function SettingsPage() {
 
         <SectionCard
           title="Discipleship Roadmap"
-          blurb="The formation ladder each disciple walks — testimony, baptism, membership, making their first disciple. Set per person on their profile; rename or reorder the rungs here."
+          blurb="The formation ladder each disciple walks - testimony, baptism, membership, making their first disciple. Set per person on their profile; rename or reorder the rungs here."
         >
           <div className="flex flex-col gap-1">
             {roadmapSteps.map((s, i) => (
@@ -594,7 +594,7 @@ export default function SettingsPage() {
 
         <SectionCard
           title="Lifegroup roles"
-          blurb="The roles people can hold inside a group. Rename them, toggle whether a role is leadership (leadership roles form the leadership team and can run check-ins), or add your own — Co-leader, Host, Prayer lead, whatever fits."
+          blurb="The roles people can hold inside a group. Rename them, toggle whether a role is leadership (leadership roles form the leadership team and can run check-ins), or add your own - Co-leader, Host, Prayer lead, whatever fits."
         >
           <div className="flex flex-col gap-2.5">
             {roles.map((r) => (
@@ -731,7 +731,7 @@ export default function SettingsPage() {
               <span className="label mb-2 block">Sections</span>
               {sections.length === 0 && (
                 <p className="mb-2 text-[12.5px] italic text-muted">
-                  No sections yet — add one and the map starts clustering.
+                  No sections yet - add one and the map starts clustering.
                 </p>
               )}
               <div className="flex flex-col gap-1.5">
@@ -845,7 +845,7 @@ export default function SettingsPage() {
                 <EmailList
                   key={z.id}
                   label={z.name}
-                  hint="zone — every group in its sections"
+                  hint="zone - every group in its sections"
                   emails={reportEmails.zones[z.id] ?? []}
                   onChange={(next) => patchReportMap("zones", z.id, next)}
                 />

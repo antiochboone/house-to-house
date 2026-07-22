@@ -38,7 +38,7 @@ export default function SetPasswordPage() {
       return;
     }
     if (pw !== pw2) {
-      setError("Those don't match — try again.");
+      setError("Those don't match. Try again.");
       return;
     }
     setBusy(true);
@@ -70,7 +70,7 @@ export default function SetPasswordPage() {
         <div className="rounded-[14px] border border-line bg-surface p-6 text-center shadow-card">
           <p className="font-display mb-1.5 text-xl">Sign in first</p>
           <p className="mb-4 text-[13.5px] leading-relaxed text-muted">
-            This page sets your password once you&apos;re signed in — use the link from
+            This page sets your password once you&apos;re signed in. Use the link from
             your email, or request a fresh one.
           </p>
           <a
@@ -84,7 +84,7 @@ export default function SetPasswordPage() {
         <form onSubmit={submit} className="rounded-[14px] border border-line bg-surface p-6 shadow-card">
           <p className="font-display mb-1.5 text-xl">Create your password</p>
           <p className="mb-4 text-[13.5px] leading-relaxed text-muted">
-            From now on you&apos;ll sign in with your email and this password — no more
+            From now on you&apos;ll sign in with your email and this password. No more
             waiting on emailed links.
           </p>
           <label htmlFor="pw" className="label mb-2 block">

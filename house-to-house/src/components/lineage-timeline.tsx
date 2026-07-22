@@ -182,7 +182,7 @@ export function LineageTimeline({ lanes }: { lanes: Lane[] }) {
                         }
                         onMouseLeave={() => setHover(null)}
                       >
-                        <title>{`${ev.date} — ${ev.label}`}</title>
+                        <title>{`${ev.date} - ${ev.label}`}</title>
                       </circle>
                     );
                   })}

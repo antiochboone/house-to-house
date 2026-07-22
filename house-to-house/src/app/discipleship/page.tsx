@@ -366,7 +366,7 @@ export default function DiscipleshipPage() {
       {activeRoots.length === 0 ? (
         <p className="text-[12.5px] italic text-muted">
           {realMode
-            ? "Nothing recorded yet — add a D-group (even a 1-on-1) to start the tree."
+            ? "Nothing recorded yet - add a D-group (even a 1-on-1) to start the tree."
             : "No D-groups yet."}
         </p>
       ) : (
@@ -418,7 +418,7 @@ export default function DiscipleshipPage() {
           <div className="rise rounded-[14px] border border-line bg-surface p-[18px] shadow-card">
             <h2 className="font-display mb-0.5 text-[16.5px]">Not yet in a relationship</h2>
             <div className="mb-3 text-xs text-muted">
-              The shepherding list — who needs an introduction?
+              The shepherding list - who needs an introduction?
             </div>
             <div className="mb-3 flex flex-wrap gap-1.5">
               {filterBtn("all", "everyone")}
@@ -434,7 +434,7 @@ export default function DiscipleshipPage() {
             </div>
             {filtered.length === 0 && (
               <p className="border-t border-line pt-3 text-[12.5px] italic text-muted">
-                Nobody here — that&apos;s the dream.
+                Nobody here - that&apos;s the dream.
               </p>
             )}
             {filtered.map((p) => (
@@ -468,7 +468,7 @@ export default function DiscipleshipPage() {
                   .filter((p) => p.statuses.includes("wants"))
                   .map((p) => `${p.name.split(" ")[0]} (${groupName(p)}) wants to disciple someone`)
                   .join(" · ")}
-                {" "}— look for someone open, same gender, same group. ✦
+                {" "} - look for someone open, same gender, same group. ✦
               </div>
             </div>
           )}
@@ -476,7 +476,7 @@ export default function DiscipleshipPage() {
           {(peerPairs.length > 0 || peerDgroups.length > 0) && (
             <div className="rise rounded-[14px] border border-line bg-surface p-[18px] shadow-card">
               <h2 className="font-display mb-0.5 text-[16.5px]">Peer groups</h2>
-              <div className="mb-3 text-xs text-muted">Sharpening one another — no hierarchy.</div>
+              <div className="mb-3 text-xs text-muted">Sharpening one another - no hierarchy.</div>
               <div className="flex flex-col gap-2">
                 {peerDgroups.map((d) => {
                   const members = d.memberIds

@@ -49,7 +49,7 @@ export default function FollowUpPage() {
         <h1 className="font-display mb-2 text-2xl">MVP board</h1>
         <p className="text-[14.5px] text-muted">
           When your login is connected to a lifegroup you lead, the MVPs connected to
-          your group show up here — to pray for, track, and pursue.
+          your group show up here - to pray for, track, and pursue.
         </p>
       </div>
     );
@@ -84,8 +84,8 @@ export default function FollowUpPage() {
     firstSunday: /^\d{4}-\d{2}-\d{2}$/.test(g.firstSunday) ? g.firstSunday : "",
     attending: g.attending,
     connectCard: g.connectCard,
-    email: g.email === "—" ? "" : g.email,
-    phone: g.phone === "—" ? "" : g.phone,
+    email: g.email === " - " ? "" : g.email,
+    phone: g.phone === " - " ? "" : g.phone,
     note,
     groupId: g.groupId ?? null,
   });
@@ -112,12 +112,12 @@ export default function FollowUpPage() {
           <p className="text-[14.5px] text-muted max-md:hidden">
             {staffView ? (
               <>
-                From first Sunday to family. Tap a milestone to mark it done — &quot;In a
+                From first Sunday to family. Tap a milestone to mark it done - &quot;In a
                 lifegroup&quot; graduates them onto a real roster.
               </>
             ) : (
               <>
-                New folks connected to your lifegroup — pray for them, track the journey,
+                New folks connected to your lifegroup - pray for them, track the journey,
                 tap milestones as they happen. Staff walks alongside you.
               </>
             )}
@@ -219,13 +219,13 @@ export default function FollowUpPage() {
                   <Chip tone="bg-accent-soft text-accent-ink">{groupName(g.groupId)}</Chip>
                 )}
                 {g.connectCard && <Chip>connect card ✓</Chip>}
-                {g.firstSunday !== "—" && <Chip>first Sunday: {g.firstSunday}</Chip>}
+                {g.firstSunday !== " - " && <Chip>first Sunday: {g.firstSunday}</Chip>}
               </div>
             </div>
-            {(g.email !== "—" || g.phone !== "—") && (
+            {(g.email !== " - " || g.phone !== " - ") && (
               <div className="my-2 flex flex-wrap gap-3.5 text-xs text-faint md:ml-10">
-                {g.email !== "—" && g.email && <span>✉ {g.email}</span>}
-                {g.phone !== "—" && g.phone && <span>☎ {g.phone}</span>}
+                {g.email !== " - " && g.email && <span>✉ {g.email}</span>}
+                {g.phone !== " - " && g.phone && <span>☎ {g.phone}</span>}
               </div>
             )}
 
@@ -372,7 +372,7 @@ export default function FollowUpPage() {
           <div className="flex flex-col gap-2">
             {graduating.groupId && groups.some((grp) => grp.id === graduating.groupId) && (
               <p className="px-1 text-[11.5px] text-faint">
-                Connected to {groups.find((grp) => grp.id === graduating.groupId)?.name} — likely
+                Connected to {groups.find((grp) => grp.id === graduating.groupId)?.name} - likely
                 their home.
               </p>
             )}
@@ -405,7 +405,7 @@ export default function FollowUpPage() {
               }}
               className="w-full rounded-xl border-[1.5px] border-dashed border-line px-3.5 py-2.5 text-left text-[14px] text-muted hover:border-accent hover:text-accent-ink"
             >
-              Not in a lifegroup yet — add to the directory as unplaced
+              Not in a lifegroup yet - add to the directory as unplaced
             </button>
             <p className="mt-1 px-1 text-[11.5px] text-faint">
               e.g. a believer who comes on Sundays but hasn&apos;t joined a group.

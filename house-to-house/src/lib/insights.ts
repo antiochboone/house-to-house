@@ -98,7 +98,7 @@ export function computeInsights(
       );
       lines.push(
         `Roster unchanged in ~${months} months${
-          season !== "stagnant" ? " — drifting toward Stagnant?" : ""
+          season !== "stagnant" ? " - drifting toward Stagnant?" : ""
         }`,
       );
     }
@@ -123,7 +123,7 @@ export function computeInsights(
       const women = gDgroups.filter((d) => d.gender === "F").length;
       if (men >= 2 && women >= 2) {
         lines.push(
-          `${men} men's + ${women} women's D-groups — the plant-ready pattern`,
+          `${men} men's + ${women} women's D-groups - the plant-ready pattern`,
         );
       }
     } else {
@@ -134,7 +134,7 @@ export function computeInsights(
         if (g === "M" || g === "F") disciplersByGender[g].add(r.discipler_id);
       }
       if (disciplersByGender.M.size >= 2 && disciplersByGender.F.size >= 2) {
-        lines.push("2+ men's and 2+ women's discipleship clusters — the plant-ready pattern");
+        lines.push("2+ men's and 2+ women's discipleship clusters - the plant-ready pattern");
       }
     }
   }

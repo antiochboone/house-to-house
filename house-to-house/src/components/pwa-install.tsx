@@ -45,6 +45,11 @@ export function PwaInstall() {
       return;
     }
 
+    // Phones/tablets only. Desktop Chrome also fires beforeinstallprompt, but
+    // "add to home screen" is meaningless there, so a touch pointer gates it.
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    if (!isTouch) return;
+
     const ua = navigator.userAgent;
     const isIOS = /iphone|ipad|ipod/i.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream;
     // Add-to-home-screen only works from Safari on iOS, not Chrome/Firefox there.
@@ -95,7 +100,7 @@ export function PwaInstall() {
           {iosHint ? (
             <div className="mt-0.5 text-[12px] leading-snug text-muted">
               Tap the Share icon <span aria-hidden>⎋</span>, then{" "}
-              <strong>Add to Home Screen</strong> — it opens like an app.
+              <strong>Add to Home Screen</strong> - it opens like an app.
             </div>
           ) : (
             <div className="mt-0.5 text-[12px] leading-snug text-muted">

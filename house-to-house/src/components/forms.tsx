@@ -265,7 +265,7 @@ export function TagEditor({
             ))}
           </span>
         ) : (
-          !open && <span className="text-[12px] text-faint">none yet — click to add</span>
+          !open && <span className="text-[12px] text-faint">none yet - click to add</span>
         )}
       </button>
       {open && (
@@ -323,7 +323,7 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
         <div>
           <label className={labelCls}>Day</label>
           <select value={day} onChange={(e) => setDay(e.target.value)} className={inputCls}>
-            <option value="">—</option>
+            <option value=""> - </option>
             {DAYS.map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
@@ -334,7 +334,7 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
           <div className="flex gap-1.5">
             <select value={hour} onChange={(e) => setHour(e.target.value)} className={inputCls} aria-label="Hour">
               {HOURS.map((h) => (
-                <option key={h} value={h}>{h || "—"}</option>
+                <option key={h} value={h}>{h || " - "}</option>
               ))}
             </select>
             <select value={minute} onChange={(e) => setMinute(e.target.value)} className={inputCls} aria-label="Minute">
@@ -594,13 +594,13 @@ export function AddPersonForm({
     <form onSubmit={submit}>
       {savedName && (
         <p className="mb-2 rounded-lg bg-accent-soft px-3 py-1.5 text-[12.5px] text-accent-ink">
-          ✓ Added {savedName} — add another, or close.
+          ✓ Added {savedName} - add another, or close.
         </p>
       )}
       {guestMatch && (
         <p className="mb-2 rounded-lg bg-gold-soft px-3 py-2 text-[12.5px] text-gold">
           ⚠ <strong>{guestMatch.name}</strong> is already in guest follow-up. Adding them here
-          makes a second record — better to <strong>graduate</strong> them from Follow-up so
+          makes a second record - better to <strong>graduate</strong> them from Follow-up so
           their journey carries over.
         </p>
       )}
@@ -974,7 +974,7 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
             <>
               {!email.trim() ? (
                 <p className="mt-1.5 px-1 text-[11.5px] text-ember">
-                  Add their email above — it&apos;s what they sign in with.
+                  Add their email above - it&apos;s what they sign in with.
                 </p>
               ) : invited ? (
                 <p className="mt-2 rounded-lg bg-accent-soft px-2.5 py-1.5 text-[12px] text-accent-ink">
@@ -1099,7 +1099,7 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
         <div>
           <label className={labelCls}>Day</label>
           <select value={day} onChange={(e) => setDay(e.target.value)} className={inputCls}>
-            <option value="">—</option>
+            <option value=""> - </option>
             {DAYS.map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
@@ -1110,7 +1110,7 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
           <div className="flex gap-1.5">
             <select value={hour} onChange={(e) => setHour(e.target.value)} className={inputCls} aria-label="Hour">
               {HOURS.map((h) => (
-                <option key={h} value={h}>{h || "—"}</option>
+                <option key={h} value={h}>{h || " - "}</option>
               ))}
             </select>
             <select value={minute} onChange={(e) => setMinute(e.target.value)} className={inputCls} aria-label="Minute">
@@ -1145,7 +1145,7 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
           <div>
             <label className={labelCls}>Planted from</label>
             <select value={parentId} onChange={(e) => setParentId(e.target.value)} className={inputCls}>
-              <option value="">— (original / direct plant)</option>
+              <option value=""> - (original / direct plant)</option>
               {groups
                 .filter((g) => g.id !== group.id)
                 .map((g) => (
@@ -1236,7 +1236,7 @@ export function GroupEventForm({ group, onDone }: { group: Group; onDone: () => 
         <>
           <label className={labelCls}>Merged into which group?</label>
           <select value={relatedGroupId} onChange={(e) => setRelatedGroupId(e.target.value)} className={inputCls}>
-            <option value="">—</option>
+            <option value=""> - </option>
             {groups
               .filter((g) => g.id !== group.id && g.status === "active")
               .map((g) => (
@@ -1259,7 +1259,7 @@ export function GroupEventForm({ group, onDone }: { group: Group; onDone: () => 
         <p className="mt-3 rounded-lg bg-ember-soft px-3 py-2 text-[12.5px] text-ember">
           {kind === "merged"
             ? "This moves everyone onto the receiving group's roster and closes this group's line on the timeline."
-            : "This ends the group — its people become “not in a lifegroup” and its line closes on the timeline. The history stays forever."}
+            : "This ends the group - its people become “not in a lifegroup” and its line closes on the timeline. The history stays forever."}
         </p>
       )}
       <SubmitRow busy={busy} error={error} label="Record it" />
@@ -1353,7 +1353,7 @@ export function ReadinessForm({ group, onDone }: { group: Group; onDone: () => v
       <div className="flex flex-col gap-1.5">{READINESS_READINESS.map(checkRow)}</div>
       <p className="mt-3 text-center text-[12.5px] text-muted">
         {score >= 12
-          ? "12+ — prepare to plant! 🌱"
+          ? "12+ - prepare to plant! 🌱"
           : `${12 - score} more to the plant-ready threshold of 12.`}
       </p>
       <SubmitRow busy={busy} error={error} label="Save assessment" />
@@ -1379,8 +1379,8 @@ export function GuestForm({
     guest?.attending ?? "new",
   );
   const [connectCard, setConnectCard] = useState(guest?.connectCard ?? false);
-  const [email, setEmail] = useState(guest && guest.email !== "—" ? guest.email : "");
-  const [phone, setPhone] = useState(guest && guest.phone !== "—" ? guest.phone : "");
+  const [email, setEmail] = useState(guest && guest.email !== " - " ? guest.email : "");
+  const [phone, setPhone] = useState(guest && guest.phone !== " - " ? guest.phone : "");
   const [note, setNote] = useState(guest?.note ?? "");
   const [groupId, setGroupId] = useState(guest?.groupId ?? "");
   const [busy, setBusy] = useState(false);
@@ -1422,7 +1422,7 @@ export function GuestForm({
         <p className="mb-2 rounded-lg bg-gold-soft px-3 py-2 text-[12.5px] text-gold">
           ⚠ <strong>{personMatch.name}</strong> is already in the directory
           {matchGroup ? ` (${matchGroup})` : " (not in a lifegroup)"}. If it&apos;s the same
-          person, they may already be tracked — you might not need a guest entry.
+          person, they may already be tracked - you might not need a guest entry.
         </p>
       )}
       <label className={labelCls}>Name</label>

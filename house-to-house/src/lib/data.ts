@@ -28,12 +28,12 @@ export const GROUPS: Group[] = [
     season: "build", status: "active",
     insights: [
       "Grown by 3 since April",
-      "Check-ins current — last on July 2",
+      "Check-ins current - last on July 2",
       "1 of 4 newcomers still in week-2 follow-up",
     ],
     dgroups: "1 men's · 1 women's", lineage: null,
     history: [
-      { date: "Sep 2021", text: "Planted — one of the original three groups" },
+      { date: "Sep 2021", text: "Planted - one of the original three groups" },
       { date: "Aug 2024", text: "Planted Hardin Creek (sent 6 people)" },
       { date: "Feb 2026", text: "Planted Blowing Rock (sent 5 people)" },
     ],
@@ -44,11 +44,11 @@ export const GROUPS: Group[] = [
     season: "build", status: "active",
     insights: [
       "Steady attendance all spring",
-      "No new faces since March — worth a nudge on oikos",
+      "No new faces since March - worth a nudge on oikos",
     ],
     dgroups: "1 men's · 1 women's", lineage: null,
     history: [
-      { date: "Sep 2021", text: "Planted — one of the original three groups" },
+      { date: "Sep 2021", text: "Planted - one of the original three groups" },
       { date: "Jan 2023", text: "Planted App State group (sent 4 students)" },
     ],
   },
@@ -57,7 +57,7 @@ export const GROUPS: Group[] = [
     tags: [],
     season: "plant", status: "active",
     insights: [
-      "2 men's + 2 women's D-groups — the plant-ready pattern",
+      "2 men's + 2 women's D-groups - the plant-ready pattern",
       "Readiness scored 13 of 15 on June 8",
       "Plant night set for August 25",
     ],
@@ -65,8 +65,8 @@ export const GROUPS: Group[] = [
     readiness: 13,
     history: [
       { date: "Aug 2024", text: "Planted from King Street" },
-      { date: "Jun 2026", text: "Readiness assessment: 13/15 — preparing to plant" },
-      { date: "Aug 2026", text: "Plant night — August 25 (upcoming)" },
+      { date: "Jun 2026", text: "Readiness assessment: 13/15 - preparing to plant" },
+      { date: "Aug 2026", text: "Plant night - August 25 (upcoming)" },
     ],
   },
   {
@@ -74,12 +74,12 @@ export const GROUPS: Group[] = [
     tags: ["Blowing Rock", "Multigenerational"],
     season: "start", status: "active",
     insights: [
-      "Planted in February — 4-week start plan complete",
+      "Planted in February - 4-week start plan complete",
       "8 core members; watching for a worship leader",
     ],
     dgroups: "forming", lineage: "Planted Feb '26 from King Street",
     history: [
-      { date: "Feb 2026", text: "Planted from King Street — plant night party" },
+      { date: "Feb 2026", text: "Planted from King Street - plant night party" },
       { date: "Mar 2026", text: "4-week start plan completed" },
     ],
   },
@@ -88,8 +88,8 @@ export const GROUPS: Group[] = [
     tags: [],
     season: "build", status: "active",
     insights: [
-      "Roster unchanged in 7 months — may be drifting toward stagnant",
-      "2 of 11 in a discipleship relationship — lowest in church",
+      "Roster unchanged in 7 months - may be drifting toward stagnant",
+      "2 of 11 in a discipleship relationship - lowest in church",
       "Consider a replant conversation this fall",
     ],
     dgroups: "1 men's · 1 women's", lineage: null,
@@ -105,7 +105,7 @@ export const GROUPS: Group[] = [
     season: "build", status: "active",
     insights: [
       "Grown by 5 since January",
-      "Deepest discipleship chain in church — 4 generations",
+      "Deepest discipleship chain in church - 4 generations",
       "Kaylee baptized May 31",
     ],
     dgroups: "2 men's · 2 women's", lineage: "Planted Jan '23 from Howard's Knob",
@@ -119,8 +119,8 @@ export const GROUPS: Group[] = [
     tags: ["Families", "Childcare provided", "Kids welcome"],
     season: "build", status: "active",
     insights: [
-      "6 kids — running the 5 C's rotation",
-      "Two couples on the fence about the fall — pray",
+      "6 kids - running the 5 C's rotation",
+      "Two couples on the fence about the fall - pray",
     ],
     dgroups: "1 men's · 1 women's", lineage: null,
     history: [{ date: "Mar 2023", text: "Planted as first family group" }],
@@ -131,12 +131,12 @@ export const GROUPS: Group[] = [
     season: "start", status: "active",
     insights: [
       "Replanted in May after a dormant winter",
-      "New core of 7 — relationships forming well",
+      "New core of 7 - relationships forming well",
     ],
     dgroups: "forming", lineage: "Replanted May '26 (formerly Deerfield)",
     history: [
       { date: "Jun 2022", text: "Planted as Deerfield" },
-      { date: "Jan 2026", text: "Went dormant — leader moved away (honorable transition)" },
+      { date: "Jan 2026", text: "Went dormant - leader moved away (honorable transition)" },
       { date: "May 2026", text: "Replanted as Oak Grove with new leadership" },
     ],
   },
@@ -413,7 +413,7 @@ export const DGROUPS: DGroup[] = [
 export function dgroupSummary(list: DGroup[]): string {
   const m = list.filter((d) => d.gender === "M").length;
   const f = list.filter((d) => d.gender === "F").length;
-  if (m === 0 && f === 0) return "—";
+  if (m === 0 && f === 0) return " - ";
   const parts: string[] = [];
   if (m > 0) parts.push(`${m} men's`);
   if (f > 0) parts.push(`${f} women's`);
@@ -439,15 +439,15 @@ export const GUESTS: Guest[] = [
     firstSunday: "Mar 1", attending: "yes", connectCard: true,
     email: "sofia@…", phone: "(828) …",
     steps: { emailed: true, texted: true, coffee: true, discover: true, lifegroup: true, discipled: false },
-    note: "Landed in King Street in April — next step: a discipleship invitation (she's marked open).",
+    note: "Landed in King Street in April - next step: a discipleship invitation (she's marked open).",
   },
   {
     id: "troy-mercer", name: "Troy Mercer", gender: "M", groupId: "perkins",
-    desc: "Ray's brother — came to Perkinsville group before ever visiting a Sunday",
+    desc: "Ray's brother - came to Perkinsville group before ever visiting a Sunday",
     firstSunday: "Jun 25*", attending: "new", connectCard: false,
-    email: "—", phone: "(828) …",
+    email: " - ", phone: "(828) …",
     steps: { emailed: false, texted: true, coffee: false, discover: false, lifegroup: false, discipled: false },
-    note: "*First contact was a lifegroup night, not a Sunday. Ray is on it — pray and stay close.",
+    note: "*First contact was a lifegroup night, not a Sunday. Ray is on it - pray and stay close.",
   },
   {
     id: "kara-jessup", name: "Kara Jessup", gender: "F", groupId: "king",
@@ -461,34 +461,34 @@ export const GUESTS: Guest[] = [
     id: "miles-denny", name: "Miles Denny", gender: "M",
     desc: "New to Boone, remote job, asked about hiking groups",
     firstSunday: "Jun 14", attending: "yes", connectCard: true,
-    email: "miles@…", phone: "—",
+    email: "miles@…", phone: " - ",
     steps: { emailed: true, texted: false, coffee: false, discover: false, lifegroup: false, discipled: false },
-    note: "Two Sundays in a row — good window for a text this week.",
+    note: "Two Sundays in a row - good window for a text this week.",
   },
   {
     id: "pete-hobbs", name: "Pete Hobbs", gender: "M",
     desc: "Young family, wife Lauren, two kids",
     firstSunday: "May 17", attending: "sporadic", connectCard: false,
-    email: "—", phone: "(828) …",
+    email: " - ", phone: "(828) …",
     steps: { emailed: false, texted: true, coffee: false, discover: false, lifegroup: false, discipled: false },
     note: "Missed three weeks. Valle Crucis (family group) could be the invite that sticks.",
   },
   {
     id: "lauren-hobbs", name: "Lauren Hobbs", gender: "F",
-    desc: "Pete's wife — connected with Georgia at the picnic",
+    desc: "Pete's wife - connected with Georgia at the picnic",
     firstSunday: "May 17", attending: "sporadic", connectCard: false,
-    email: "lauren@…", phone: "—",
+    email: "lauren@…", phone: " - ",
     steps: { emailed: true, texted: false, coffee: false, discover: false, lifegroup: false, discipled: false },
-    note: "Georgia offered a playdate — most natural doorway for the whole family.",
+    note: "Georgia offered a playdate - most natural doorway for the whole family.",
   },
 ];
 
 export const WINS: Win[] = [
   { text: "Kaylee (App State) was baptized in the Watauga River", date: "May 31", category: "baptism" },
-  { text: "Hardin Creek scored 13/15 on planting readiness — plant night Aug 25", date: "Jun 8", category: "other" },
-  { text: "Max joined Jon's D-group — a 4th generation from Tyler", date: "Jun 14", category: "new_dship" },
+  { text: "Hardin Creek scored 13/15 on planting readiness - plant night Aug 25", date: "Jun 8", category: "other" },
+  { text: "Max joined Jon's D-group - a 4th generation from Tyler", date: "Jun 14", category: "new_dship" },
   { text: "Answered prayer: Ray's brother visited Perkinsville for the first time", date: "Jun 25", category: "answered_prayer" },
-  { text: "Oak Grove's replant core hit 7 — every seat at the table full", date: "Jul 2", category: "other" },
+  { text: "Oak Grove's replant core hit 7 - every seat at the table full", date: "Jul 2", category: "other" },
 ];
 
 /** Display label + tone for each win category (small tag on the wins board). */
@@ -540,7 +540,7 @@ export const LINEAGE: Lane[] = [
     id: "king", name: "King Street",
     segments: [{ from: "2021-09", to: null, kind: "active", name: "King Street" }],
     events: [
-      { date: "2021-09", label: "Planted — one of the original three", kind: "plant-in" },
+      { date: "2021-09", label: "Planted - one of the original three", kind: "plant-in" },
       { date: "2024-08", label: "Planted Hardin Creek (sent 6)", kind: "plant-out" },
       { date: "2026-02", label: "Planted Blowing Rock (sent 5)", kind: "plant-out" },
     ],
@@ -565,7 +565,7 @@ export const LINEAGE: Lane[] = [
     id: "howard", name: "Howard's Knob",
     segments: [{ from: "2021-09", to: null, kind: "active", name: "Howard's Knob" }],
     events: [
-      { date: "2021-09", label: "Planted — one of the original three", kind: "plant-in" },
+      { date: "2021-09", label: "Planted - one of the original three", kind: "plant-in" },
       { date: "2023-01", label: "Planted App State (sent 4 students)", kind: "plant-out" },
     ],
   },
@@ -581,8 +581,8 @@ export const LINEAGE: Lane[] = [
     id: "meadowview", name: "Meadowview", mergedIntoId: "perkins",
     segments: [{ from: "2021-09", to: "2023-06", kind: "active", name: "Meadowview" }],
     events: [
-      { date: "2021-09", label: "Planted — one of the original three", kind: "plant-in" },
-      { date: "2023-06", label: "Wound down — 5 people merged into Perkinsville", kind: "merge-out" },
+      { date: "2021-09", label: "Planted - one of the original three", kind: "plant-in" },
+      { date: "2023-06", label: "Wound down - 5 people merged into Perkinsville", kind: "merge-out" },
     ],
   },
   {
@@ -607,7 +607,7 @@ export const LINEAGE: Lane[] = [
     ],
     events: [
       { date: "2022-06", label: "Planted as Deerfield", kind: "plant-in" },
-      { date: "2026-01", label: "Went dormant — leader moved away (honorable transition)", kind: "dormant" },
+      { date: "2026-01", label: "Went dormant - leader moved away (honorable transition)", kind: "dormant" },
       { date: "2026-05", label: "Replanted as Oak Grove", kind: "replant" },
     ],
   },
@@ -658,7 +658,7 @@ export const TIERS: { key: EngagementTier; label: string }[] = [
 export const TIER_MEANING: Record<EngagementTier, string> = {
   lead: "leaders, interns, and worship leaders",
   core: "in a discipleship relationship or making disciples",
-  consistent: "engaged with discipleship — open, invited, or already discipled",
+  consistent: "engaged with discipleship - open, invited, or already discipled",
   fringe: "on the roster but not yet engaged",
 };
 

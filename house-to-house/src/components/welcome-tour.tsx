@@ -22,22 +22,22 @@ const STAFF_SLIDES: Slide[] = [
   {
     icon: "🏡",
     title: "Welcome to House to House",
-    body: "One home for your church's lifegroups and discipleship. Here's the 60-second tour — skip anytime.",
+    body: "One home for your church's lifegroups and discipleship. Here's the 60-second tour. Skip anytime.",
   },
   {
     icon: "🗺️",
     title: "The Lifegroup Map",
-    body: "Every group at a glance. Flip to the Engagement view to see who's leading, core, or on the fringe — or the Timeline to watch groups multiply over the years.",
+    body: "Every group at a glance. Flip to the Engagement view to see who's leading, core, or on the fringe, or the Timeline to watch groups multiply over the years.",
   },
   {
     icon: "🌳",
     title: "Discipleship",
-    body: "Record D-groups — a mentor with a few people, or a peer group. The tree shows generations of disciples multiplying, tinting deeper the further it goes.",
+    body: "Record D-groups: a mentor with a few people, or a peer group. The tree shows generations of disciples multiplying, tinting deeper the further it goes.",
   },
   {
     icon: "👋",
     title: "Follow-up & MVPs",
-    body: "Walk newcomers from their first Sunday toward family. When someone's ready, you graduate them into the directory — into a lifegroup or not.",
+    body: "Walk newcomers from their first Sunday toward family. When someone's ready, you graduate them into the directory, whether or not they're in a lifegroup.",
   },
   {
     icon: "✅",
@@ -55,12 +55,12 @@ const LEADER_SLIDES: Slide[] = [
   {
     icon: "🏡",
     title: "Welcome to House to House",
-    body: "The tool your church uses to shepherd its lifegroups. Here's your corner of it — a quick look, then you're in.",
+    body: "The tool your church uses to shepherd its lifegroups. Here's your corner of it. A quick look, then you're in.",
   },
   {
     icon: "👥",
     title: "Your group",
-    body: "Your roster and its health are a tap away — open My Group from the map to see who's in and how things are going.",
+    body: "Your roster and its health are a tap away. Open My Group from the map to see who's in and how things are going.",
   },
   {
     icon: "✅",
@@ -70,7 +70,7 @@ const LEADER_SLIDES: Slide[] = [
   {
     icon: "🏀",
     title: "Your MVPs",
-    body: "New folks connected to your group show up on your MVP board — to pray for, track, and pursue alongside staff. That's it. Welcome!",
+    body: "New folks connected to your group show up on your MVP board, to pray for, track, and pursue alongside staff. That's it. Welcome!",
   },
 ];
 

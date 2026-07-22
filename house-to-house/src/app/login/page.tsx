@@ -106,11 +106,11 @@ export default function LoginPage() {
       {!isSupabaseConfigured ? (
         <div className="rounded-[14px] border border-line bg-surface p-5 text-center shadow-card">
           <p className="mb-2 text-[14.5px]">
-            The app is running in <strong>demo mode</strong> — sign-in switches on once the
+            The app is running in <strong>demo mode</strong>. Sign-in switches on once the
             database is connected.
           </p>
           <p className="mb-4 text-[13px] text-muted">
-            (Waiting on the Supabase keys in <code>.env.local</code> — see SETUP.md.)
+            (Waiting on the Supabase keys in <code>.env.local</code>, see SETUP.md.)
           </p>
           <Link
             href="/map"
@@ -125,7 +125,7 @@ export default function LoginPage() {
           <p className="text-[13.5px] leading-relaxed text-muted">
             {state === "sent" ? (
               <>
-                We sent a sign-in link to <strong>{email}</strong>. It works once — open
+                We sent a sign-in link to <strong>{email}</strong>. It works once. Open
                 it and tap <em>Continue</em>.
               </>
             ) : (
@@ -146,7 +146,7 @@ export default function LoginPage() {
         <form onSubmit={signIn} className="rounded-[14px] border border-line bg-surface p-6 shadow-card">
           {linkError && (
             <p className="mb-4 rounded-lg bg-ember-soft px-3 py-2 text-[13px] text-ember">
-              That sign-in link didn&apos;t work — it may have expired or been used
+              That sign-in link didn&apos;t work. It may have expired or been used
               already. Sign in below, or request a fresh link.
             </p>
           )}
@@ -208,7 +208,7 @@ export default function LoginPage() {
             ✉ Email me a sign-in link
           </button>
           <p className="mt-4 text-center text-[12px] leading-relaxed text-faint">
-            First time here? Use the emailed link — you&apos;ll pick a password right
+            First time here? Use the emailed link, then you&apos;ll pick a password right
             after. You stay signed in on this device either way.
           </p>
         </form>

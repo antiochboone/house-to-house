@@ -64,10 +64,10 @@ export default function MapPage() {
           <p className="text-[14.5px] text-muted max-md:hidden">
             {staff
               ? showChart
-                ? "Everyone in every group, by engagement — and who hasn't found a lifegroup home yet."
+                ? "Everyone in every group, by engagement - and who hasn't found a lifegroup home yet."
                 : showTimeline
-                  ? "The web of lifegroups over time — every plant, merge, dormancy, and replant."
-                  : "Every lifegroup in the church — tap a house to step inside."
+                  ? "The web of lifegroups over time - every plant, merge, dormancy, and replant."
+                  : "Every lifegroup in the church - tap a house to step inside."
               : "Find a group, see who leads it, help someone land in the right home."}
           </p>
         </div>
@@ -117,8 +117,8 @@ export default function MapPage() {
           <p className="font-display mb-2 text-xl">Welcome home 🏡</p>
           <p className="mb-5 text-[14px] leading-relaxed text-muted">
             {realMode
-              ? "The church is connected and the map is empty — time to plant it. Add your first lifegroup, then add its people."
-              : "No groups yet in demo mode — add one to try the flow."}
+              ? "The church is connected and the map is empty - time to plant it. Add your first lifegroup, then add its people."
+              : "No groups yet in demo mode - add one to try the flow."}
           </p>
           {staff && (
             <button
@@ -409,7 +409,7 @@ function CardsView({
         {wins.length === 0 ? (
           <p className="border-t border-line pt-3 text-[12.5px] italic text-muted">
             {realMode
-              ? "No wins recorded yet — they'll flow in from monthly check-ins."
+              ? "No wins recorded yet - they'll flow in from monthly check-ins."
               : "No wins yet."}
           </p>
         ) : (
@@ -469,7 +469,7 @@ function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
             </h3>
             <div className="mb-2.5 text-[11.5px] text-faint">
               {ppl.length} people{kids.length > 0 ? ` · ${kids.length} kids` : ""}
-              {g.dgroups !== "—" ? ` · ${g.dgroups} D-groups` : ""}
+              {g.dgroups !== " - " ? ` · ${g.dgroups} D-groups` : ""}
             </div>
             <div
               className={`grid border-t border-line ${
@@ -523,7 +523,7 @@ function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
       <div className="rise rounded-[14px] border border-dashed border-ember bg-surface p-4 shadow-card">
         <h3 className="font-display text-[17px] text-ember">Not yet in a lifegroup</h3>
         <div className="mb-2 text-[11.5px] text-faint">
-          {unplaced.length} people we know of — the shepherding edge of the whole church
+          {unplaced.length} people we know of - the shepherding edge of the whole church
         </div>
         {unplaced.length === 0 ? (
           <p className="text-[12.5px] italic text-muted">

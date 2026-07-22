@@ -59,7 +59,7 @@ export default function PeoplePage() {
   const unplaced = h.unplacedPeople();
 
   const groupName = (p: Person) =>
-    p.role === "staff" ? "Staff" : p.groupId ? (groups.find((g) => g.id === p.groupId)?.name ?? "") : "—";
+    p.role === "staff" ? "Staff" : p.groupId ? (groups.find((g) => g.id === p.groupId)?.name ?? "") : " - ";
 
   const q = search.trim().toLowerCase();
   let rows = people.filter((p) => !q || p.name.toLowerCase().includes(q));
@@ -84,8 +84,8 @@ export default function PeoplePage() {
         const ga = groupName(a);
         const gb = groupName(b);
         // People with a group first (alphabetical), then the placeless.
-        if (ga === "—" && gb !== "—") return 1;
-        if (gb === "—" && ga !== "—") return -1;
+        if (ga === " - " && gb !== " - ") return 1;
+        if (gb === " - " && ga !== " - ") return -1;
         const g = ga.localeCompare(gb);
         return g !== 0 ? g : byName(a, b);
       }
@@ -119,7 +119,7 @@ export default function PeoplePage() {
         <div className="max-w-[560px]">
           <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">People</h1>
           <p className="text-[14.5px] text-muted max-md:hidden">
-            Everyone the church knows by name — in a group, on the edge, or growing up in
+            Everyone the church knows by name - in a group, on the edge, or growing up in
             the middle of it all.
           </p>
         </div>
@@ -185,7 +185,7 @@ export default function PeoplePage() {
         {rows.length === 0 && (
           <p className="p-8 text-center text-[13.5px] italic text-muted">
             {people.length === 0
-              ? "Nobody here yet — add your first person and the directory begins."
+              ? "Nobody here yet - add your first person and the directory begins."
               : "No one matches that search."}
           </p>
         )}

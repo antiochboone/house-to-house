@@ -16,7 +16,7 @@ export function reminderHtml(groupName: string, checkinUrl: string) {
     <div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#a5a18d;margin-bottom:6px">House to House</div>
     <h1 style="margin:0 0 10px;font-family:Palatino,Georgia,serif;font-size:22px;color:#35392f">How was ${esc(groupName)} tonight?</h1>
     <p style="margin:0 0 18px;font-size:14px;color:#77796b;line-height:1.6">
-      While it's fresh — the check-in takes about 90 seconds: who came, how the
+      While it's fresh - the check-in takes about 90 seconds: who came, how the
       group's feeling, anything to celebrate.
     </p>
     <a href="${esc(checkinUrl)}"
@@ -35,7 +35,7 @@ export function reminderText(groupName: string, checkinUrl: string) {
   return [
     `How was ${groupName} tonight?`,
     "",
-    "While it's fresh — the check-in takes about 90 seconds:",
+    "While it's fresh - the check-in takes about 90 seconds:",
     checkinUrl,
     "",
     "Leaders can change this reminder (weekly / monthly / off) on the group's page.",

@@ -92,9 +92,10 @@ export default function CheckInPage() {
       <div className="mx-auto mt-20 max-w-md text-center">
         <h1 className="font-display mb-2 text-2xl">Almost there</h1>
         <p className="text-[14.5px] leading-relaxed text-muted">
-          Your login isn&apos;t connected to a lifegroup yet. Ask your staff to make sure
-          your email is on your person record and you&apos;re listed as a leader of your
-          group — then this page becomes your monthly check-in.
+          Your login isn&apos;t connected to a lifegroup yet. Ask your staff to check two
+          things: that your email is on your person record, and that you&apos;re on your
+          group&apos;s roster with a leader role. Once both are true, this page becomes your
+          monthly check-in.
         </p>
       </div>
     );
@@ -206,9 +207,9 @@ export default function CheckInPage() {
         <p className="text-[14.5px] text-muted">
           {realMode
             ? role === "staff"
-              ? "Check in for any group — leaders will do their own from here too."
+              ? "Check in for any group - leaders will do their own from here too."
               : "Ninety seconds, once a month. That's the whole ask."
-            : "Demo preview — sign in on the real site and this saves for real."}
+            : "Demo preview - sign in on the real site and this saves for real."}
         </p>
       </div>
 
@@ -229,12 +230,12 @@ export default function CheckInPage() {
           {step === 0 && (
             <>
               <p className="font-display mb-1.5 text-center text-[21px]">
-                Hey {greetName} — {monthName} check-in
+                Hey {greetName} - {monthName} check-in
                 {group ? ` for ${group.name}` : ""}
               </p>
               <p className="mb-4 text-center text-[13.5px] text-muted">
                 {alreadyThisMonth
-                  ? `${group?.name} already checked in this month — running it again updates it.`
+                  ? `${group?.name} already checked in this month - running it again updates it.`
                   : "A few taps and you're done. Should take about 90 seconds."}
               </p>
               {!group && (
@@ -273,7 +274,7 @@ export default function CheckInPage() {
                 {meetingChanged && (
                   <div className="flex flex-col gap-2 rounded-xl border border-dashed border-line p-2.5">
                     <select value={day} onChange={(e) => setDay(e.target.value)} className={inputCls} aria-label="Day">
-                      <option value="">Day —</option>
+                      <option value="">Day - </option>
                       {DAYS_OF_WEEK.map((d) => (
                         <option key={d} value={d}>{d}</option>
                       ))}
@@ -281,7 +282,7 @@ export default function CheckInPage() {
                     <div className="flex gap-1.5">
                       <select value={hour} onChange={(e) => setHour(e.target.value)} className={`${inputCls} flex-1`} aria-label="Hour">
                         {HOURS.map((hr) => (
-                          <option key={hr} value={hr}>{hr || "—"}</option>
+                          <option key={hr} value={hr}>{hr || " - "}</option>
                         ))}
                       </select>
                       <select value={minute} onChange={(e) => setMinute(e.target.value)} className={`${inputCls} flex-1`} aria-label="Minute">
@@ -506,7 +507,7 @@ export default function CheckInPage() {
                     void finishAndSave();
                   }}
                 >
-                  Nothing this month — that&apos;s okay
+                  Nothing this month - that&apos;s okay
                 </Opt>
               </div>
               {saveError && (
@@ -549,11 +550,11 @@ export default function CheckInPage() {
                 {feeling && (
                   <>
                     {" "}
-                    — feeling <strong>{feeling}</strong>
+ - feeling <strong>{feeling}</strong>
                   </>
                 )}
                 .{newFirst.trim() && <> {newFirst.trim()} is on the roster.</>}
-                {winNote.trim() && <> Your win — &quot;{winNote.trim()}&quot; — is on the board.</>}{" "}
+                {winNote.trim() && <> Your win - &quot;{winNote.trim()}&quot; - is on the board.</>}{" "}
                 See you next month.
               </p>
               <button onClick={restart} className="mt-2.5 py-2 text-[13px] text-muted">
@@ -566,7 +567,7 @@ export default function CheckInPage() {
       <p className="mt-4 text-center text-[12.5px] text-faint max-md:hidden">
         {realMode
           ? "Check-ins land on the group's card and feed the church-wide insights."
-          : "Demo mode — nothing is saved."}
+          : "Demo mode - nothing is saved."}
       </p>
     </>
   );
