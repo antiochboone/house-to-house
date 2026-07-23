@@ -539,12 +539,24 @@ export function AddPersonForm({
   defaultGroupId?: string | null;
   onDone: () => void;
 }) {
-  const { addPerson, groups, guests } = useData();
+  const { addPerson, groups, guests, role: appRole, myGroupIds } = useData();
+  const staff = appRole === "staff";
+  // A leader adds people to the roster they actually shepherd - their own
+  // lifegroup, and nowhere else. Staff place anyone anywhere, including
+  // nowhere (the unplaced directory). The database enforces the same line
+  // (memberships_insert_leader is gated on leads_group), so this is the
+  // honest version of the form rather than the only thing stopping them.
+  const placeable = staff ? groups : groups.filter((g) => myGroupIds.includes(g.id));
+  const myDefault =
+    defaultGroupId && myGroupIds.includes(defaultGroupId)
+      ? defaultGroupId
+      : (placeable[0]?.id ?? "");
+
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [gender, setGender] = useState<Gender>("M");
   const [isChild, setIsChild] = useState(false);
-  const [groupId, setGroupId] = useState<string>(defaultGroupId ?? "");
+  const [groupId, setGroupId] = useState<string>(staff ? (defaultGroupId ?? "") : myDefault);
   const [role, setRole] = useState<MemberRole>("member");
   const [statuses, setStatuses] = useState<DiscipleshipStatus[]>([]);
   const [email, setEmail] = useState("");
@@ -562,6 +574,12 @@ export function AddPersonForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!staff && !groupId) {
+      // Belt and braces: the entry points already hide this form from a leader
+      // with no group, and the database would reject the membership anyway.
+      setError("Your login isn't connected to a lifegroup yet, so there's no roster to add to.");
+      return;
+    }
     setBusy(true);
     const err = await addPerson({
       firstName: first.trim(),
@@ -643,14 +661,32 @@ export function AddPersonForm({
         </button>
       </div>
       <label className={labelCls}>Lifegroup</label>
-      <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
-        <option value="">Not in a lifegroup yet</option>
-        {groups.map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.name}
-          </option>
-        ))}
-      </select>
+      {staff ? (
+        <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
+          <option value="">Not in a lifegroup yet</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+      ) : placeable.length > 1 ? (
+        // Leads more than one group: still their choice, just a shorter list.
+        <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
+          {placeable.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        // The common case - one group, so show it as settled rather than as a
+        // one-option dropdown that pretends there's a decision to make.
+        <div className="flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface-2 px-3 py-2 text-[14.5px]">
+          <span className="font-medium">{placeable[0]?.name ?? "-"}</span>
+          <span className="text-[12px] text-muted">your lifegroup</span>
+        </div>
+      )}
       {groupId && (
         <>
           <label className={labelCls}>Role in group</label>
@@ -686,10 +722,17 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
     setRoadmapStep,
     setAccess,
     sendInvite,
+    role: appRole,
   } = useData();
+  const staff = appRole === "staff";
   // Read the live record so roadmap/peer edits (which write to the store)
   // reflect immediately, instead of the snapshot passed in when opened.
   const person = people.find((p) => p.id === personProp.id) ?? personProp;
+  // A leader's reach stops at their own roster, and stops short of anyone who
+  // can sign in - editing a login's email is how you'd steal their access.
+  // This mirrors the people_update_leader policy exactly; where the two could
+  // drift, updatePerson surfaces the refusal instead of faking a save.
+  const homeGroup = groups.find((g) => g.id === person.groupId);
   const [first, setFirst] = useState(person.firstName);
   const [last, setLast] = useState(person.lastName);
   const [gender, setGender] = useState<Gender>(person.gender);
@@ -804,14 +847,43 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
         </button>
       </div>
       <label className={labelCls}>Lifegroup</label>
-      <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
-        <option value="">Not in a lifegroup</option>
-        {groups.map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.name}
-          </option>
-        ))}
-      </select>
+      {staff ? (
+        <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
+          <option value="">Not in a lifegroup</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+      ) : groupId ? (
+        // A leader can let someone go from their own roster, but can't hand
+        // them to another group - that's a placement conversation with staff.
+        <div className="flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface-2 px-3 py-2 text-[14.5px]">
+          <span className="font-medium">{homeGroup?.name ?? "-"}</span>
+          <button
+            type="button"
+            onClick={() => setGroupId("")}
+            className="text-[12px] text-ember hover:underline"
+          >
+            no longer in our group
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between rounded-xl border-[1.5px] border-dashed border-line bg-surface px-3 py-2 text-[13.5px]">
+          <span className="text-ember">
+            Comes off the {homeGroup?.name ?? "group"} roster when you save. They stay in
+            the church directory.
+          </span>
+          <button
+            type="button"
+            onClick={() => setGroupId(person.groupId ?? "")}
+            className="shrink-0 pl-3 text-[12px] text-muted hover:underline"
+          >
+            undo
+          </button>
+        </div>
+      )}
       {groupId && (
         <>
           <label className={labelCls}>Role in group</label>
@@ -824,19 +896,23 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
           <span>
             Discipled by <strong>{discipler.name}</strong>
           </span>
-          <button
-            type="button"
-            onClick={async () => {
-              setBusy(true);
-              const err = await endDiscipleship(person.id);
-              setBusy(false);
-              if (err) setError(err);
-              else onDone();
-            }}
-            className="text-[12px] text-ember hover:underline"
-          >
-            end relationship
-          </button>
+          {/* Ending a discipleship pair is a staff write (dship_write), so a
+              leader sees the relationship but not a button that would fail. */}
+          {staff && (
+            <button
+              type="button"
+              onClick={async () => {
+                setBusy(true);
+                const err = await endDiscipleship(person.id);
+                setBusy(false);
+                if (err) setError(err);
+                else onDone();
+              }}
+              className="text-[12px] text-ember hover:underline"
+            >
+              end relationship
+            </button>
+          )}
         </div>
       )}
       {person.peers.length > 0 && (
@@ -852,19 +928,21 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
                 <span>
                   ↔ Peers with <strong>{peer.name}</strong>
                 </span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setBusy(true);
-                    const err = await endPeer(person.id, pid);
-                    setBusy(false);
-                    if (err) setError(err);
-                    else onDone();
-                  }}
-                  className="text-[12px] text-ember hover:underline"
-                >
-                  end
-                </button>
+                {staff && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setBusy(true);
+                      const err = await endPeer(person.id, pid);
+                      setBusy(false);
+                      if (err) setError(err);
+                      else onDone();
+                    }}
+                    className="text-[12px] text-ember hover:underline"
+                  >
+                    end
+                  </button>
+                )}
               </div>
             );
           })}
@@ -938,7 +1016,9 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
         </div>
       </div>
 
-      {!isChild && (
+      {/* Who may sign in, and at what level, is staff's alone - the database
+          enforces it too (guard_app_access), so this is not the only lock. */}
+      {!isChild && staff && (
         <div className="mt-4 rounded-xl border border-dashed border-line p-3">
           <label className="label mb-1 block">App access</label>
           <div className="flex gap-1.5">
@@ -997,6 +1077,9 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
       )}
 
       <SubmitRow busy={busy} error={error} label="Save changes" />
+      {/* Deleting a person erases them from the church - and cascades their
+          login. A leader letting someone go uses the roster control above. */}
+      {staff && (
       <div className="mt-3 text-center">
         {confirmDelete ? (
           <span className="text-[12.5px] text-muted">
@@ -1019,6 +1102,7 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
           </button>
         )}
       </div>
+      )}
     </form>
   );
 }

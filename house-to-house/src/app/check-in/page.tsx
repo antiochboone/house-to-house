@@ -5,7 +5,7 @@
 // meeting changes, and wins all write to the database. Demo mode keeps the
 // sample "Sam / King Street" experience.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Gender } from "@/lib/types";
 import { DAYS_OF_WEEK, firstName } from "@/lib/data";
 import { useData, makeHelpers, type CheckinInput } from "@/lib/store";
@@ -49,6 +49,45 @@ function Opt({
 const inputCls =
   "rounded-xl border-[1.5px] border-accent bg-bg px-3.5 py-2.5 text-[14.5px] max-md:text-[16px] outline-none";
 
+/**
+ * Signed in with real access, but no lifegroup to check in for. A dead end for
+ * the person looking at it, so it files a request rather than sending them off
+ * to find staff in a hallway. Deduplicated server-side; revisiting is quiet.
+ *
+ * Staff reaching this mean something different — they can check in for ANY
+ * group, so an empty list means the church has no groups yet. Nobody needs an
+ * email about that, least of all the person who'd receive it.
+ */
+function NoGroupYet({ staff }: { staff: boolean }) {
+  const { reportStuck } = useData();
+  useEffect(() => {
+    if (!staff) void reportStuck("no-group");
+  }, [staff, reportStuck]);
+
+  return (
+    <div className="mx-auto mt-20 max-w-md text-center">
+      <h1 className="font-display mb-2 text-2xl">
+        {staff ? "No lifegroups yet" : "Almost there"}
+      </h1>
+      <p className="text-[14.5px] leading-relaxed text-muted">
+        {staff ? (
+          <>
+            Check-ins run per lifegroup, and the church doesn&apos;t have one yet. Add
+            your first on the Lifegroup Map and this page comes to life.
+          </>
+        ) : (
+          <>
+            Your login isn&apos;t connected to a lifegroup yet, so there&apos;s nothing to
+            check in for. We&apos;ve let your staff know - they need your email on your
+            person record, and you on your group&apos;s roster with a leader role. Once
+            both are true, this page becomes your monthly check-in.
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
 export default function CheckInPage() {
   const data = useData();
   const { ready, realMode, role, groups, people, mePersonId, myGroupIds, submitCheckin, pulseWords } = data;
@@ -88,17 +127,7 @@ export default function CheckInPage() {
     role === "staff" ? groups : groups.filter((g) => myGroupIds.includes(g.id));
 
   if (realMode && candidates.length === 0) {
-    return (
-      <div className="mx-auto mt-20 max-w-md text-center">
-        <h1 className="font-display mb-2 text-2xl">Almost there</h1>
-        <p className="text-[14.5px] leading-relaxed text-muted">
-          Your login isn&apos;t connected to a lifegroup yet. Ask your staff to check two
-          things: that your email is on your person record, and that you&apos;re on your
-          group&apos;s roster with a leader role. Once both are true, this page becomes your
-          monthly check-in.
-        </p>
-      </div>
-    );
+    return <NoGroupYet staff={role === "staff"} />;
   }
 
   const group = groupId

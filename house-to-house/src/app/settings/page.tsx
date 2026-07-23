@@ -235,6 +235,11 @@ export default function SettingsPage() {
     saveZoning,
     reportEmails,
     saveReportEmails,
+    accessAlerts,
+    saveAccessAlerts,
+    accessRequests,
+    resolveAccessRequest,
+    setAccess,
   } = useData();
   const [newCat, setNewCat] = useState("");
   const [newCatMulti, setNewCatMulti] = useState(true);
@@ -333,6 +338,23 @@ export default function SettingsPage() {
     else delete next[groupId];
     void act(() => saveZoning({ ...zoning, groupSections: next }));
   };
+
+  /* ----- Access request helpers ----- */
+  const patchAlerts = (patch: Partial<typeof accessAlerts>) =>
+    void act(() => saveAccessAlerts({ ...accessAlerts, ...patch }));
+  const toggleAdmin = (personId: string) =>
+    patchAlerts({
+      admins: accessAlerts.admins.includes(personId)
+        ? accessAlerts.admins.filter((id) => id !== personId)
+        : [...accessAlerts.admins, personId],
+    });
+  // Only people who can already see the whole church make sense as admins -
+  // these alerts point at People, which is a staff page.
+  const adminCandidates = people.filter((p) => p.access === "staff" && p.email);
+  // Match a waiting address to a person record so the row can offer the grant
+  // outright, instead of sending staff off to find them by hand.
+  const personForRequest = (email: string) =>
+    people.find((p) => (p.email ?? "").trim().toLowerCase() === email.trim().toLowerCase());
 
   /* ----- Emailed reports helpers ----- */
   const patchReports = (patch: Partial<ReportEmailConfig>) =>
@@ -799,6 +821,152 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Access requests"
+          blurb="When someone signs in and can't get anywhere - no access yet, or no lifegroup to check in for - the app emails whoever you name here. Once per person, not once per visit."
+        >
+          {accessRequests.length > 0 && (
+            <div className="mb-5 rounded-xl border-[1.5px] border-gold bg-gold-soft p-3">
+              <div className="label mb-2">
+                Waiting on you ({accessRequests.length})
+              </div>
+              <div className="flex flex-col gap-2">
+                {accessRequests.map((r) => {
+                  const match = personForRequest(r.email);
+                  return (
+                    <div
+                      key={r.id}
+                      className="rounded-xl border border-line bg-surface px-3 py-2.5"
+                    >
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="text-[13.5px] font-semibold">
+                          {match ? match.name : r.email}
+                        </span>
+                        {match && (
+                          <span className="text-[12px] text-muted">{r.email}</span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
+                        {r.kind === "no-access"
+                          ? match
+                            ? "Signed in, but their App access is still None."
+                            : "Signed in, but no person record carries that email. Add them in People first."
+                          : "Has access, but no lifegroup roster with a leader role."}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {r.kind === "no-access" && match && (
+                          <>
+                            <button
+                              onClick={() => void act(() => setAccess(match.id, "leader"))}
+                              className="rounded-lg bg-accent px-2.5 py-1 text-[12px] font-semibold text-cta-ink"
+                            >
+                              Grant Leader
+                            </button>
+                            <button
+                              onClick={() => void act(() => setAccess(match.id, "staff"))}
+                              className="rounded-lg border-[1.5px] border-line px-2.5 py-1 text-[12px] font-semibold text-muted hover:border-accent hover:text-accent-ink"
+                            >
+                              Grant Staff
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => void act(() => resolveAccessRequest(r.id))}
+                          className="text-[12px] text-faint underline-offset-2 hover:text-ink hover:underline"
+                        >
+                          dismiss
+                        </button>
+                        {!r.notifiedAt && (
+                          <span className="ml-auto text-[11px] text-faint">
+                            not emailed
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={accessAlerts.enabled}
+            onClick={() => patchAlerts({ enabled: !accessAlerts.enabled })}
+            className={`mb-4 flex w-full items-center gap-3 rounded-xl border-[1.5px] px-3.5 py-2.5 text-left ${
+              accessAlerts.enabled ? "border-accent bg-accent-soft" : "border-line bg-surface"
+            }`}
+          >
+            <span
+              className={`flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors ${
+                accessAlerts.enabled ? "bg-accent" : "bg-surface-2"
+              }`}
+            >
+              <span
+                className={`h-4 w-4 rounded-full bg-surface shadow-card transition-transform ${
+                  accessAlerts.enabled ? "translate-x-4" : ""
+                }`}
+              />
+            </span>
+            <span className="text-[13.5px] font-semibold">
+              {accessAlerts.enabled ? "Emailing access requests" : "Requests are queued only"}
+            </span>
+          </button>
+
+          {accessAlerts.enabled && (
+            <div className="flex flex-col gap-5">
+              <div>
+                <div className="label mb-1.5">Admins</div>
+                {adminCandidates.length === 0 ? (
+                  <p className="text-[12px] leading-relaxed text-faint">
+                    Nobody with Staff access has an email on file yet. Until then these
+                    alerts go to every Staff-access person who has one.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {adminCandidates.map((p) => {
+                      const on = accessAlerts.admins.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => toggleAdmin(p.id)}
+                          className={`flex items-center gap-2.5 rounded-xl border-[1.5px] px-3 py-2 text-left text-[13.5px] ${
+                            on ? "border-accent bg-accent-soft" : "border-line bg-surface"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] text-[10px] font-bold ${
+                              on ? "bg-accent text-cta-ink" : "border-[1.5px] border-line text-transparent"
+                            }`}
+                          >
+                            ✓
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                          <span className="shrink-0 text-[11.5px] text-faint">{p.email}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-faint">
+                  {accessAlerts.admins.length === 0
+                    ? "None picked, so every Staff-access person hears about it. Pick someone to narrow it down."
+                    : "Only the people ticked above get these emails."}
+                </p>
+              </div>
+
+              <EmailList
+                label="Also email"
+                hint="a shared inbox, or someone with no person record"
+                emails={accessAlerts.extra}
+                onChange={(next) => patchAlerts({ extra: next })}
+              />
+            </div>
+          )}
         </SectionCard>
 
         <SectionCard

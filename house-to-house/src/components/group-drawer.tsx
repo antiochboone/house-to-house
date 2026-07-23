@@ -85,14 +85,24 @@ export function GroupDrawer({
   const members = ppl.filter((p) => !isLeadershipRole(p.role));
   const emergingLeaders = ppl.filter((p) => p.statuses.includes("emerging"));
 
-  const row = (p: Person) => (
+  // Who this viewer may edit. Staff: anyone. A leader: the ordinary members of
+  // a group they lead - not people who can sign in, since editing a login's
+  // email is how you would take over their access. Same rule as the
+  // people_update_leader policy, so nothing offered here fails on save.
+  const leadsThisGroup = group !== null && myGroupIds.includes(group.id);
+  const canEditPerson = (p: Person) =>
+    staff || (leadsThisGroup && (p.access ?? "none") === "none" && p.role !== "staff");
+
+  const row = (p: Person) => {
+    const editable = canEditPerson(p);
+    return (
     <div
       key={p.id}
-      onClick={staff ? () => setEditPerson(p) : undefined}
+      onClick={editable ? () => setEditPerson(p) : undefined}
       className={`flex items-center gap-2.5 rounded-lg px-1 py-1.5 ${
-        staff ? "cursor-pointer hover:bg-surface-2" : ""
+        editable ? "cursor-pointer hover:bg-surface-2" : ""
       }`}
-      title={staff ? `Edit ${p.name}` : undefined}
+      title={editable ? `Edit ${p.name}` : undefined}
     >
       <Avatar name={p.name} gender={p.gender} />
       <div>
@@ -113,7 +123,8 @@ export function GroupDrawer({
           ))}
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -414,11 +425,11 @@ export function GroupDrawer({
                 {gKids.map((k) => (
                   <div
                     key={k.id}
-                    onClick={staff ? () => setEditPerson(k) : undefined}
+                    onClick={canEditPerson(k) ? () => setEditPerson(k) : undefined}
                     className={`flex items-center gap-2.5 rounded-lg px-1 py-1.5 ${
-                      staff ? "cursor-pointer hover:bg-surface-2" : ""
+                      canEditPerson(k) ? "cursor-pointer hover:bg-surface-2" : ""
                     }`}
-                    title={staff ? `Edit ${k.name}` : undefined}
+                    title={canEditPerson(k) ? `Edit ${k.name}` : undefined}
                   >
                     <Avatar name={k.name} gender={k.gender} size={22} />
                     <div className="text-sm">{k.name}</div>

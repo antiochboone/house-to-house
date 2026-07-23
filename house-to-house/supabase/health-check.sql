@@ -43,6 +43,43 @@ with checks as (
                       where conname='profiles_person_id_fkey' and confdeltype='c')
       then '✅ present' else '❌ MISSING — run migration-ship-blockers.sql' end
 
+  -- 3.5 Sign-in repair (migration-signin-repair.sql)
+  union all select 3.5, 'Sign-in repair — link_my_profile() self-heal RPC',
+    case when exists (select 1 from pg_proc where proname='link_my_profile')
+      then '✅ present' else '❌ MISSING — run migration-signin-repair.sql' end
+  union all select 3.6, 'Sign-in repair — every login connected to a person',
+    case when not exists (
+           select 1 from auth.users au
+           left join profiles pr on pr.id = au.id
+           where pr.person_id is null)
+      then '✅ all logins linked'
+      else '⚠️ ' || (select count(*)::text from auth.users au
+                     left join profiles pr on pr.id = au.id
+                     where pr.person_id is null)
+           || ' login(s) see an empty app — run diagnose-signin.sql for each' end
+
+  -- 3.7 Leaders edit their own roster (migration-leader-edit.sql)
+  union all select 3.7, 'Leader edit — people/memberships update policies',
+    case when (select count(*) from pg_policies
+               where policyname in ('people_update_leader','memberships_update_leader')) = 2
+      then '✅ present' else '❌ MISSING — run migration-leader-edit.sql' end
+  union all select 3.8, 'Leader edit — email guard on accounts that can sign in',
+    case when exists (select 1 from pg_proc where proname='guard_app_access'
+                        and pg_get_functiondef(oid) like '%new.email := old.email%')
+      then '✅ present' else '❌ MISSING — run migration-leader-edit.sql' end
+
+  -- 3.9 Access requests (migration-access-requests.sql)
+  union all select 3.9, 'Access requests — table + request_app_access() RPC',
+    case when to_regclass('public.access_requests') is not null
+          and exists (select 1 from pg_proc where proname='request_app_access')
+      then '✅ present' else '❌ MISSING — run migration-access-requests.sql' end
+  union all select 3.95, 'Access requests — anyone waiting right now',
+    case when to_regclass('public.access_requests') is null then '⏭ n/a'
+         when not exists (select 1 from access_requests where resolved_at is null)
+      then '✅ nobody waiting'
+      else '⚠️ ' || (select count(*)::text from access_requests where resolved_at is null)
+           || ' waiting — see Settings → Access requests' end
+
   -- 4. D-groups (migration-dgroups.sql)
   union all select 4.0, 'D-groups — dgroups + dgroup_members tables',
     case when to_regclass('public.dgroups') is not null

@@ -14,6 +14,9 @@ import {
   type ReactNode,
 } from "react";
 import type {
+  AccessAlertConfig,
+  AccessRequest,
+  AccessRequestKind,
   AppAccess,
   AppRole,
   DGroup,
@@ -42,6 +45,7 @@ import type {
   Zone,
 } from "./types";
 import { DEFAULT_REPORT_EMAILS } from "./report-email";
+import { DEFAULT_ACCESS_ALERTS } from "./access-email";
 import {
   BUILTIN_LEADERSHIP_ROLE_IDS,
   DEFAULT_ROLES,
@@ -144,6 +148,12 @@ interface DataApi {
   demoRole: AppRole;
   setDemoRole: (r: AppRole) => void;
   userEmail: string | null;
+  /**
+   * Real mode: does the signed-in user have a profile row? Without one they
+   * can read nothing (every RLS policy is gated on it), so the app must say
+   * "your access isn't set up" rather than show an empty church.
+   */
+  linked: boolean;
   /** The signed-in user's linked person record (real mode; null if unlinked). */
   mePersonId: string | null;
   /** Groups the signed-in user actively leads (leader/intern memberships). */
@@ -240,6 +250,18 @@ interface DataApi {
   /** Who gets emailed when a check-in lands (configurable in Settings). */
   reportEmails: ReportEmailConfig;
   saveReportEmails: (config: ReportEmailConfig) => Promise<string | null>;
+  /** Who hears about someone stuck at the door (configurable in Settings). */
+  accessAlerts: AccessAlertConfig;
+  saveAccessAlerts: (config: AccessAlertConfig) => Promise<string | null>;
+  /** Open "I can't get in" requests, newest first (staff only). */
+  accessRequests: AccessRequest[];
+  /** Mark a request handled without changing anyone's access. */
+  resolveAccessRequest: (id: string) => Promise<string | null>;
+  /**
+   * Tell the church someone is stuck. Deduplicated server-side, so the screens
+   * that call this may do so on every render without nagging anybody.
+   */
+  reportStuck: (kind: AccessRequestKind) => Promise<void>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -283,6 +305,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [demoRole, setDemoRole] = useState<AppRole>("staff");
   const [role, setRole] = useState<AppRole>("staff");
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [linked, setLinked] = useState(true);
   const [people, setPeople] = useState<Person[]>(realMode ? [] : SEED_PEOPLE);
   // Demo group cards derive their D-group summary from the seeded entities so
   // both modes flow through the same source of truth.
@@ -312,6 +335,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [sections, setSections] = useState<Section[]>([]);
   const [groupSections, setGroupSections] = useState<Record<string, string>>({});
   const [reportEmails, setReportEmails] = useState<ReportEmailConfig>(DEFAULT_REPORT_EMAILS);
+  const [accessAlerts, setAccessAlerts] = useState<AccessAlertConfig>(DEFAULT_ACCESS_ALERTS);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
 
   const refresh = useCallback(async () => {
     if (!realMode) return;
@@ -325,8 +350,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { data: auth } = await supabase.auth.getUser();
     const myUid = auth.user?.id ?? "";
 
+    const readProfile = async () =>
+      myUid
+        ? (
+            await supabase
+              .from("profiles")
+              .select("role, person_id")
+              .eq("id", myUid)
+              .maybeSingle()
+          ).data
+        : null;
+
+    // The profile has to be resolved BEFORE anything else loads, because
+    // everything else depends on it: every RLS policy is gated on
+    // current_church_id(), which reads this row. No profile means every query
+    // below comes back empty and the app looks like a church with nothing in
+    // it. That state is reachable in normal use — the sign-in trigger only
+    // fires when the auth account is CREATED, so anyone who typed their email
+    // at the login screen before staff granted them access never got a
+    // profile, and no later sign-in fixed it. Ask the server to link us; it
+    // grants exactly what staff already set on the person record, and nothing
+    // if that's still None.
+    // A profile that exists but points at no person gets the same repair (it
+    // means their person record was deleted and re-added). It is NOT a lockout
+    // though - that profile still carries church_id, so they can see the
+    // church, they just have no "me". Only a missing profile blocks everything,
+    // so only that flips `linked`.
+    let profile = await readProfile();
+    if (myUid && !profile?.person_id) {
+      const { data: status } = await supabase.rpc("link_my_profile");
+      if (status === "linked") profile = (await readProfile()) ?? profile;
+    }
+    setLinked(!!profile);
+
     const [
-      profileQ,
       churchQ,
       groupsQ,
       peopleQ,
@@ -340,8 +397,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       checkinsQ,
       dgroupsQ,
       dgroupMembersQ,
+      accessReqQ,
     ] = await Promise.all([
-      supabase.from("profiles").select("role, person_id").eq("id", myUid).maybeSingle(),
       supabase.from("churches").select("settings").single(),
       supabase.from("groups").select("*").order("created_at"),
       supabase.from("people").select("*").order("first_name"),
@@ -355,10 +412,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("checkins").select("*").order("month", { ascending: false }),
       supabase.from("dgroups").select("*").order("created_at"),
       supabase.from("dgroup_members").select("dgroup_id, person_id"),
+      // Staff-only by policy; everyone else just gets an empty list back.
+      supabase
+        .from("access_requests")
+        .select("id, email, kind, requested_at, notified_at")
+        .is("resolved_at", null)
+        .order("requested_at", { ascending: false }),
     ]);
 
     setUserEmail(auth.user?.email ?? null);
-    setMePersonId(profileQ.data?.person_id ?? null);
+    setMePersonId(profile?.person_id ?? null);
     // What the app lets you SEE follows the access grant (None / Leader /
     // Staff) — never your lifegroup role. Two signals can carry it: the
     // app_access grant on your person record (what staff set today) and the
@@ -367,9 +430,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // app_access existed never got the column backfilled — so we honor Staff
     // from EITHER. Neither your membership role nor a stale mirror can lock a
     // real staff member out of the staff view.
-    const myRow = peopleQ.data?.find((p) => p.id === profileQ.data?.person_id);
+    const myRow = peopleQ.data?.find((p) => p.id === profile?.person_id);
     const grant = myRow?.app_access as AppAccess | undefined;
-    const stamped = profileQ.data?.role as AppAccess | undefined;
+    const stamped = profile?.role as AppAccess | undefined;
     setRole(grant === "staff" || stamped === "staff" ? "staff" : "leader");
 
     const savedCategories = churchQ.data?.settings?.tagCategories as TagCategory[] | undefined;
@@ -408,6 +471,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ...DEFAULT_REPORT_EMAILS,
       ...((churchQ.data?.settings?.reportEmails as Partial<ReportEmailConfig> | undefined) ?? {}),
     });
+    setAccessAlerts({
+      ...DEFAULT_ACCESS_ALERTS,
+      ...((churchQ.data?.settings?.accessAlerts as Partial<AccessAlertConfig> | undefined) ?? {}),
+    });
+    setAccessRequests(
+      (accessReqQ.data ?? []).map((r) => ({
+        id: r.id,
+        email: r.email,
+        kind: r.kind as AccessRequest["kind"],
+        requestedAt: r.requested_at,
+        notifiedAt: r.notified_at ?? null,
+      })),
+    );
 
     const allMems = memsQ.data ?? [];
     const mems = allMems.filter((m) => !m.left_at);
@@ -425,7 +501,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       })),
     );
 
-    const myPersonId = profileQ.data?.person_id ?? null;
+    const myPersonId = profile?.person_id ?? null;
     // Leadership set from the just-loaded role config (DEFAULT_ROLES already
     // marks leader/intern/worship as leadership).
     const loadedRoles = (churchQ.data?.settings?.roles as RoleDef[] | undefined) ?? DEFAULT_ROLES;
@@ -892,7 +968,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return null;
       }
       const supabase = supabaseBrowser();
-      const { error } = await supabase
+      // Ask for the row back. An update the row-level policies forbid comes
+      // back as zero rows and NO error, so without this a leader editing
+      // someone they may not touch would be told "saved" while nothing
+      // changed. Silent success is the worst possible answer here.
+      const { data: updated, error } = await supabase
         .from("people")
         .update({
           first_name: input.firstName,
@@ -903,8 +983,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           discipleship_status: input.statuses ?? [],
           is_child: input.isChild ?? false,
         })
-        .eq("id", id);
+        .eq("id", id)
+        .select("id");
       if (error) return error.message;
+      if (!updated?.length)
+        return "You don't have permission to edit this person. Leaders can edit members of their own lifegroup; ask staff for anyone else.";
 
       const groupChanged = (input.groupId ?? null) !== current.groupId;
       const roleChanged = (input.role ?? "member") !== current.role;
@@ -2008,6 +2091,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, patchSettings],
   );
 
+  const saveAccessAlerts = useCallback(
+    async (config: AccessAlertConfig): Promise<string | null> => {
+      const clean: AccessAlertConfig = {
+        enabled: config.enabled,
+        admins: [...new Set(config.admins)],
+        extra: [...new Set(config.extra.map((e) => e.trim()).filter(Boolean))],
+      };
+      setAccessAlerts(clean);
+      if (!realMode) return null;
+      return patchSettings({ accessAlerts: clean });
+    },
+    [realMode, patchSettings],
+  );
+
+  const resolveAccessRequest = useCallback(
+    async (id: string): Promise<string | null> => {
+      setAccessRequests((prev) => prev.filter((r) => r.id !== id));
+      if (!realMode) return null;
+      const supabase = supabaseBrowser();
+      const { error } = await supabase
+        .from("access_requests")
+        .update({ resolved_at: new Date().toISOString() })
+        .eq("id", id);
+      return error ? error.message : null;
+    },
+    [realMode],
+  );
+
+  // Fire-and-forget: the person seeing the dead end shouldn't wait on mail,
+  // and a failure here must never make their screen worse than it already is.
+  const reportStuck = useCallback(
+    async (kind: AccessRequestKind): Promise<void> => {
+      if (!realMode) return;
+      try {
+        await fetch("/api/access-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind }),
+        });
+      } catch {
+        // Offline or blocked - they can still reach a human the old way.
+      }
+    },
+    [realMode],
+  );
+
   const addTagCategory = useCallback(
     async (label: string, multi: boolean): Promise<string | null> => {
       const clean = label.trim();
@@ -2053,6 +2182,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       demoRole,
       setDemoRole,
       userEmail,
+      linked: realMode ? linked : true,
       mePersonId: realMode ? mePersonId : null,
       myGroupIds: realMode
         ? realMyGroupIds
@@ -2117,8 +2247,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       saveZoning,
       reportEmails,
       saveReportEmails,
+      accessAlerts,
+      saveAccessAlerts,
+      accessRequests,
+      resolveAccessRequest,
+      reportStuck,
     }),
-    [ready, realMode, role, demoRole, userEmail, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails],
+    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, reportStuck],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

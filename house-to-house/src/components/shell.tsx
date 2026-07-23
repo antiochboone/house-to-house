@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useData } from "@/lib/store";
@@ -119,8 +119,84 @@ function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
   );
 }
 
+/**
+ * Signed in, but the account has no profile row - so every table reads back
+ * empty and the app would otherwise look like a church with nothing in it.
+ * The single most useful thing to show is the exact address they signed in
+ * with: nine times out of ten it's a different one from what's on their
+ * person record, and staff can only spot that if they can see it.
+ */
+function AccessPending({
+  email,
+  onRecheck,
+  onArrive,
+}: {
+  email: string | null;
+  onRecheck: () => Promise<void>;
+  onArrive: () => void;
+}) {
+  const [checking, setChecking] = useState(false);
+
+  // Tell the church someone is waiting. Deduplicated server-side, so landing
+  // here twice doesn't send twice - and nobody sits on this screen unnoticed.
+  useEffect(() => {
+    onArrive();
+  }, [onArrive]);
+
+  return (
+    <div className="mx-auto mt-24 w-full max-w-sm px-4">
+      <div className="mb-8 flex items-center justify-center gap-3">
+        <LogoMark size={46} className="text-accent" />
+        <div>
+          <div className="font-display text-2xl leading-none">House to House</div>
+          <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Antioch Boone</div>
+        </div>
+      </div>
+
+      <div className="rounded-[14px] border border-line bg-surface p-6 shadow-card">
+        <p className="font-display mb-2 text-xl">You&apos;re signed in</p>
+        <p className="mb-4 text-[13.5px] leading-relaxed text-muted">
+          Your access hasn&apos;t been turned on yet, so there&apos;s nothing here to show
+          you. We&apos;ve let your church staff know you&apos;re waiting - they can turn
+          it on in about ten seconds.
+        </p>
+        <div className="mb-4 rounded-xl bg-surface-2 px-3.5 py-3">
+          <div className="label mb-1">Signed in as</div>
+          <div className="break-all text-[14px] font-semibold">{email ?? "unknown"}</div>
+        </div>
+        <p className="mb-5 text-[12.5px] leading-relaxed text-faint">
+          Staff: open this person in People, confirm the email above is the one on their
+          record, and set App access to Leader or Staff. If it already says Leader,
+          they&apos;re signed in with a different address than the one on file.
+        </p>
+        <button
+          onClick={async () => {
+            setChecking(true);
+            await onRecheck();
+            setChecking(false);
+          }}
+          disabled={checking}
+          className="mb-3 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-cta-ink disabled:opacity-50"
+        >
+          {checking ? "Checking…" : "Check again"}
+        </button>
+        <form method="post" action="/auth/signout">
+          <button
+            type="submit"
+            className="w-full rounded-xl border-[1.5px] border-line py-2.5 text-[13.5px] font-semibold text-muted hover:border-accent hover:text-accent-ink"
+          >
+            Sign out and try another email
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, groups } = useData();
+  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, groups } =
+    useData();
+  const flagStuck = useCallback(() => void reportStuck("no-access"), [reportStuck]);
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -136,6 +212,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // Auth pages stand alone — no app chrome.
   if (pathname.startsWith("/login") || pathname.startsWith("/auth")) {
     return <>{children}</>;
+  }
+
+  // No profile → no data, on every page. Say so once, here, instead of letting
+  // each page render its own empty state and imply the church is empty.
+  if (realMode && ready && !linked) {
+    return <AccessPending email={userEmail} onRecheck={refresh} onArrive={flagStuck} />;
   }
 
   // Your own lifegroup isn't a section of the app, it's a bookmark into the

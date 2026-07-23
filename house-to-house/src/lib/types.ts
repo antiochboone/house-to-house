@@ -78,6 +78,26 @@ export interface ReportEmailConfig {
   groups: Record<string, string[]>;
 }
 
+/** Who hears about it when someone signs in and can't get anywhere. */
+export interface AccessAlertConfig {
+  enabled: boolean;
+  /** Person ids designated as admins for these alerts. */
+  admins: string[];
+  /** Extra addresses - a shared inbox, or someone with no person record. */
+  extra: string[];
+}
+
+/** Why someone is stuck: no access at all, or access but no group to check in for. */
+export type AccessRequestKind = "no-access" | "no-group";
+
+export interface AccessRequest {
+  id: string;
+  email: string;
+  kind: AccessRequestKind;
+  requestedAt: string;
+  notifiedAt: string | null;
+}
+
 export type AppRole = "staff" | "leader";
 
 /** What a person is allowed to do in the app once they sign in. Stored on the

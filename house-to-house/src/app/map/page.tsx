@@ -37,6 +37,13 @@ export default function MapPage() {
   const staff = role === "staff";
   const showChart = staff && mode === "chart";
   const showTimeline = staff && mode === "timeline";
+  // Leaders can grow their own roster; a leader with no group has no roster to
+  // grow, so they get nothing to press. Inside a drawer it's narrower still: a
+  // leader gets "add person" only in their OWN group, since opening someone
+  // else's group is a look, not an edit.
+  const canAddPeople = staff || myGroupIds.length > 0;
+  const canAddToOpenGroup =
+    staff || (openGroup !== null && myGroupIds.includes(openGroup.id));
 
   const placed = h.placedPeople();
   const inD = placed.filter(h.inRelationship);
@@ -74,9 +81,9 @@ export default function MapPage() {
               : "Find a group, see who leads it, help someone land in the right home."}
           </p>
         </div>
-        {staff && (
+        {canAddPeople && (
           <div className="ml-auto flex flex-wrap items-center gap-2.5 max-md:ml-0 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
-            {!emptyChurch && (
+            {staff && !emptyChurch && (
               <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:order-2">
                 {(
                   [
@@ -97,24 +104,32 @@ export default function MapPage() {
                 ))}
               </div>
             )}
-            {!emptyChurch && mode === "cards" && (
+            {staff && !emptyChurch && mode === "cards" && (
               <div className="max-md:order-3">
                 <DensityToggle value={density} onChange={setDensity} />
               </div>
             )}
             <div className="flex items-center gap-2.5 max-md:order-1 max-md:gap-2">
+              {/* Leaders get this too - it adds to their own group. Planting a
+                  lifegroup stays a staff decision. */}
               <button
                 onClick={() => setModal("person")}
-                className="rounded-xl border-[1.5px] border-line px-3.5 py-1.5 text-[13px] font-semibold text-muted hover:border-accent hover:text-accent-ink max-md:flex-1 max-md:py-2.5 max-md:text-[14.5px]"
+                className={`rounded-xl px-3.5 py-1.5 text-[13px] font-semibold max-md:flex-1 max-md:py-2.5 max-md:text-[14.5px] ${
+                  staff
+                    ? "border-[1.5px] border-line text-muted hover:border-accent hover:text-accent-ink"
+                    : "bg-accent text-cta-ink"
+                }`}
               >
-                ＋ Person
+                {staff ? "＋ Person" : "＋ Add someone to my group"}
               </button>
-              <button
-                onClick={() => setModal("group")}
-                className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink max-md:flex-1 max-md:py-2.5 max-md:text-[14.5px]"
-              >
-                ＋ Lifegroup
-              </button>
+              {staff && (
+                <button
+                  onClick={() => setModal("group")}
+                  className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink max-md:flex-1 max-md:py-2.5 max-md:text-[14.5px]"
+                >
+                  ＋ Lifegroup
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -264,7 +279,7 @@ export default function MapPage() {
         group={openGroup}
         showDetail={staff || (openGroup !== null && myGroupIds.includes(openGroup.id))}
         onClose={() => setOpenGroup(null)}
-        onAddPerson={staff ? () => setModal("person") : undefined}
+        onAddPerson={canAddToOpenGroup ? () => setModal("person") : undefined}
       />
 
       {modal === "group" && (
