@@ -30,6 +30,7 @@ import type {
   MemberRole,
   Milestone,
   MilestoneKey,
+  OversightLeader,
   Person,
   ReadinessData,
   RelationshipKind,
@@ -156,8 +157,28 @@ interface DataApi {
   linked: boolean;
   /** The signed-in user's linked person record (real mode; null if unlinked). */
   mePersonId: string | null;
-  /** Groups the signed-in user actively leads (leader/intern memberships). */
+  /**
+   * Every group the signed-in user has leader authority over: the ones they
+   * lead on the roster, plus every group in a section or zone they oversee.
+   * This is the set all the leader-shaped permissions key off, so a section
+   * leader inherits the whole lifegroup-leader experience for their section.
+   */
   myGroupIds: string[];
+  /**
+   * Only the groups they personally lead on the roster. Narrower than
+   * myGroupIds on purpose - "My group" is a bookmark to your own lifegroup,
+   * and a section leader with six of them has no single one.
+   */
+  myLedGroupIds: string[];
+  /** Section/zone oversight assignments for the church (staff manage these). */
+  oversightLeaders: OversightLeader[];
+  /** Give or take a person's oversight of one zone/section (staff only). */
+  setOversight: (
+    personId: string,
+    scope: OversightLeader["scope"],
+    scopeId: string,
+    on: boolean,
+  ) => Promise<string | null>;
   people: Person[];
   groups: Group[];
   wins: Win[];
@@ -324,6 +345,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [tagCategories, setTagCategories] = useState<TagCategory[]>(DEFAULT_TAG_CATEGORIES);
   const [mePersonId, setMePersonId] = useState<string | null>(null);
   const [realMyGroupIds, setRealMyGroupIds] = useState<string[]>([]);
+  const [realMyLedGroupIds, setRealMyLedGroupIds] = useState<string[]>([]);
+  const [oversightLeaders, setOversightLeaders] = useState<OversightLeader[]>([]);
   const [checkinLog, setCheckinLog] = useState<CheckinSummary[]>([]);
   const [pulseWords, setPulseWords] = useState<string[]>(DEFAULT_PULSE_WORDS);
   const [milestones, setMilestones] = useState<Milestone[]>(DEFAULT_MILESTONES);
@@ -398,6 +421,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       dgroupsQ,
       dgroupMembersQ,
       accessReqQ,
+      oversightQ,
     ] = await Promise.all([
       supabase.from("churches").select("settings").single(),
       supabase.from("groups").select("*").order("created_at"),
@@ -418,6 +442,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .select("id, email, kind, requested_at, notified_at")
         .is("resolved_at", null)
         .order("requested_at", { ascending: false }),
+      supabase.from("oversight_leaders").select("id, person_id, scope, scope_id"),
     ]);
 
     setUserEmail(auth.user?.email ?? null);
@@ -506,13 +531,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // marks leader/intern/worship as leadership).
     const loadedRoles = (churchQ.data?.settings?.roles as RoleDef[] | undefined) ?? DEFAULT_ROLES;
     const leadIds = new Set(loadedRoles.filter((r) => r.leadership).map((r) => r.id));
-    setRealMyGroupIds(
-      myPersonId
-        ? mems
-            .filter((m) => m.person_id === myPersonId && leadIds.has(m.role))
-            .map((m) => m.group_id)
-        : [],
-    );
+    const ledGroupIds = myPersonId
+      ? mems
+          .filter((m) => m.person_id === myPersonId && leadIds.has(m.role))
+          .map((m) => m.group_id)
+      : [];
+    setRealMyLedGroupIds(ledGroupIds);
+
+    const loadedOversight: OversightLeader[] = (oversightQ.data ?? []).map((o) => ({
+      id: o.id,
+      personId: o.person_id,
+      scope: o.scope as OversightLeader["scope"],
+      scopeId: o.scope_id,
+    }));
+    setOversightLeaders(loadedOversight);
+
+    // Mirror of the oversees_group() SQL function: walk group -> section ->
+    // zone and ask whether I oversee either. Kept in step with the policy so
+    // the UI offers exactly what the database will allow - the alternative is
+    // buttons that fail on save.
+    const loadedSections = (churchQ.data?.settings?.sections as Section[] | undefined) ?? [];
+    const loadedGroupSections =
+      (churchQ.data?.settings?.groupSections as Record<string, string> | undefined) ?? {};
+    const mine = loadedOversight.filter((o) => o.personId === myPersonId);
+    const mySectionIds = new Set(mine.filter((o) => o.scope === "section").map((o) => o.scopeId));
+    const myZoneIds = new Set(mine.filter((o) => o.scope === "zone").map((o) => o.scopeId));
+    const overseen = myPersonId
+      ? (groupsQ.data ?? [])
+          .filter((g) => {
+            const sectionId = loadedGroupSections[g.id];
+            if (!sectionId) return false;
+            if (mySectionIds.has(sectionId)) return true;
+            const zoneId = loadedSections.find((s) => s.id === sectionId)?.zoneId;
+            return !!zoneId && myZoneIds.has(zoneId);
+          })
+          .map((g) => g.id)
+      : [];
+
+    setRealMyGroupIds([...new Set([...ledGroupIds, ...overseen])]);
     const tagLabel = new Map((tagsQ.data ?? []).map((t) => [t.id, t.label as string]));
     const tagsByGroup = new Map<string, string[]>();
     for (const gt of groupTagsQ.data ?? []) {
@@ -2091,6 +2147,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, patchSettings],
   );
 
+  const setOversight = useCallback(
+    async (
+      personId: string,
+      scope: OversightLeader["scope"],
+      scopeId: string,
+      on: boolean,
+    ): Promise<string | null> => {
+      if (!realMode) {
+        setOversightLeaders((prev) =>
+          on
+            ? [...prev, { id: `demo-${personId}-${scopeId}`, personId, scope, scopeId }]
+            : prev.filter(
+                (o) => !(o.personId === personId && o.scope === scope && o.scopeId === scopeId),
+              ),
+        );
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      if (!on) {
+        const { error } = await supabase
+          .from("oversight_leaders")
+          .delete()
+          .eq("person_id", personId)
+          .eq("scope", scope)
+          .eq("scope_id", scopeId);
+        if (error) return error.message;
+      } else {
+        const { data: church } = await supabase.from("churches").select("id").single();
+        if (!church) return "Couldn't find your church record.";
+        const { error } = await supabase.from("oversight_leaders").insert({
+          church_id: church.id,
+          person_id: personId,
+          scope,
+          scope_id: scopeId,
+        });
+        if (error) return error.message;
+      }
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
   const saveAccessAlerts = useCallback(
     async (config: AccessAlertConfig): Promise<string | null> => {
       const clean: AccessAlertConfig = {
@@ -2189,6 +2288,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         : demoRole === "leader"
           ? [LEADER_HOME]
           : [],
+      myLedGroupIds: realMode
+        ? realMyLedGroupIds
+        : demoRole === "leader"
+          ? [LEADER_HOME]
+          : [],
+      oversightLeaders,
+      setOversight,
       people,
       groups,
       wins,
@@ -2253,7 +2359,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       resolveAccessRequest,
       reportStuck,
     }),
-    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, reportStuck],
+    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, reportStuck],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

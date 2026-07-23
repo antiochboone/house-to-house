@@ -78,6 +78,15 @@ export interface ReportEmailConfig {
   groups: Record<string, string[]>;
 }
 
+/** A person given leader authority over a whole section or zone. */
+export interface OversightLeader {
+  id: string;
+  personId: string;
+  scope: "zone" | "section";
+  /** The zone/section id from churches.settings. */
+  scopeId: string;
+}
+
 /** Who hears about it when someone signs in and can't get anywhere. */
 export interface AccessAlertConfig {
   enabled: boolean;

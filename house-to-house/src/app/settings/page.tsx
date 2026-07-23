@@ -210,6 +210,63 @@ function SectionCard({
   );
 }
 
+/** One zone or section, with whoever oversees it. */
+function OversightPicker({
+  label,
+  hint,
+  leaders,
+  candidates,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  hint: string;
+  leaders: { id: string; name: string }[];
+  candidates: { id: string; name: string }[];
+  onAdd: (personId: string) => void;
+  onRemove: (personId: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-surface px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate text-[13.5px] font-semibold">{label}</span>
+        <span className="shrink-0 text-[11.5px] text-faint">{hint}</span>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        {leaders.length === 0 && (
+          <span className="text-[12px] italic text-muted">nobody yet</span>
+        )}
+        {leaders.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => onRemove(l.id)}
+            aria-label={`Remove ${l.name} from ${label}`}
+            className="group rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent-ink"
+          >
+            {l.name} <span className="opacity-40 group-hover:opacity-100">✕</span>
+          </button>
+        ))}
+        <select
+          value=""
+          onChange={(e) => {
+            if (e.target.value) onAdd(e.target.value);
+          }}
+          aria-label={`Add a leader for ${label}`}
+          className="rounded-xl border-[1.5px] border-line bg-surface px-2 py-1 text-[12.5px] text-muted outline-none focus:border-accent"
+        >
+          <option value="">+ add leader…</option>
+          {candidates.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const {
     ready,
@@ -240,6 +297,8 @@ export default function SettingsPage() {
     accessRequests,
     resolveAccessRequest,
     setAccess,
+    oversightLeaders,
+    setOversight,
   } = useData();
   const [newCat, setNewCat] = useState("");
   const [newCatMulti, setNewCatMulti] = useState(true);
@@ -338,6 +397,17 @@ export default function SettingsPage() {
     else delete next[groupId];
     void act(() => saveZoning({ ...zoning, groupSections: next }));
   };
+
+  /* ----- Oversight (section / zone leaders) helpers ----- */
+  const leadersFor = (scope: "zone" | "section", scopeId: string) =>
+    oversightLeaders.filter((o) => o.scope === scope && o.scopeId === scopeId);
+  const groupCountIn = (scope: "zone" | "section", scopeId: string) =>
+    groups.filter((g) => {
+      const sectionId = groupSections[g.id];
+      if (!sectionId) return false;
+      if (scope === "section") return sectionId === scopeId;
+      return sections.find((s: Section) => s.id === sectionId)?.zoneId === scopeId;
+    }).length;
 
   /* ----- Access request helpers ----- */
   const patchAlerts = (patch: Partial<typeof accessAlerts>) =>
@@ -817,6 +887,68 @@ export default function SettingsPage() {
                       </select>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {(zones.length > 0 || sections.length > 0) && (
+              <div>
+                <span className="label mb-2 block">Who oversees what</span>
+                <p className="mb-2.5 text-[12px] leading-relaxed text-faint">
+                  A section leader gets, for every lifegroup in their section, exactly what
+                  a lifegroup leader gets for their own: the roster, editing its members,
+                  the monthly check-in, and the MVP board. A zone leader gets that across
+                  every section in the zone. They still need Leader app access to sign in.
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {zones.map((z: Zone) => {
+                    const assigned = leadersFor("zone", z.id);
+                    const n = groupCountIn("zone", z.id);
+                    return (
+                      <OversightPicker
+                        key={z.id}
+                        label={z.name}
+                        hint={`zone · ${n} ${n === 1 ? "group" : "groups"}`}
+                        leaders={assigned.map((o) => ({
+                          id: o.personId,
+                          name: people.find((p) => p.id === o.personId)?.name ?? "someone",
+                        }))}
+                        candidates={people
+                          .filter(
+                            (p) => !p.isChild && !assigned.some((o) => o.personId === p.id),
+                          )
+                          .map((p) => ({ id: p.id, name: p.name }))}
+                        onAdd={(pid) => void act(() => setOversight(pid, "zone", z.id, true))}
+                        onRemove={(pid) =>
+                          void act(() => setOversight(pid, "zone", z.id, false))
+                        }
+                      />
+                    );
+                  })}
+                  {sections.map((s: Section) => {
+                    const assigned = leadersFor("section", s.id);
+                    const n = groupCountIn("section", s.id);
+                    return (
+                      <OversightPicker
+                        key={s.id}
+                        label={s.name}
+                        hint={`section · ${n} ${n === 1 ? "group" : "groups"}`}
+                        leaders={assigned.map((o) => ({
+                          id: o.personId,
+                          name: people.find((p) => p.id === o.personId)?.name ?? "someone",
+                        }))}
+                        candidates={people
+                          .filter(
+                            (p) => !p.isChild && !assigned.some((o) => o.personId === p.id),
+                          )
+                          .map((p) => ({ id: p.id, name: p.name }))}
+                        onAdd={(pid) => void act(() => setOversight(pid, "section", s.id, true))}
+                        onRemove={(pid) =>
+                          void act(() => setOversight(pid, "section", s.id, false))
+                        }
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -194,7 +194,7 @@ function AccessPending({
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, groups } =
+  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, myLedGroupIds, groups } =
     useData();
   const flagStuck = useCallback(() => void reportStuck("no-access"), [reportStuck]);
   const pathname = usePathname();
@@ -221,8 +221,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   // Your own lifegroup isn't a section of the app, it's a bookmark into the
-  // map - so it gets a shortcut that looks like one, not a nav tab.
-  const myGroup = myGroupIds.length > 0 ? groups.find((g) => g.id === myGroupIds[0]) : undefined;
+  // map - so it gets a shortcut that looks like one, not a nav tab. Keyed to
+  // the group you personally lead: a section leader oversees several, and none
+  // of them is "mine" in the way this shortcut means.
+  const myGroup =
+    myLedGroupIds.length > 0 ? groups.find((g) => g.id === myLedGroupIds[0]) : undefined;
   const myGroupHref = myGroup ? `/map?open=${myGroup.id}` : "";
 
   const items =

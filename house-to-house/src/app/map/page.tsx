@@ -307,7 +307,7 @@ function CardsView({
   onOpen: (g: Group) => void;
   density: Density;
 }) {
-  const { role, people, wins, realMode, myGroupIds, zones, sections, groupSections, leadershipRoleIds } =
+  const { role, people, wins, realMode, myGroupIds, myLedGroupIds, zones, sections, groupSections, leadershipRoleIds } =
     useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const staff = role === "staff";
@@ -337,8 +337,13 @@ function CardsView({
         ].filter((c) => c.groups.length > 0);
 
   const card = (g: Group) => {
-    const mine = role === "leader" && myGroupIds.includes(g.id);
-    const showDetail = staff || mine;
+    // "Yours" means the group you actually lead. A section or zone leader sees
+    // the same detail for everything in their care, but calling six groups
+    // "yours" would be a lie - they get their own, quieter label.
+    const inMyCare = role === "leader" && myGroupIds.includes(g.id);
+    const mine = role === "leader" && myLedGroupIds.includes(g.id);
+    const overseen = inMyCare && !mine;
+    const showDetail = staff || inMyCare;
     const ppl = h.groupPeople(g.id);
     const gKids = h.groupKids(g.id);
     const leaders = h.groupLeaders(g.id);
@@ -355,6 +360,7 @@ function CardsView({
             <h3 className="font-display truncate text-[15.5px] leading-tight">
               {g.name}
               {mine && <span className="label ml-1.5 tracking-wide">· yours</span>}
+              {overseen && <span className="label ml-1.5 tracking-wide">· in your care</span>}
             </h3>
             <SeasonChip group={g} />
           </div>
@@ -378,6 +384,7 @@ function CardsView({
           <h3 className="font-display text-[19px] leading-tight">
             {g.name}
             {mine && <span className="label ml-2 tracking-wide">· yours</span>}
+            {overseen && <span className="label ml-2 tracking-wide">· in your care</span>}
           </h3>
           <SeasonChip group={g} />
         </div>
