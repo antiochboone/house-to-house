@@ -14,7 +14,7 @@ type MapMode = "cards" | "chart" | "timeline";
 type OpenModal = "group" | "person" | null;
 
 export default function MapPage() {
-  const { ready, realMode, role, people, groups, lanes, myGroupIds, leadershipRoleIds } = useData();
+  const { ready, realMode, role, people, groups, lanes, myGroupIds, leadershipRoleIds, churchName } = useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const [mode, setMode] = useState<MapMode>("cards");
   // Lifegroups are few and worth seeing in full, so they default to expanded.
@@ -69,7 +69,7 @@ export default function MapPage() {
       <div className="mb-5 flex flex-wrap items-end gap-4 max-md:mb-3.5 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
         <div className="max-w-[640px]">
           <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">
-            {staff ? "Lifegroup Map" : "Lifegroups at Antioch Boone"}
+            {staff ? "Lifegroup Map" : `Lifegroups at ${churchName}`}
           </h1>
           <p className="text-[14.5px] text-muted max-md:hidden">
             {staff

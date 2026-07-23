@@ -63,7 +63,7 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-function Wordmark({ collapsed }: { collapsed: boolean }) {
+function Wordmark({ collapsed, churchName }: { collapsed: boolean; churchName: string }) {
   return (
     <div className={`flex items-center gap-2.5 pb-4 ${collapsed ? "justify-center px-0" : "px-2.5"}`}>
       <LogoMark size={34} className="text-accent" />
@@ -71,7 +71,7 @@ function Wordmark({ collapsed }: { collapsed: boolean }) {
         <div>
           <div className="font-display text-[19px] leading-[1.1]">House to House</div>
           <div className="mt-0.5 text-[10.5px] uppercase tracking-wider text-muted max-md:hidden">
-            Antioch Boone
+            {churchName}
           </div>
         </div>
       )}
@@ -294,7 +294,7 @@ function StartAChurch() {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, myLedGroupIds, groups } =
+  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, myLedGroupIds, groups, churchName } =
     useData();
   const flagStuck = useCallback(() => void reportStuck("no-access"), [reportStuck]);
   const pathname = usePathname();
@@ -352,7 +352,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           collapsed ? "px-2" : "px-3.5"
         }`}
       >
-        <Wordmark collapsed={collapsed} />
+        <Wordmark collapsed={collapsed} churchName={churchName} />
         <nav className="flex flex-col gap-1 max-md:hidden">
           {items.map((it) => {
             const active = it.href === pathname;

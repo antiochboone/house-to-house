@@ -210,6 +210,51 @@ function SectionCard({
   );
 }
 
+/** Rename the church - shown under "House to House" in the top-left wordmark. */
+function ChurchNameCard({
+  churchName,
+  onSave,
+}: {
+  churchName: string;
+  onSave: (name: string) => Promise<string | null>;
+}) {
+  const [draft, setDraft] = useState(churchName);
+  const [saved, setSaved] = useState(false);
+  const dirty = draft.trim() !== churchName && draft.trim().length > 0;
+  return (
+    <SectionCard
+      title="Church name"
+      blurb="Shown under “House to House” in the top-left, and wherever the app greets your church by name."
+    >
+      <div className="flex items-center gap-2">
+        <input
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setSaved(false);
+          }}
+          aria-label="Church name"
+          className={`${inputCls} min-w-0 flex-1`}
+        />
+        <button
+          type="button"
+          disabled={!dirty}
+          onClick={async () => {
+            const err = await onSave(draft);
+            if (!err) setSaved(true);
+          }}
+          className="shrink-0 rounded-xl bg-accent px-4 py-2 text-[13.5px] font-semibold text-cta-ink disabled:opacity-40"
+        >
+          Save
+        </button>
+      </div>
+      {saved && !dirty && (
+        <p className="mt-2 text-[12px] text-accent-ink">✓ Saved. It updates everywhere at once.</p>
+      )}
+    </SectionCard>
+  );
+}
+
 /** One zone or section, with whoever oversees it. */
 function OversightPicker({
   label,
@@ -299,6 +344,8 @@ export default function SettingsPage() {
     setAccess,
     oversightLeaders,
     setOversight,
+    churchName,
+    saveChurchName,
   } = useData();
   const [newCat, setNewCat] = useState("");
   const [newCatMulti, setNewCatMulti] = useState(true);
@@ -455,6 +502,8 @@ export default function SettingsPage() {
       )}
 
       <div className="flex max-w-[640px] flex-col gap-5">
+        <ChurchNameCard churchName={churchName} onSave={saveChurchName} />
+
         <SectionCard
           title="Lifegroup tags"
           blurb="The categories and options offered when tagging a group. Options you add while tagging land here too."

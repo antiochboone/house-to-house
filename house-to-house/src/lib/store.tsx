@@ -288,6 +288,9 @@ interface DataApi {
    * member. Only reachable from the no-profile screen: one login, one church.
    */
   createChurch: (churchName: string, firstName: string, lastName: string) => Promise<string | null>;
+  /** The church's display name (shown in the wordmark; editable by staff). */
+  churchName: string;
+  saveChurchName: (name: string) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -363,6 +366,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [sections, setSections] = useState<Section[]>([]);
   const [groupSections, setGroupSections] = useState<Record<string, string>>({});
   const [reportEmails, setReportEmails] = useState<ReportEmailConfig>(DEFAULT_REPORT_EMAILS);
+  // Demo shows the sample church; real mode overwrites this from the DB.
+  const [churchName, setChurchName] = useState("Antioch Boone");
   const [accessAlerts, setAccessAlerts] = useState<AccessAlertConfig>(DEFAULT_ACCESS_ALERTS);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
 
@@ -428,7 +433,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       accessReqQ,
       oversightQ,
     ] = await Promise.all([
-      supabase.from("churches").select("settings").single(),
+      supabase.from("churches").select("name, settings").single(),
       supabase.from("groups").select("*").order("created_at"),
       supabase.from("people").select("*").order("first_name"),
       supabase.from("memberships").select("*"),
@@ -464,6 +469,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const grant = myRow?.app_access as AppAccess | undefined;
     const stamped = profile?.role as AppAccess | undefined;
     setRole(grant === "staff" || stamped === "staff" ? "staff" : "leader");
+
+    if (churchQ.data?.name) setChurchName(churchQ.data.name);
 
     const savedCategories = churchQ.data?.settings?.tagCategories as TagCategory[] | undefined;
     setTagCategories(savedCategories?.length ? savedCategories : DEFAULT_TAG_CATEGORIES);
@@ -2118,13 +2125,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const groupSections = Object.fromEntries(
         Object.entries(next.groupSections).filter(([, sid]) => sectionIds.has(sid)),
       );
+      // Oversight assignments point at these ids by name, so a deleted zone or
+      // section must take its leaders with it. Otherwise the row lingers, and
+      // creating a NEW zone with the same name regenerates the same slug id -
+      // silently handing the old leader authority over the new one.
+      const orphans = oversightLeaders.filter((o) =>
+        o.scope === "zone" ? !zoneIds.has(o.scopeId) : !sectionIds.has(o.scopeId),
+      );
       setZones(next.zones);
       setSections(sections);
       setGroupSections(groupSections);
+      setOversightLeaders((prev) => prev.filter((o) => !orphans.some((x) => x.id === o.id)));
       if (!realMode) return null;
+      if (orphans.length > 0) {
+        const supabase = supabaseBrowser();
+        const { error } = await supabase
+          .from("oversight_leaders")
+          .delete()
+          .in(
+            "id",
+            orphans.map((o) => o.id),
+          );
+        if (error) return error.message;
+      }
       return patchSettings({ zones: next.zones, sections, groupSections });
     },
-    [realMode, patchSettings],
+    [realMode, patchSettings, oversightLeaders],
   );
 
   const saveReportEmails = useCallback(
@@ -2257,6 +2283,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode, refresh],
   );
 
+  const saveChurchName = useCallback(
+    async (name: string): Promise<string | null> => {
+      const clean = name.trim();
+      if (!clean) return "Give your church a name.";
+      setChurchName(clean);
+      if (!realMode) return null;
+      const supabase = supabaseBrowser();
+      // Staff-only at the database level (churches_update policy).
+      const { data: church } = await supabase.from("churches").select("id").single();
+      if (!church) return "Couldn't find your church record.";
+      const { error } = await supabase
+        .from("churches")
+        .update({ name: clean })
+        .eq("id", church.id);
+      return error ? error.message : null;
+    },
+    [realMode],
+  );
+
   const addTagCategory = useCallback(
     async (label: string, multi: boolean): Promise<string | null> => {
       const clean = label.trim();
@@ -2380,8 +2425,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       resolveAccessRequest,
       reportStuck,
       createChurch,
+      churchName,
+      saveChurchName,
     }),
-    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, reportStuck, createChurch],
+    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, reportStuck, createChurch, churchName, saveChurchName],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
