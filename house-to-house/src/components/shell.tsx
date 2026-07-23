@@ -189,7 +189,107 @@ function AccessPending({
           </button>
         </form>
       </div>
+
+      <StartAChurch />
     </div>
+  );
+}
+
+/**
+ * The other reason you'd be here: you're not waiting on anyone, you're setting
+ * House to House up for your own church. Deliberately folded away - most people
+ * on this screen belong to a church that just hasn't switched them on, and a
+ * prominent "create" button would collect junk churches from people who only
+ * needed to wait ten minutes.
+ */
+function StartAChurch() {
+  const { createChurch } = useData();
+  const [open, setOpen] = useState(false);
+  const [church, setChurch] = useState("");
+  const [first, setFirst] = useState("");
+  const [last, setLast] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const inputCls =
+    "mb-2 w-full rounded-xl border-[1.5px] border-line bg-bg px-3 py-2 text-[14px] outline-none focus:border-accent";
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!church.trim()) {
+      setError("Your church needs a name.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const err = await createChurch(church, first, last);
+    setBusy(false);
+    if (err) setError(err);
+    // On success the store refreshes, a profile now exists, and the app
+    // replaces this screen with the empty map of a brand-new church.
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mx-auto mt-5 block text-[12.5px] text-faint underline-offset-2 hover:text-accent-ink hover:underline"
+      >
+        Setting House to House up for a different church?
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="mt-5 rounded-[14px] border border-dashed border-line bg-surface p-5"
+    >
+      <p className="font-display mb-1 text-[17px]">Start a new church</p>
+      <p className="mb-3 text-[12.5px] leading-relaxed text-muted">
+        This makes a fresh, empty House to House with you as its first staff member.
+        Only do this if your church isn&apos;t already set up here - if you&apos;re
+        waiting on access to an existing one, close this and sit tight.
+      </p>
+      <input
+        value={church}
+        onChange={(e) => setChurch(e.target.value)}
+        placeholder="Church name"
+        aria-label="Church name"
+        className={inputCls}
+      />
+      <div className="flex gap-2">
+        <input
+          value={first}
+          onChange={(e) => setFirst(e.target.value)}
+          placeholder="Your first name"
+          aria-label="Your first name"
+          className={inputCls}
+        />
+        <input
+          value={last}
+          onChange={(e) => setLast(e.target.value)}
+          placeholder="Last name"
+          aria-label="Your last name"
+          className={inputCls}
+        />
+      </div>
+      {error && <p className="mb-2 text-[12.5px] text-ember">{error}</p>}
+      <button
+        type="submit"
+        disabled={busy}
+        className="w-full rounded-xl bg-accent py-2.5 text-[14px] font-semibold text-cta-ink disabled:opacity-50"
+      >
+        {busy ? "Setting it up…" : "Create the church"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="mx-auto mt-2 block text-[12px] text-faint underline-offset-2 hover:underline"
+      >
+        never mind
+      </button>
+    </form>
   );
 }
 

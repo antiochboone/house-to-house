@@ -80,6 +80,22 @@ with checks as (
       else '⚠️ ' || (select count(*)::text from access_requests where resolved_at is null)
            || ' waiting — see Settings → Access requests' end
 
+  -- 3.10 Section & zone leaders (migration-oversight-leaders.sql)
+  union all select 3.10, 'Oversight — section/zone leaders honored by leads_group',
+    case when to_regclass('public.oversight_leaders') is not null
+          and exists (select 1 from pg_proc
+                      where proname='leads_group'
+                        and pg_get_functiondef(oid) like '%oversees_group%')
+      then '✅ present' else '❌ MISSING — run migration-oversight-leaders.sql' end
+
+  -- 3.11 Multi-church (migration-multi-church.sql)
+  union all select 3.11, 'Multi-church — create_church() + church-scoped requests',
+    case when exists (select 1 from pg_proc where proname='create_church')
+          and exists (select 1 from pg_proc
+                      where proname='request_app_access'
+                        and pg_get_functiondef(oid) not like '%order by created_at%')
+      then '✅ present' else '❌ MISSING — run migration-multi-church.sql' end
+
   -- 4. D-groups (migration-dgroups.sql)
   union all select 4.0, 'D-groups — dgroups + dgroup_members tables',
     case when to_regclass('public.dgroups') is not null

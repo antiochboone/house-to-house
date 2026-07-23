@@ -283,6 +283,11 @@ interface DataApi {
    * that call this may do so on every render without nagging anybody.
    */
   reportStuck: (kind: AccessRequestKind) => Promise<void>;
+  /**
+   * Stand up a brand-new church with the signed-in user as its first staff
+   * member. Only reachable from the no-profile screen: one login, one church.
+   */
+  createChurch: (churchName: string, firstName: string, lastName: string) => Promise<string | null>;
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -2236,6 +2241,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode],
   );
 
+  const createChurch = useCallback(
+    async (churchName: string, firstName: string, lastName: string): Promise<string | null> => {
+      if (!realMode) return "Connect the database first.";
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.rpc("create_church", {
+        p_church_name: churchName.trim(),
+        p_first_name: firstName.trim(),
+        p_last_name: lastName.trim(),
+      });
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
   const addTagCategory = useCallback(
     async (label: string, multi: boolean): Promise<string | null> => {
       const clean = label.trim();
@@ -2358,8 +2379,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       accessRequests,
       resolveAccessRequest,
       reportStuck,
+      createChurch,
     }),
-    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, reportStuck],
+    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, reportStuck, createChurch],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

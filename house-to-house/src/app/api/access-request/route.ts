@@ -61,9 +61,26 @@ export async function POST(request: NextRequest) {
   const email = (user.email ?? "").trim().toLowerCase();
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
+  // Which church is waiting on this person? The row we just created knows —
+  // asking the churches table for "the first one" would, on a deployment
+  // serving more than one church, mail somebody else's admins.
+  const { data: req } = await admin
+    .from("access_requests")
+    .select("church_id")
+    .eq("email", email)
+    .eq("kind", kind)
+    .is("resolved_at", null)
+    .maybeSingle();
+  const churchId = req?.church_id;
+  if (!churchId)
+    return NextResponse.json({ recorded: status, sent: 0, reason: "no church" });
+
   const [peopleQ, churchQ] = await Promise.all([
-    admin.from("people").select("id, first_name, last_name, email, app_access"),
-    admin.from("churches").select("settings").order("created_at").limit(1).maybeSingle(),
+    admin
+      .from("people")
+      .select("id, first_name, last_name, email, app_access")
+      .eq("church_id", churchId),
+    admin.from("churches").select("settings").eq("id", churchId).maybeSingle(),
   ]);
 
   const people = peopleQ.data ?? [];
