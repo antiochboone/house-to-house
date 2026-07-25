@@ -52,11 +52,28 @@ export async function POST(request: NextRequest) {
     console.error("join request failed", error.message);
     return NextResponse.json({ error: "could not record request" }, { status: 500 });
   }
+  // Every early return below means "no email went out". Each one used to be
+  // silent, so a request that quietly failed to notify anyone looked identical
+  // in the logs to one that never happened. Say it out loud instead.
+  const decline = (reason: string, extra: Record<string, unknown> = {}) => {
+    console.warn(`[join] no alert sent for ${user.email}: ${reason}`, extra);
+    return NextResponse.json({ recorded: status, sent: 0, reason });
+  };
+
   // Already open, already a member, or nothing to file — don't mail again.
-  if (status !== "created") return NextResponse.json({ recorded: status, sent: 0 });
+  if (status !== "created") {
+    return decline(`request_to_join returned "${status}" (only "created" sends mail)`);
+  }
 
   if (!RESEND_KEY || !FROM || !SUPABASE_URL || !SERVICE_KEY) {
-    return NextResponse.json({ recorded: status, sent: 0, reason: "email not configured" });
+    return decline("email not configured", {
+      missing: [
+        !RESEND_KEY && "RESEND_API_KEY",
+        !FROM && "REPORT_FROM_EMAIL",
+        !SERVICE_KEY && "SUPABASE_SERVICE_ROLE_KEY",
+        !SUPABASE_URL && "NEXT_PUBLIC_SUPABASE_URL",
+      ].filter(Boolean),
+    });
   }
 
   const email = (user.email ?? "").trim().toLowerCase();
@@ -71,7 +88,7 @@ export async function POST(request: NextRequest) {
     .is("resolved_at", null)
     .maybeSingle();
   const churchId = req?.church_id;
-  if (!churchId) return NextResponse.json({ recorded: status, sent: 0, reason: "no church" });
+  if (!churchId) return decline("couldn't find the request row we just created");
 
   const [peopleQ, churchQ, groupQ, matchQ] = await Promise.all([
     admin.from("people").select("id, first_name, last_name, email, app_access").eq("church_id", churchId),
@@ -89,7 +106,7 @@ export async function POST(request: NextRequest) {
     ...DEFAULT_ACCESS_ALERTS,
     ...((churchQ.data?.settings?.accessAlerts as Partial<AccessAlertConfig>) ?? {}),
   };
-  if (!config.enabled) return NextResponse.json({ recorded: status, sent: 0, reason: "disabled" });
+  if (!config.enabled) return decline("access alerts are switched off in Settings");
 
   const candidates: AdminCandidate[] = people.map((p) => ({
     id: p.id,
@@ -98,7 +115,13 @@ export async function POST(request: NextRequest) {
     isStaff: p.app_access === "staff",
   }));
   const to = accessAlertRecipients(config, candidates);
-  if (to.length === 0) return NextResponse.json({ recorded: status, sent: 0, reason: "no recipients" });
+  if (to.length === 0) {
+    return decline("no recipients resolved", {
+      namedAdmins: config.admins.length,
+      extra: config.extra.length,
+      staffWithEmail: candidates.filter((c) => c.isStaff && c.email).length,
+    });
+  }
 
   const match = matchQ.data as { first_name: string; last_name: string } | null;
   const typedName = `${req.first_name ?? ""} ${req.last_name ?? ""}`.trim();
@@ -128,10 +151,11 @@ export async function POST(request: NextRequest) {
   });
 
   if (!res.ok) {
-    console.error("join alert email failed", res.status, await res.text());
+    console.error(`[join] Resend rejected the alert (${res.status})`, await res.text());
     return NextResponse.json({ recorded: status, sent: 0, error: "send failed" }, { status: 502 });
   }
 
+  console.log(`[join] alert sent for ${user.email} to ${to.join(", ")}`);
   await userClient.rpc("mark_access_request_notified", { p_kind: "join" });
   return NextResponse.json({ recorded: status, sent: to.length });
 }

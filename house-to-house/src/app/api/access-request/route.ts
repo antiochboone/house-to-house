@@ -50,12 +50,27 @@ export async function POST(request: NextRequest) {
     console.error("access request failed", error.message);
     return NextResponse.json({ error: "could not record request" }, { status: 500 });
   }
+  // Each early return below means nobody was told. Log the reason — silence
+  // here is indistinguishable from "it worked".
+  const decline = (reason: string, extra: Record<string, unknown> = {}) => {
+    console.warn(`[access-request] no alert sent for ${user.email}: ${reason}`, extra);
+    return NextResponse.json({ recorded: status, sent: 0, reason });
+  };
+
   // Already open, or nothing to record — either way, don't mail again.
-  if (status !== "created") return NextResponse.json({ recorded: status, sent: 0 });
+  if (status !== "created") {
+    return decline(`request_app_access returned "${status}" (only "created" sends mail)`);
+  }
 
   if (!RESEND_KEY || !FROM || !SUPABASE_URL || !SERVICE_KEY) {
     // The request is logged and will show in Settings; only the mail is lost.
-    return NextResponse.json({ recorded: status, sent: 0, reason: "email not configured" });
+    return decline("email not configured", {
+      missing: [
+        !RESEND_KEY && "RESEND_API_KEY",
+        !FROM && "REPORT_FROM_EMAIL",
+        !SERVICE_KEY && "SUPABASE_SERVICE_ROLE_KEY",
+      ].filter(Boolean),
+    });
   }
 
   const email = (user.email ?? "").trim().toLowerCase();
@@ -72,8 +87,7 @@ export async function POST(request: NextRequest) {
     .is("resolved_at", null)
     .maybeSingle();
   const churchId = req?.church_id;
-  if (!churchId)
-    return NextResponse.json({ recorded: status, sent: 0, reason: "no church" });
+  if (!churchId) return decline("couldn't find the request row we just created");
 
   const [peopleQ, churchQ] = await Promise.all([
     admin
@@ -88,7 +102,7 @@ export async function POST(request: NextRequest) {
     ...DEFAULT_ACCESS_ALERTS,
     ...((churchQ.data?.settings?.accessAlerts as Partial<AccessAlertConfig>) ?? {}),
   };
-  if (!config.enabled) return NextResponse.json({ recorded: status, sent: 0, reason: "disabled" });
+  if (!config.enabled) return decline("access alerts are switched off in Settings");
 
   const candidates: AdminCandidate[] = people.map((p) => ({
     id: p.id,
@@ -97,8 +111,13 @@ export async function POST(request: NextRequest) {
     isStaff: p.app_access === "staff",
   }));
   const to = accessAlertRecipients(config, candidates);
-  if (to.length === 0)
-    return NextResponse.json({ recorded: status, sent: 0, reason: "no recipients" });
+  if (to.length === 0) {
+    return decline("no recipients resolved", {
+      namedAdmins: config.admins.length,
+      extra: config.extra.length,
+      staffWithEmail: candidates.filter((c) => c.isStaff && c.email).length,
+    });
+  }
 
   const match = people.find(
     (p) => (p.email ?? "").trim().toLowerCase() === email && email.length > 0,
@@ -141,11 +160,12 @@ export async function POST(request: NextRequest) {
   });
 
   if (!res.ok) {
-    console.error("access alert email failed", res.status, await res.text());
+    console.error(`[access-request] Resend rejected the alert (${res.status})`, await res.text());
     // The row stands unnotified, so Settings still shows someone is waiting.
     return NextResponse.json({ recorded: status, sent: 0, error: "send failed" }, { status: 502 });
   }
 
+  console.log(`[access-request] alert sent for ${user.email} to ${to.join(", ")}`);
   await userClient.rpc("mark_access_request_notified", { p_kind: kind });
   return NextResponse.json({ recorded: status, sent: to.length });
 }
