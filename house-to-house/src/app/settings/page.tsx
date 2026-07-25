@@ -5,7 +5,7 @@
 // to the church's settings, so this is also where another church would make
 // House to House theirs.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { EngagementTier, Milestone, ReportEmailConfig, Section, Zone } from "@/lib/types";
 import { TIERS, TIER_MEANING } from "@/lib/data";
 import { isEmail } from "@/lib/report-email";
@@ -207,6 +207,62 @@ function SectionCard({
       <p className="mb-4 text-[13px] text-muted">{blurb}</p>
       {children}
     </section>
+  );
+}
+
+/**
+ * The shareable sign-up link. A link nobody can find is a link nobody sends,
+ * so it lives right above the queue it feeds. The origin is read lazily on the
+ * client (it's a browser-only value); suppressHydrationWarning covers the one
+ * frame where the server rendered an empty string.
+ */
+function JoinLinkBlock() {
+  const [copied, setCopied] = useState(false);
+  // The origin is a browser-only value, and this page is server-rendered
+  // first, so it can't come from render or from state (React keeps the
+  // server's HTML through hydration). Writing it to the DOM once mounted is
+  // exactly the "sync an external system" case effects exist for.
+  const codeRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (codeRef.current) codeRef.current.textContent = `${window.location.origin}/join`;
+  }, []);
+  const fullUrl = () =>
+    typeof window === "undefined" ? "/join" : `${window.location.origin}/join`;
+
+  return (
+    <div className="mb-5 rounded-xl border-[1.5px] border-accent bg-accent-soft p-3">
+      <div className="label mb-1.5">Your sign-up link</div>
+      <p className="mb-2.5 text-[12px] leading-relaxed text-muted">
+        Send this to lifegroup leaders. They pick the group they lead, verify their
+        email, and land in the queue below for you to approve. It grants nothing on its
+        own, so it&apos;s safe to post in a group chat.
+      </p>
+      <div className="flex items-center gap-2">
+        <code
+          ref={codeRef}
+          suppressHydrationWarning
+          className="min-w-0 flex-1 truncate rounded-lg border border-line bg-surface px-2.5 py-2 text-[12.5px]"
+        >
+          /join
+        </code>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(fullUrl());
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch {
+              // Clipboard blocked (insecure origin / permissions) — the link is
+              // on screen to copy by hand.
+            }
+          }}
+          className="shrink-0 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-cta-ink"
+        >
+          {copied ? "Copied ✓" : "Copy"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1009,6 +1065,8 @@ export default function SettingsPage() {
           title="Access requests"
           blurb="Leaders who sign up at your /join link land here to be approved, as does anyone who signs in but can't get anywhere yet. The app emails whoever you name below - once per person, not once per visit."
         >
+          <JoinLinkBlock />
+
           {accessRequests.length > 0 && (
             <div className="mb-5 rounded-xl border-[1.5px] border-gold bg-gold-soft p-3">
               <div className="label mb-2">
