@@ -96,8 +96,12 @@ export interface AccessAlertConfig {
   extra: string[];
 }
 
-/** Why someone is stuck: no access at all, or access but no group to check in for. */
-export type AccessRequestKind = "no-access" | "no-group";
+/**
+ * Why someone is stuck. 'no-access'/'no-group' are filed passively when a
+ * signed-in user hits a wall; 'join' is an active self-service request from
+ * the public /join page and carries the extra fields below.
+ */
+export type AccessRequestKind = "no-access" | "no-group" | "join";
 
 export interface AccessRequest {
   id: string;
@@ -105,6 +109,13 @@ export interface AccessRequest {
   kind: AccessRequestKind;
   requestedAt: string;
   notifiedAt: string | null;
+  /** join only: what they told us on the way in. */
+  firstName?: string | null;
+  lastName?: string | null;
+  requestedGroupId?: string | null;
+  requestedGroupNote?: string | null;
+  /** join only: an existing person with the same email, if one was found. */
+  matchedPersonId?: string | null;
 }
 
 export type AppRole = "staff" | "leader";

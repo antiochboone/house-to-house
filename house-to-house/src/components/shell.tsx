@@ -136,12 +136,66 @@ function AccessPending({
   onArrive: () => void;
 }) {
   const [checking, setChecking] = useState(false);
+  // Someone who came through the /join link already filed a request (with the
+  // group they lead) — greet them as "waiting on approval" and DON'T fire the
+  // passive no-access alert, which would double-notify.
+  const [joined] = useState(() => {
+    try {
+      return !!(localStorage.getItem("h2h-join") || localStorage.getItem("h2h-joined"));
+    } catch {
+      return false;
+    }
+  });
 
   // Tell the church someone is waiting. Deduplicated server-side, so landing
   // here twice doesn't send twice - and nobody sits on this screen unnoticed.
   useEffect(() => {
-    onArrive();
-  }, [onArrive]);
+    if (!joined) onArrive();
+  }, [onArrive, joined]);
+
+  if (joined) {
+    return (
+      <div className="mx-auto mt-24 w-full max-w-sm px-4">
+        <div className="mb-8 flex items-center justify-center gap-3">
+          <LogoMark size={46} className="text-accent" />
+          <div>
+            <div className="font-display text-2xl leading-none">House to House</div>
+            <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Almost there</div>
+          </div>
+        </div>
+        <div className="rounded-[14px] border border-line bg-surface p-6 text-center shadow-card">
+          <p className="font-display mb-2 text-xl">You&apos;re on the list 🎉</p>
+          <p className="mb-4 text-[13.5px] leading-relaxed text-muted">
+            Your request went to your church&apos;s admins. You&apos;ll get access the moment
+            they approve you — you can close this tab, and just sign in again later.
+          </p>
+          <div className="mb-4 rounded-xl bg-surface-2 px-3.5 py-3">
+            <div className="label mb-1">Signed in as</div>
+            <div className="break-all text-[14px] font-semibold">{email ?? "unknown"}</div>
+          </div>
+          <button
+            onClick={async () => {
+              setChecking(true);
+              await onRecheck();
+              setChecking(false);
+            }}
+            disabled={checking}
+            className="mb-3 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-cta-ink disabled:opacity-50"
+          >
+            {checking ? "Checking…" : "Check if I'm approved"}
+          </button>
+          <form method="post" action="/auth/signout">
+            <button
+              type="submit"
+              className="w-full rounded-xl border-[1.5px] border-line py-2.5 text-[13.5px] font-semibold text-muted hover:border-accent hover:text-accent-ink"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto mt-24 w-full max-w-sm px-4">
@@ -309,8 +363,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
     localStorage.setItem("h2h-sidebar", next ? "collapsed" : "open");
   };
 
-  // Auth pages stand alone — no app chrome.
-  if (pathname.startsWith("/login") || pathname.startsWith("/auth")) {
+  // Auth pages and the public join page stand alone — no app chrome.
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/join")
+  ) {
     return <>{children}</>;
   }
 

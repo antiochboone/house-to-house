@@ -341,6 +341,7 @@ export default function SettingsPage() {
     saveAccessAlerts,
     accessRequests,
     resolveAccessRequest,
+    approveJoinRequest,
     setAccess,
     oversightLeaders,
     setOversight,
@@ -1006,7 +1007,7 @@ export default function SettingsPage() {
 
         <SectionCard
           title="Access requests"
-          blurb="When someone signs in and can't get anywhere - no access yet, or no lifegroup to check in for - the app emails whoever you name here. Once per person, not once per visit."
+          blurb="Leaders who sign up at your /join link land here to be approved, as does anyone who signs in but can't get anywhere yet. The app emails whoever you name below - once per person, not once per visit."
         >
           {accessRequests.length > 0 && (
             <div className="mb-5 rounded-xl border-[1.5px] border-gold bg-gold-soft p-3">
@@ -1016,6 +1017,76 @@ export default function SettingsPage() {
               <div className="flex flex-col gap-2">
                 {accessRequests.map((r) => {
                   const match = personForRequest(r.email);
+                  // A self-service join carries the name they typed and the
+                  // group they say they lead; it may also point at an existing
+                  // person (same email — the "member asked to lead" case).
+                  if (r.kind === "join") {
+                    const typed = `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim();
+                    const matchName = r.matchedPersonId
+                      ? people.find((p) => p.id === r.matchedPersonId)?.name
+                      : undefined;
+                    const groupLabel = r.requestedGroupId
+                      ? (groups.find((g) => g.id === r.requestedGroupId)?.name ??
+                        "a group that no longer exists")
+                      : r.requestedGroupNote || "a group they didn't pick from the list";
+                    return (
+                      <div key={r.id} className="rounded-xl border border-line bg-surface px-3 py-2.5">
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                          <span className="text-[13.5px] font-semibold">{typed || r.email}</span>
+                          <span className="text-[12px] text-muted">{r.email}</span>
+                          <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[10.5px] font-semibold text-accent-ink">
+                            wants to join
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
+                          Says they lead <strong>{groupLabel}</strong>.
+                          {matchName && (
+                            <>
+                              {" "}
+                              Looks like <strong>{matchName}</strong> is already in your
+                              directory with this email.
+                            </>
+                          )}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {matchName ? (
+                            <>
+                              <button
+                                onClick={() =>
+                                  void act(() => approveJoinRequest(r.id, r.matchedPersonId ?? null))
+                                }
+                                className="rounded-lg bg-accent px-2.5 py-1 text-[12px] font-semibold text-cta-ink"
+                              >
+                                Approve as {matchName.split(" ")[0]}
+                              </button>
+                              <button
+                                onClick={() => void act(() => approveJoinRequest(r.id, null))}
+                                className="rounded-lg border-[1.5px] border-line px-2.5 py-1 text-[12px] font-semibold text-muted hover:border-accent hover:text-accent-ink"
+                              >
+                                They&apos;re someone new
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => void act(() => approveJoinRequest(r.id, null))}
+                              className="rounded-lg bg-accent px-2.5 py-1 text-[12px] font-semibold text-cta-ink"
+                            >
+                              Approve &amp; add to their group
+                            </button>
+                          )}
+                          <button
+                            onClick={() => void act(() => resolveAccessRequest(r.id))}
+                            className="text-[12px] text-faint underline-offset-2 hover:text-ink hover:underline"
+                          >
+                            dismiss
+                          </button>
+                          {!r.notifiedAt && (
+                            <span className="ml-auto text-[11px] text-faint">not emailed</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div
                       key={r.id}

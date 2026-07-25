@@ -279,6 +279,12 @@ interface DataApi {
   /** Mark a request handled without changing anyone's access. */
   resolveAccessRequest: (id: string) => Promise<string | null>;
   /**
+   * Approve a self-service join request: grant Leader and seat them on the
+   * group they named. personId picks an existing person (the merge case);
+   * null creates a new one.
+   */
+  approveJoinRequest: (id: string, personId: string | null) => Promise<string | null>;
+  /**
    * Tell the church someone is stuck. Deduplicated server-side, so the screens
    * that call this may do so on every render without nagging anybody.
    */
@@ -449,7 +455,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       // Staff-only by policy; everyone else just gets an empty list back.
       supabase
         .from("access_requests")
-        .select("id, email, kind, requested_at, notified_at")
+        .select(
+          "id, email, kind, requested_at, notified_at, first_name, last_name, requested_group_id, requested_group_note, matched_person_id",
+        )
         .is("resolved_at", null)
         .order("requested_at", { ascending: false }),
       supabase.from("oversight_leaders").select("id, person_id, scope, scope_id"),
@@ -519,6 +527,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         kind: r.kind as AccessRequest["kind"],
         requestedAt: r.requested_at,
         notifiedAt: r.notified_at ?? null,
+        firstName: r.first_name ?? null,
+        lastName: r.last_name ?? null,
+        requestedGroupId: r.requested_group_id ?? null,
+        requestedGroupNote: r.requested_group_note ?? null,
+        matchedPersonId: r.matched_person_id ?? null,
       })),
     );
 
@@ -824,6 +837,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (realMode) void refresh();
   }, [realMode, refresh]);
+
+  // Finish a self-service join. The /join page stashed the answers and sent a
+  // magic link; now that we're back and (once verified) signed in, file the
+  // request and let the church's admins know. Runs once — it clears the key —
+  // and does nothing until a session exists, so it no-ops on /join itself.
+  useEffect(() => {
+    if (!realMode) return;
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem("h2h-join");
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    void (async () => {
+      const supabase = supabaseBrowser();
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return; // not signed in yet — try again after they are
+      try {
+        await fetch("/api/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: raw,
+        });
+      } catch {
+        // Offline or blocked — their request just isn't filed; they can retry.
+      }
+      try {
+        localStorage.removeItem("h2h-join");
+        // Remember they came in through join, so the access screen greets them
+        // as "waiting on approval" rather than firing a second, redundant alert.
+        localStorage.setItem("h2h-joined", "1");
+      } catch {
+        // ignore
+      }
+      void refresh();
+    })();
+  }, [realMode, ready, refresh]);
 
   const addPerson = useCallback(
     async (input: AddPersonInput): Promise<string | null> => {
@@ -2249,6 +2300,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode],
   );
 
+  const approveJoinRequest = useCallback(
+    async (id: string, personId: string | null): Promise<string | null> => {
+      if (!realMode) {
+        setAccessRequests((prev) => prev.filter((r) => r.id !== id));
+        return null;
+      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.rpc("approve_join_request", {
+        p_request_id: id,
+        p_person_id: personId,
+      });
+      if (error) return error.message;
+      await refresh();
+      return null;
+    },
+    [realMode, refresh],
+  );
+
   // Fire-and-forget: the person seeing the dead end shouldn't wait on mail,
   // and a failure here must never make their screen worse than it already is.
   const reportStuck = useCallback(
@@ -2423,12 +2492,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       saveAccessAlerts,
       accessRequests,
       resolveAccessRequest,
+      approveJoinRequest,
       reportStuck,
       createChurch,
       churchName,
       saveChurchName,
     }),
-    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, reportStuck, createChurch, churchName, saveChurchName],
+    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, approveJoinRequest, reportStuck, createChurch, churchName, saveChurchName],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

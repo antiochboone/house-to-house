@@ -44,7 +44,9 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth");
+  // /join is the public sign-up page — reachable signed out, like /login.
+  const isAuthRoute =
+    path.startsWith("/login") || path.startsWith("/auth") || path.startsWith("/join");
 
   if (!user && !isAuthRoute) {
     const url = request.nextUrl.clone();

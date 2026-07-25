@@ -96,6 +96,15 @@ with checks as (
                         and pg_get_functiondef(oid) not like '%order by created_at%')
       then '✅ present' else '❌ MISSING — run migration-multi-church.sql' end
 
+  -- 3.12 Self-service join (migration-join-requests.sql)
+  union all select 3.12, 'Self-service join — /join RPCs + request columns',
+    case when exists (select 1 from pg_proc where proname='church_directory')
+          and exists (select 1 from pg_proc where proname='request_to_join')
+          and exists (select 1 from pg_proc where proname='approve_join_request')
+          and exists (select 1 from information_schema.columns
+                      where table_name='access_requests' and column_name='requested_group_id')
+      then '✅ present' else '❌ MISSING — run migration-join-requests.sql' end
+
   -- 4. D-groups (migration-dgroups.sql)
   union all select 4.0, 'D-groups — dgroups + dgroup_members tables',
     case when to_regclass('public.dgroups') is not null

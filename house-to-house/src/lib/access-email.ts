@@ -58,6 +58,10 @@ export interface AccessAlertPayload {
   personName: string | null;
   /** Groups they're on the roster of, if any (the no-group case). */
   groupNames: string[];
+  /** join only: the lifegroup they told us they lead. */
+  groupWanted?: string | null;
+  /** join only: whether an existing person already carries this email. */
+  hasMatch?: boolean;
   appUrl: string;
 }
 
@@ -66,6 +70,7 @@ const esc = (s: string) =>
 
 export function accessAlertSubject(a: AccessAlertPayload) {
   const who = a.personName ?? a.email;
+  if (a.kind === "join") return `${who} asked to join and lead a lifegroup`;
   return a.kind === "no-access"
     ? `${who} is waiting on app access`
     : `${who} can't check in yet - no lifegroup`;
@@ -73,6 +78,21 @@ export function accessAlertSubject(a: AccessAlertPayload) {
 
 /** The one-line instruction that actually clears the block. */
 function fixSteps(a: AccessAlertPayload): string[] {
+  if (a.kind === "join") {
+    const who = a.personName ?? a.email;
+    const grp = a.groupWanted
+      ? `They say they lead ${a.groupWanted}.`
+      : "They didn't pick a group from the list - check the request in the app.";
+    const open = "Open Settings → Access requests to approve them in one click.";
+    return a.hasMatch
+      ? [
+          `${who} matches someone already in your directory.`,
+          grp,
+          "Approving lets you grant that existing person access, or create a new one.",
+          open,
+        ]
+      : [`${who} asked to join.`, grp, "Approving grants Leader access and adds them to that group.", open];
+  }
   if (a.kind === "no-access") {
     return a.personName
       ? [
@@ -110,13 +130,19 @@ export function accessAlertHtml(a: AccessAlertPayload) {
   <div style="max-width:520px;margin:0 auto;background:#fffdf8;border:1px solid #e5ddc8;border-radius:14px;padding:24px">
     <div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#a5a18d;margin-bottom:6px">House to House</div>
     <h1 style="margin:0 0 8px;font-family:Palatino,Georgia,serif;font-size:22px;color:#35392f">
-      ${a.kind === "no-access" ? "Someone's waiting at the door" : "Someone can't check in yet"}
+      ${a.kind === "join"
+        ? "Someone asked to join"
+        : a.kind === "no-access"
+          ? "Someone's waiting at the door"
+          : "Someone can't check in yet"}
     </h1>
     <p style="margin:0 0 16px;font-size:14px;color:#77796b;line-height:1.6">
-      ${esc(a.personName ? `${a.personName} (${a.email})` : a.email)} signed in and
-      ${a.kind === "no-access"
-        ? "landed on an empty app - their access hasn't been turned on."
-        : "reached the check-in page with no lifegroup to check in for."}
+      ${esc(a.personName ? `${a.personName} (${a.email})` : a.email)}
+      ${a.kind === "join"
+        ? "used your join link and is waiting to be approved."
+        : a.kind === "no-access"
+          ? "signed in and landed on an empty app - their access hasn't been turned on."
+          : "reached the check-in page with no lifegroup to check in for."}
     </p>
     <ol style="margin:0 0 20px;padding-left:20px">${steps}</ol>
     <a href="${esc(a.appUrl)}/people" style="display:inline-block;background:#7a8450;color:#fffdf8;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:12px">Open People</a>

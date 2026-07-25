@@ -203,6 +203,92 @@ emails." (With nobody ticked, it falls back to every Staff-access person.)
 
 ---
 
+## 3.5. The join link — self-service sign-up
+
+This is the link you send to leaders instead of typing their email yourself:
+**`yourapp.com/join`** (or `/join?c=your-church-slug` once there's more than
+one church).
+
+### 3.5a. A brand-new leader signs themselves up
+⬜ Open `/join` in an incognito window (signed out).
+
+**Expect:** a standalone page — no sidebar — headed "Join <your church>", with
+first/last name, email, and a **dropdown listing your real lifegroups** plus
+"My group isn't listed."
+
+⬜ Fill it in as `you+newleader@gmail.com`, pick a group, submit.
+
+**Expect:** "Check your email." Click the link that arrives.
+
+**Expect:** the **"You're on the list 🎉"** screen — *not* the generic access
+screen. Meanwhile your admin inbox gets **"…asked to join and lead a
+lifegroup"**, naming the group they picked.
+
+```sql
+select email, kind, first_name, last_name, requested_group_id, matched_person_id
+from access_requests where kind = 'join' and resolved_at is null;
+```
+
+⬜ Reload the "on the list" screen a couple of times.
+
+**Expect:** no extra emails — same once-per-person rule.
+
+### 3.5b. Approving creates the person and seats them
+⬜ As staff, **Settings → Access requests.**
+
+**Expect:** a card badged **"wants to join"** reading *"Says they lead
+<group>"*, with **Approve & add to their group.**
+
+⬜ Click it.
+
+**Expect:** the row clears. Check the group's roster — they're on it as a
+leader, with Leader access.
+
+```sql
+select p.first_name, p.last_name, p.app_access, g.name, m.role
+from people p
+join memberships m on m.person_id = p.id and m.left_at is null
+join groups g on g.id = m.group_id
+where lower(p.email) = 'you+newleader@gmail.com';
+```
+**Expect:** one row — `leader` access, `leader` role, the group they picked.
+
+⬜ In the incognito window, click **Check if I'm approved.**
+
+**Expect:** they're in, seeing their group.
+
+### 3.5c. The merge case — a member who gets asked to lead
+This is the one worth testing carefully: someone already in your directory
+shouldn't get a duplicate person record.
+
+⬜ In People, add a person (or pick an existing one) and set their email to
+`you+member@gmail.com`. **Leave App access None.**
+⬜ In a fresh incognito window, go to `/join` and sign up with that same
+address, picking a group.
+⬜ As staff, open the queue.
+
+**Expect:** the card says **"Looks like <name> is already in your directory
+with this email"** and offers two buttons: **Approve as <name>** and
+**They're someone new.**
+
+⬜ Click **Approve as <name>.**
+
+```sql
+select count(*) as should_be_one, string_agg(first_name || ' ' || last_name, ', ')
+from people where lower(email) = 'you+member@gmail.com';
+```
+**Expect:** exactly **one** person — their existing record, now with Leader
+access and seated on the group. No duplicate.
+
+### 3.5d. The join link can't grant anything by itself
+⬜ Sign up via `/join` as `you+nobody@gmail.com` but **do not approve it.**
+
+**Expect:** that account sees only the "on the list" screen — no church data at
+all — until you approve. Confirm with the ground-truth query: their `access`
+should read `❌ NO PROFILE`.
+
+---
+
 ## 4. Section & zone leaders
 
 Setup: in **Settings → Zones & sections**, create a zone, a section, put the
