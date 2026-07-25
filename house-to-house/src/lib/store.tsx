@@ -890,6 +890,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const supabase = supabaseBrowser();
       const { data } = await supabase.auth.getUser();
       if (!data.user) return; // not signed in yet — try again after they are
+      const signedInAs = (data.user.email ?? "").trim().toLowerCase();
+
+      // Whose answers are these? On a shared or reused browser the stash can
+      // outlive the person who made it, and filing their group under someone
+      // else's login would be worse than losing it.
+      try {
+        const stashedFor = (JSON.parse(raw!) as { email?: string }).email;
+        if (stashedFor && stashedFor.toLowerCase() !== signedInAs) {
+          localStorage.removeItem("h2h-join");
+          return;
+        }
+      } catch {
+        // Unparseable stash — drop it rather than post garbage.
+        try {
+          localStorage.removeItem("h2h-join");
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
       try {
         await fetch("/api/join", {
           method: "POST",
@@ -902,8 +923,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       try {
         localStorage.removeItem("h2h-join");
         // Remember they came in through join, so the access screen greets them
-        // as "waiting on approval" rather than firing a second, redundant alert.
-        localStorage.setItem("h2h-joined", "1");
+        // as "waiting on approval" rather than firing a second, redundant
+        // alert. Keyed to the address, so it says nothing about the next
+        // person to sign in on this browser.
+        localStorage.setItem("h2h-joined", signedInAs);
       } catch {
         // ignore
       }

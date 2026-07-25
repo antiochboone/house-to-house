@@ -446,6 +446,8 @@ export default function SettingsPage() {
   const [newRole, setNewRole] = useState("");
   const [newRoleLead, setNewRoleLead] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** requestId → who we just emailed, for immediate confirmation. */
+  const [notified, setNotified] = useState<Record<string, string>>({});
 
   if (role !== "staff") {
     return (
@@ -551,6 +553,29 @@ export default function SettingsPage() {
     }).length;
 
   /* ----- Access request helpers ----- */
+  // Alerts fire once, when someone gets stuck. If email wasn't configured yet,
+  // this is how a queued request gets its notification without asking the
+  // person to sign up all over again.
+  const notifyNow = async (requestId: string) => {
+    setError(null);
+    try {
+      const res = await fetch("/api/notify-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      });
+      const data = (await res.json()) as { sent?: number; to?: string[]; error?: string };
+      if (!res.ok || !data.sent) {
+        setError(data.error ?? "Couldn't send that notification.");
+      } else {
+        setError(null);
+        setNotified((prev) => ({ ...prev, [requestId]: (data.to ?? []).join(", ") }));
+      }
+    } catch {
+      setError("Couldn't reach the server to send that notification.");
+    }
+  };
+
   const patchAlerts = (patch: Partial<typeof accessAlerts>) =>
     void act(() => saveAccessAlerts({ ...accessAlerts, ...patch }));
   const toggleAdmin = (personId: string) =>
@@ -1199,8 +1224,19 @@ export default function SettingsPage() {
                           >
                             dismiss
                           </button>
-                          {!r.notifiedAt && (
-                            <span className="ml-auto text-[11px] text-faint">not emailed</span>
+                          {notified[r.id] ? (
+                            <span className="ml-auto text-[11px] text-accent-ink">
+                              ✓ emailed {notified[r.id]}
+                            </span>
+                          ) : (
+                            !r.notifiedAt && (
+                              <button
+                                onClick={() => void notifyNow(r.id)}
+                                className="ml-auto text-[11px] text-faint underline-offset-2 hover:text-accent-ink hover:underline"
+                              >
+                                not emailed - notify now
+                              </button>
+                            )
                           )}
                         </div>
                       </div>
@@ -1249,10 +1285,19 @@ export default function SettingsPage() {
                         >
                           dismiss
                         </button>
-                        {!r.notifiedAt && (
-                          <span className="ml-auto text-[11px] text-faint">
-                            not emailed
+                        {notified[r.id] ? (
+                          <span className="ml-auto text-[11px] text-accent-ink">
+                            ✓ emailed {notified[r.id]}
                           </span>
+                        ) : (
+                          !r.notifiedAt && (
+                            <button
+                              onClick={() => void notifyNow(r.id)}
+                              className="ml-auto text-[11px] text-faint underline-offset-2 hover:text-accent-ink hover:underline"
+                            >
+                              not emailed - notify now
+                            </button>
+                          )
                         )}
                       </div>
                     </div>

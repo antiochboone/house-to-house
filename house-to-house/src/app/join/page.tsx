@@ -79,6 +79,9 @@ export default function JoinPage() {
         "h2h-join",
         JSON.stringify({
           slug,
+          // Who these answers belong to, so a browser shared with someone else
+          // can't file them under the wrong login.
+          email: email.trim().toLowerCase(),
           first: first.trim(),
           last: last.trim(),
           groupId: groupId === NOT_LISTED ? null : groupId,

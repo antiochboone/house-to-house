@@ -139,9 +139,16 @@ function AccessPending({
   // Someone who came through the /join link already filed a request (with the
   // group they lead) — greet them as "waiting on approval" and DON'T fire the
   // passive no-access alert, which would double-notify.
+  //
+  // Scoped to WHOSE join it was. As a bare flag this silently swallowed every
+  // later sign-in in the same browser: the next person was told they were on
+  // the list (they weren't) and the alert was skipped, so they vanished from
+  // both channels at once. Shared computers and testing hit this immediately.
   const [joined] = useState(() => {
     try {
-      return !!(localStorage.getItem("h2h-join") || localStorage.getItem("h2h-joined"));
+      if (localStorage.getItem("h2h-join")) return true; // a join mid-flight
+      const who = localStorage.getItem("h2h-joined");
+      return !!who && !!email && who.toLowerCase() === email.toLowerCase();
     } catch {
       return false;
     }
