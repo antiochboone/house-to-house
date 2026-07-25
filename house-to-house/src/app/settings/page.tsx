@@ -196,13 +196,18 @@ function SectionCard({
   title,
   blurb,
   children,
+  className = "",
 }: {
   title: string;
   blurb: React.ReactNode;
   children: React.ReactNode;
+  /** Lets a card reorder or highlight itself within the settings column. */
+  className?: string;
 }) {
   return (
-    <section className="rise rounded-[14px] border border-line bg-surface p-5 max-md:p-4 shadow-card">
+    <section
+      className={`rise rounded-[14px] border border-line bg-surface p-5 max-md:p-4 shadow-card ${className}`}
+    >
       <h2 className="font-display mb-1 text-[18px]">{title}</h2>
       <p className="mb-4 text-[13px] text-muted">{blurb}</p>
       {children}
@@ -1138,8 +1143,18 @@ export default function SettingsPage() {
           </div>
         </SectionCard>
 
+        {/* People waiting on you outrank church configuration, so this card
+            jumps to the top of the column while the queue has anyone in it -
+            no scrolling past eight cards to approve someone. */}
         <SectionCard
-          title="Access requests"
+          className={
+            accessRequests.length > 0 ? "order-first border-[1.5px] border-gold" : ""
+          }
+          title={
+            accessRequests.length > 0
+              ? `Access requests · ${accessRequests.length} waiting`
+              : "Access requests"
+          }
           blurb="Leaders who sign up at your /join link land here to be approved, as does anyone who signs in but can't get anywhere yet. The app emails whoever you name below - once per person, not once per visit."
         >
           <EmailConfigWarning />

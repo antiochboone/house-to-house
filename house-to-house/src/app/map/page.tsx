@@ -104,8 +104,10 @@ export default function MapPage() {
                 ))}
               </div>
             )}
+            {/* self-center overrides the row's items-stretch, so on a phone the
+                pill sits centered instead of spanning the width. */}
             {staff && !emptyChurch && mode === "cards" && (
-              <div className="max-md:order-3">
+              <div className="max-md:order-3 max-md:self-center">
                 <DensityToggle value={density} onChange={setDensity} />
               </div>
             )}
@@ -471,7 +473,9 @@ function CardsView({
           </section>
         ))}
       </div>
-      <div className="rise rounded-[14px] border border-line bg-surface p-[18px] shadow-card">
+      {/* Desktop: a sidebar on the right. Phone: the first thing you see -
+          what God's been doing leads, the roster follows. */}
+      <div className="rise rounded-[14px] border border-line bg-surface p-[18px] shadow-card max-lg:order-first">
         <h2 className="font-display mb-1 text-[17px]">Wins</h2>
         <div className="mb-3.5 text-xs text-muted">What God&apos;s been doing, house to house</div>
         {wins.length === 0 ? (
@@ -481,25 +485,29 @@ function CardsView({
               : "No wins yet."}
           </p>
         ) : (
-          wins.map((w) => (
-            <div
-              key={w.text}
-              className="flex gap-2.5 border-t border-line py-2.5 text-[13.5px] leading-snug"
-            >
-              <Flame />
-              <div>
-                {w.text}
-                <div className="mt-1 flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${WIN_CATEGORY_META[w.category].tone}`}
-                  >
-                    {WIN_CATEGORY_META[w.category].label}
-                  </span>
-                  <span className="text-[11px] text-faint">{w.date}</span>
+          // Capped on a phone so twenty wins don't push the lifegroups off the
+          // screen - it leads, but it doesn't take over.
+          <div className="max-lg:max-h-[236px] max-lg:overflow-y-auto max-lg:overscroll-contain">
+            {wins.map((w) => (
+              <div
+                key={w.text}
+                className="flex gap-2.5 border-t border-line py-2.5 text-[13.5px] leading-snug"
+              >
+                <Flame />
+                <div>
+                  {w.text}
+                  <div className="mt-1 flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${WIN_CATEGORY_META[w.category].tone}`}
+                    >
+                      {WIN_CATEGORY_META[w.category].label}
+                    </span>
+                    <span className="text-[11px] text-faint">{w.date}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </div>
