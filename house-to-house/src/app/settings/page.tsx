@@ -432,6 +432,7 @@ export default function SettingsPage() {
     saveAccessAlerts,
     accessRequests,
     accessRequestsError,
+    staffMismatch,
     resolveAccessRequest,
     approveJoinRequest,
     setAccess,
@@ -592,6 +593,21 @@ export default function SettingsPage() {
         <p className="mb-4 max-w-[640px] rounded-lg bg-ember-soft px-3 py-2 text-[13px] text-ember">
           {error}
         </p>
+      )}
+
+      {/* The app says staff, the database says otherwise. Everything protected
+          reads back empty until this is fixed, so it goes above everything. */}
+      {staffMismatch && (
+        <div className="mb-4 max-w-[640px] rounded-xl border-[1.5px] border-ember bg-ember-soft p-3.5">
+          <div className="label mb-1 text-ember">Your staff access is only half applied</div>
+          <p className="text-[12.5px] leading-relaxed text-ember">
+            You can see the staff screens, but the database still has this login as a
+            leader — so anything protected (the access-request queue, guest follow-up,
+            saving settings) comes back empty or refuses, with no error. Run{" "}
+            <code>supabase/migration-staff-alignment.sql</code> in the Supabase SQL
+            Editor, then reload.
+          </p>
+        </div>
       )}
 
       <div className="flex max-w-[640px] flex-col gap-5">

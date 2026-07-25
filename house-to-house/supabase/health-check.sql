@@ -105,6 +105,21 @@ with checks as (
                       where table_name='access_requests' and column_name='requested_group_id')
       then '✅ present' else '❌ MISSING — run migration-join-requests.sql' end
 
+  -- 3.13 Staff alignment (migration-staff-alignment.sql)
+  union all select 3.13, 'Staff alignment — is_staff() honors app_access',
+    case when exists (select 1 from pg_proc
+                      where proname='is_staff'
+                        and pg_get_functiondef(oid) like '%app_access%')
+      then '✅ present' else '❌ MISSING — run migration-staff-alignment.sql' end
+  union all select 3.14, 'Staff alignment — no login disagrees with its person record',
+    case when not exists (
+           select 1 from profiles pr join people p on p.id = pr.person_id
+           where p.app_access in ('leader','staff') and pr.role is distinct from p.app_access)
+      then '✅ all in step'
+      else '⚠️ ' || (select count(*)::text from profiles pr join people p on p.id = pr.person_id
+                     where p.app_access in ('leader','staff') and pr.role is distinct from p.app_access)
+           || ' login(s) drifted — run migration-staff-alignment.sql' end
+
   -- 4. D-groups (migration-dgroups.sql)
   union all select 4.0, 'D-groups — dgroups + dgroup_members tables',
     case when to_regclass('public.dgroups') is not null

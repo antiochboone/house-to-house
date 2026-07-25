@@ -282,6 +282,12 @@ interface DataApi {
    * a dangerous thing to say when the truth is "I failed to look".
    */
   accessRequestsError: string | null;
+  /**
+   * True when the app considers you staff but the database doesn't. RLS denies
+   * by returning zero rows rather than an error, so this mismatch otherwise
+   * shows up as a permanently empty queue with nothing to explain it.
+   */
+  staffMismatch: boolean;
   /** Mark a request handled without changing anyone's access. */
   resolveAccessRequest: (id: string) => Promise<string | null>;
   /**
@@ -383,6 +389,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [accessAlerts, setAccessAlerts] = useState<AccessAlertConfig>(DEFAULT_ACCESS_ALERTS);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [accessRequestsError, setAccessRequestsError] = useState<string | null>(null);
+  const [staffMismatch, setStaffMismatch] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!realMode) return;
@@ -483,7 +490,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const myRow = peopleQ.data?.find((p) => p.id === profile?.person_id);
     const grant = myRow?.app_access as AppAccess | undefined;
     const stamped = profile?.role as AppAccess | undefined;
-    setRole(grant === "staff" || stamped === "staff" ? "staff" : "leader");
+    const amStaff = grant === "staff" || stamped === "staff";
+    setRole(amStaff ? "staff" : "leader");
+
+    // Ask the database whether IT agrees. If the two ever disagree the staff
+    // UI renders while every protected read comes back empty — which reads as
+    // "nothing here" instead of "you were denied".
+    if (amStaff) {
+      const { data: dbStaff, error: staffErr } = await supabase.rpc("is_staff");
+      setStaffMismatch(!staffErr && dbStaff === false);
+    } else {
+      setStaffMismatch(false);
+    }
 
     if (churchQ.data?.name) setChurchName(churchQ.data.name);
 
@@ -2509,6 +2527,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       saveAccessAlerts,
       accessRequests,
       accessRequestsError,
+      staffMismatch,
       resolveAccessRequest,
       approveJoinRequest,
       reportStuck,
@@ -2516,7 +2535,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       churchName,
       saveChurchName,
     }),
-    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, accessRequestsError, resolveAccessRequest, approveJoinRequest, reportStuck, createChurch, churchName, saveChurchName],
+    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, accessRequestsError, staffMismatch, resolveAccessRequest, approveJoinRequest, reportStuck, createChurch, churchName, saveChurchName],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
