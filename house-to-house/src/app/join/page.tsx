@@ -179,8 +179,8 @@ export default function JoinPage() {
           <p className="font-display mb-1.5 text-xl">Check your email</p>
           <p className="text-[13.5px] leading-relaxed text-muted">
             We sent a confirmation link to <strong>{email}</strong>. Open it, and we&apos;ll
-            pass your request to the {dir.name} team. You&apos;ll get access once they approve
-            you.
+            {` pass your request to the ${dir.name.trim()} team. `}
+            You&apos;ll get access once they approve you.
           </p>
         </div>
       </div>

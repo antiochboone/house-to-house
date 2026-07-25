@@ -348,7 +348,7 @@ function StartAChurch() {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, myLedGroupIds, groups, churchName } =
+  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, myLedGroupIds, groups, churchName, accessRequests } =
     useData();
   const flagStuck = useCallback(() => void reportStuck("no-access"), [reportStuck]);
   const pathname = usePathname();
@@ -386,6 +386,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
     myLedGroupIds.length > 0 ? groups.find((g) => g.id === myLedGroupIds[0]) : undefined;
   const myGroupHref = myGroup ? `/map?open=${myGroup.id}` : "";
 
+  // People waiting on approval are easy to miss inside a settings page nobody
+  // opens daily, so the count comes out to the nav.
+  const waiting = role === "staff" ? accessRequests.length : 0;
+
   const items =
     role === "staff"
       ? [
@@ -394,7 +398,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           { href: "/discipleship", label: "Discipleship", icon: "disc" },
           { href: "/follow-up", label: "Follow-up", icon: "guest" },
           { href: "/check-in", label: "Check-in", icon: "checkin" },
-          { href: "/settings", label: "Settings", icon: "gear" },
+          { href: "/settings", label: "Settings", icon: "gear", badge: waiting },
         ]
       : [
           { href: "/map", label: "Lifegroup Map", icon: "map" },
@@ -427,8 +431,23 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     : "text-muted hover:bg-surface-2 hover:text-ink"
                 }`}
               >
-                {ICONS[it.icon]}
+                <span className="relative flex shrink-0">
+                  {ICONS[it.icon]}
+                  {/* Collapsed sidebar has no room for a count — a dot still
+                      says "look in here". */}
+                  {!!it.badge && collapsed && (
+                    <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-ember ring-2 ring-bg" />
+                  )}
+                </span>
                 {!collapsed && it.label}
+                {!collapsed && !!it.badge && (
+                  <span
+                    aria-label={`${it.badge} waiting for approval`}
+                    className="ml-auto rounded-full bg-ember px-1.5 py-0.5 text-[10.5px] font-bold leading-none text-white"
+                  >
+                    {it.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -496,10 +515,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {role === "staff" && (
             <Link
               href="/settings"
-              aria-label="Settings"
-              className="flex h-9 w-9 items-center justify-center rounded-[10px] text-muted"
+              aria-label={waiting > 0 ? `Settings, ${waiting} waiting for approval` : "Settings"}
+              className="relative flex h-9 w-9 items-center justify-center rounded-[10px] text-muted"
             >
               {ICONS.gear}
+              {waiting > 0 && (
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-ember ring-2 ring-bg" />
+              )}
             </Link>
           )}
         </div>

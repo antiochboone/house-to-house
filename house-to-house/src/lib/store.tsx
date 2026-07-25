@@ -276,6 +276,12 @@ interface DataApi {
   saveAccessAlerts: (config: AccessAlertConfig) => Promise<string | null>;
   /** Open "I can't get in" requests, newest first (staff only). */
   accessRequests: AccessRequest[];
+  /**
+   * Why the request queue couldn't load, if it couldn't. An empty queue and a
+   * broken queue look identical otherwise — and "nobody has asked to join" is
+   * a dangerous thing to say when the truth is "I failed to look".
+   */
+  accessRequestsError: string | null;
   /** Mark a request handled without changing anyone's access. */
   resolveAccessRequest: (id: string) => Promise<string | null>;
   /**
@@ -376,6 +382,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [churchName, setChurchName] = useState("Antioch Boone");
   const [accessAlerts, setAccessAlerts] = useState<AccessAlertConfig>(DEFAULT_ACCESS_ALERTS);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [accessRequestsError, setAccessRequestsError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!realMode) return;
@@ -520,6 +527,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ...DEFAULT_ACCESS_ALERTS,
       ...((churchQ.data?.settings?.accessAlerts as Partial<AccessAlertConfig> | undefined) ?? {}),
     });
+    // A failed read here used to fall through to an empty list, which reads as
+    // "nobody is waiting" — exactly the wrong answer when the real cause is a
+    // migration that hasn't been run yet.
+    setAccessRequestsError(
+      accessReqQ.error
+        ? /column|does not exist|schema cache/i.test(accessReqQ.error.message)
+          ? "The requests table is missing or out of date - run supabase/migration-join-requests.sql, then reload."
+          : accessReqQ.error.message
+        : null,
+    );
     setAccessRequests(
       (accessReqQ.data ?? []).map((r) => ({
         id: r.id,
@@ -2491,6 +2508,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       accessAlerts,
       saveAccessAlerts,
       accessRequests,
+      accessRequestsError,
       resolveAccessRequest,
       approveJoinRequest,
       reportStuck,
@@ -2498,7 +2516,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       churchName,
       saveChurchName,
     }),
-    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, resolveAccessRequest, approveJoinRequest, reportStuck, createChurch, churchName, saveChurchName],
+    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, accessRequestsError, resolveAccessRequest, approveJoinRequest, reportStuck, createChurch, churchName, saveChurchName],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

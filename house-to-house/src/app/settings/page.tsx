@@ -211,6 +211,41 @@ function SectionCard({
 }
 
 /**
+ * Warns when alert email isn't configured. Requests still queue without it,
+ * but nobody is told — a failure mode that is completely invisible from the
+ * app otherwise, which is exactly how a leader ends up waiting on an approval
+ * nobody knows about.
+ */
+function EmailConfigWarning() {
+  const [missing, setMissing] = useState<string[] | null>(null);
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/alert-status");
+        if (!res.ok) return;
+        const data = (await res.json()) as { configured: boolean; missing: string[] };
+        if (!data.configured) setMissing(data.missing);
+      } catch {
+        // Can't tell — say nothing rather than cry wolf.
+      }
+    })();
+  }, []);
+
+  if (!missing?.length) return null;
+  return (
+    <div className="mb-5 rounded-xl border-[1.5px] border-ember bg-ember-soft p-3">
+      <div className="label mb-1 text-ember">Nobody is being emailed</div>
+      <p className="text-[12px] leading-relaxed text-ember">
+        Requests still collect below, but no alert goes out — {missing.join(", ")}{" "}
+        {missing.length === 1 ? "is" : "are"} missing from this deployment&apos;s
+        environment variables. Add {missing.length === 1 ? "it" : "them"} in Vercel and
+        redeploy.
+      </p>
+    </div>
+  );
+}
+
+/**
  * The shareable sign-up link. A link nobody can find is a link nobody sends,
  * so it lives right above the queue it feeds. The origin is read lazily on the
  * client (it's a browser-only value); suppressHydrationWarning covers the one
@@ -396,6 +431,7 @@ export default function SettingsPage() {
     accessAlerts,
     saveAccessAlerts,
     accessRequests,
+    accessRequestsError,
     resolveAccessRequest,
     approveJoinRequest,
     setAccess,
@@ -1065,6 +1101,15 @@ export default function SettingsPage() {
           title="Access requests"
           blurb="Leaders who sign up at your /join link land here to be approved, as does anyone who signs in but can't get anywhere yet. The app emails whoever you name below - once per person, not once per visit."
         >
+          <EmailConfigWarning />
+
+          {accessRequestsError && (
+            <div className="mb-5 rounded-xl border-[1.5px] border-ember bg-ember-soft p-3">
+              <div className="label mb-1 text-ember">Couldn&apos;t load the queue</div>
+              <p className="text-[12px] leading-relaxed text-ember">{accessRequestsError}</p>
+            </div>
+          )}
+
           <JoinLinkBlock />
 
           {accessRequests.length > 0 && (
