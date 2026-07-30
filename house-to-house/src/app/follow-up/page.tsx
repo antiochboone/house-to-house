@@ -22,13 +22,15 @@ type GuestFilter =
   | "in_group";
 type GuestSort = "newest" | "oldest" | "name" | "most_progress" | "least_progress";
 
-const OUTCOME_META: Record<GuestOutcome, { label: string; tone: string }> = {
-  landed: { label: "landed in a lifegroup", tone: "bg-sprout-soft text-sprout" },
+// A function of the church's group term, so "landed in a house church" reads
+// as naturally as "landed in a lifegroup".
+const outcomeMeta = (groupWord: string): Record<GuestOutcome, { label: string; tone: string }> => ({
+  landed: { label: `landed in a ${groupWord}`, tone: "bg-sprout-soft text-sprout" },
   sundays_only: { label: "in the directory (no group yet)", tone: "bg-men-soft text-men-ink" },
   moved_away: { label: "moved away", tone: "bg-dormant-soft text-dormant" },
   other_church: { label: "found another church", tone: "bg-gold-soft text-gold" },
   went_cold: { label: "went cold", tone: "bg-dormant-soft text-dormant" },
-};
+});
 
 // Graduation now handles the two "became a Person" outcomes (landed /
 // sundays_only); archiving is only for guests who didn't stick.
@@ -41,8 +43,10 @@ function AttendingChip({ a }: { a: Guest["attending"] }) {
 }
 
 export default function FollowUpPage() {
-  const { ready, realMode, role, guests, groups, milestones, myGroupIds, setGuestMilestone, updateGuest, graduateGuest, archiveGuest, restoreGuest } =
+  const { ready, realMode, role, guests, groups, milestones, myGroupIds, setGuestMilestone, updateGuest, graduateGuest, archiveGuest, restoreGuest, terms } =
     useData();
+  // Same constant shape the render code always used, now in the church's words.
+  const OUTCOME_META = outcomeMeta(terms.oneLower);
   const [tab, setTab] = useState<"active" | "archive">("active");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Guest | null>(null);
@@ -73,8 +77,8 @@ export default function FollowUpPage() {
       <div className="mx-auto mt-20 max-w-md text-center">
         <h1 className="font-display mb-2 text-2xl">MVP board</h1>
         <p className="text-[14.5px] text-muted">
-          When your login is connected to a lifegroup you lead, the MVPs connected to
-          your group show up here - to pray for, track, and pursue.
+          When your login is connected to a {terms.oneLower} you lead, the MVPs connected
+          to your group show up here - to pray for, track, and pursue.
         </p>
       </div>
     );
@@ -189,13 +193,13 @@ export default function FollowUpPage() {
           <p className="text-[14.5px] text-muted max-md:hidden">
             {staffView ? (
               <>
-                From first Sunday to family. Tap a milestone to mark it done - &quot;In a
-                lifegroup&quot; graduates them onto a real roster.
+                From first Sunday to family. Tap a milestone to mark it done - &quot;In a{" "}
+                {terms.oneLower}&quot; graduates them onto a real roster.
               </>
             ) : (
               <>
-                New folks connected to your lifegroup - pray for them, track the journey,
-                tap milestones as they happen. Staff walks alongside you.
+                New folks connected to your {terms.oneLower} - pray for them, track the
+                journey, tap milestones as they happen. Staff walks alongside you.
               </>
             )}
           </p>
@@ -234,7 +238,7 @@ export default function FollowUpPage() {
         {staffView ? (
           <>
             <Stat num={active.length} label="guests in motion" />
-            <Stat num={landed} label="landed in a lifegroup" />
+            <Stat num={landed} label={`landed in a ${terms.oneLower}`} />
             <Stat num={archived.length - landed} label="archived other ways" />
           </>
         ) : (
@@ -259,7 +263,7 @@ export default function FollowUpPage() {
               ["started", "in progress"],
               ["untouched", "not started"],
               ["connect_card", "connect card"],
-              ["in_group", "in a lifegroup"],
+              ["in_group", `in a ${terms.oneLower}`],
             ] as const
           ).map(([f, label]) => (
             <button
@@ -322,7 +326,7 @@ export default function FollowUpPage() {
           </p>
           <p className="text-[13.5px] text-muted">
             {!staffView
-              ? "When staff connects a new person to your lifegroup, they'll show up here to pray for and pursue."
+              ? `When staff connects a new person to your ${terms.oneLower}, they'll show up here to pray for and pursue.`
               : tab === "active"
                 ? realMode
                   ? "When someone visits on a Sunday, add them here and walk the road together."
@@ -589,9 +593,10 @@ export default function FollowUpPage() {
         <Modal title={`Graduate ${graduating.name.split(" ")[0]} 🎓`} onClose={() => setGraduating(null)}>
           <p className="mb-3 text-[13.5px] text-muted">
             You&apos;re bringing {graduating.name.split(" ")[0]} into the people directory as a
-            member of the church. Place them in a lifegroup, or add them unplaced for now.
+            member of the church. Place them in a {terms.oneLower}, or add them unplaced
+            for now.
           </p>
-          <span className="label mb-1.5 block">Into a lifegroup</span>
+          <span className="label mb-1.5 block">Into a {terms.oneLower}</span>
           <div className="flex flex-col gap-2">
             {graduating.groupId && groups.some((grp) => grp.id === graduating.groupId) && (
               <p className="px-1 text-[11.5px] text-faint">
@@ -628,7 +633,7 @@ export default function FollowUpPage() {
               }}
               className="w-full rounded-xl border-[1.5px] border-dashed border-line px-3.5 py-2.5 text-left text-[14px] text-muted hover:border-accent hover:text-accent-ink"
             >
-              Not in a lifegroup yet - add to the directory as unplaced
+              Not in a {terms.oneLower} yet - add to the directory as unplaced
             </button>
             <p className="mt-1 px-1 text-[11.5px] text-faint">
               e.g. a believer who comes on Sundays but hasn&apos;t joined a group.

@@ -257,6 +257,7 @@ function EmailConfigWarning() {
  * frame where the server rendered an empty string.
  */
 function JoinLinkBlock() {
+  const { terms } = useData();
   const [copied, setCopied] = useState(false);
   // The origin is a browser-only value, and this page is server-rendered
   // first, so it can't come from render or from state (React keeps the
@@ -273,9 +274,9 @@ function JoinLinkBlock() {
     <div className="mb-5 rounded-xl border-[1.5px] border-accent bg-accent-soft p-3">
       <div className="label mb-1.5">Your sign-up link</div>
       <p className="mb-2.5 text-[12px] leading-relaxed text-muted">
-        Send this to lifegroup leaders. They pick the group they lead, verify their
-        email, and land in the queue below for you to approve. It grants nothing on its
-        own, so it&apos;s safe to post in a group chat.
+        Send this to {terms.oneLower} leaders. They pick the group they lead, verify
+        their email, and land in the queue below for you to approve. It grants nothing on
+        its own, so it&apos;s safe to post in a group chat.
       </p>
       <div className="flex items-center gap-2">
         <code
@@ -306,22 +307,28 @@ function JoinLinkBlock() {
   );
 }
 
-/** Rename the church - shown under "House to House" in the top-left wordmark. */
-function ChurchNameCard({
-  churchName,
+/**
+ * A single word or phrase the whole app repeats back - church name, group
+ * terminology. One input, one save, and a note that it lands everywhere.
+ */
+function TextSettingCard({
+  title,
+  blurb,
+  value,
+  ariaLabel,
   onSave,
 }: {
-  churchName: string;
-  onSave: (name: string) => Promise<string | null>;
+  title: string;
+  blurb: React.ReactNode;
+  value: string;
+  ariaLabel: string;
+  onSave: (next: string) => Promise<string | null>;
 }) {
-  const [draft, setDraft] = useState(churchName);
+  const [draft, setDraft] = useState(value);
   const [saved, setSaved] = useState(false);
-  const dirty = draft.trim() !== churchName && draft.trim().length > 0;
+  const dirty = draft.trim() !== value && draft.trim().length > 0;
   return (
-    <SectionCard
-      title="Church name"
-      blurb="Shown under “House to House” in the top-left, and wherever the app greets your church by name."
-    >
+    <SectionCard title={title} blurb={blurb}>
       <div className="flex items-center gap-2">
         <input
           value={draft}
@@ -329,7 +336,7 @@ function ChurchNameCard({
             setDraft(e.target.value);
             setSaved(false);
           }}
-          aria-label="Church name"
+          aria-label={ariaLabel}
           className={`${inputCls} min-w-0 flex-1`}
         />
         <button
@@ -445,6 +452,8 @@ export default function SettingsPage() {
     setOversight,
     churchName,
     saveChurchName,
+    terms,
+    saveGroupTerm,
   } = useData();
   const [newCat, setNewCat] = useState("");
   const [newCatMulti, setNewCatMulti] = useState(true);
@@ -641,10 +650,24 @@ export default function SettingsPage() {
       )}
 
       <div className="flex max-w-[640px] flex-col gap-5">
-        <ChurchNameCard churchName={churchName} onSave={saveChurchName} />
+        <TextSettingCard
+          title="Church name"
+          blurb="Shown under “House to House” in the top-left, and wherever the app greets your church by name."
+          value={churchName}
+          ariaLabel="Church name"
+          onSave={saveChurchName}
+        />
+
+        <TextSettingCard
+          title="What do you call your groups?"
+          blurb={`Lifegroup, House Church, Life Group, Missional Community - whatever your church says, the app says. Plural is automatic ("${terms.many}").`}
+          value={terms.one}
+          ariaLabel="Group terminology"
+          onSave={saveGroupTerm}
+        />
 
         <SectionCard
-          title="Lifegroup tags"
+          title={`${terms.one} tags`}
           blurb="The categories and options offered when tagging a group. Options you add while tagging land here too."
         >
           <div className="flex flex-col gap-4">
@@ -873,7 +896,7 @@ export default function SettingsPage() {
         </SectionCard>
 
         <SectionCard
-          title="Lifegroup roles"
+          title={`${terms.one} roles`}
           blurb="The roles people can hold inside a group. Rename them, toggle whether a role is leadership (leadership roles form the leadership team and can run check-ins), or add your own - Co-leader, Host, Prayer lead, whatever fits."
         >
           <div className="flex flex-col gap-2.5">
@@ -986,7 +1009,7 @@ export default function SettingsPage() {
 
         <SectionCard
           title="Zones &amp; sections"
-          blurb="For churches that grow past a handful of groups: a section gathers a few lifegroups, a zone gathers sections. Leave this empty and the map stays a single flat list."
+          blurb={`For churches that grow past a handful of groups: a section gathers a few ${terms.manyLower}, a zone gathers sections. Leave this empty and the map stays a single flat list.`}
         >
           <div className="flex flex-col gap-5">
             <div>
@@ -1083,8 +1106,9 @@ export default function SettingsPage() {
               <div>
                 <span className="label mb-2 block">Who oversees what</span>
                 <p className="mb-2.5 text-[12px] leading-relaxed text-faint">
-                  A section leader gets, for every lifegroup in their section, exactly what
-                  a lifegroup leader gets for their own: the roster, editing its members,
+                  A section leader gets, for every {terms.oneLower} in their section,
+                  exactly what a {terms.oneLower} leader gets for their own: the roster,
+                  editing its members,
                   the monthly check-in, and the MVP board. A zone leader gets that across
                   every section in the zone. They still need Leader app access to sign in.
                 </p>
@@ -1275,7 +1299,7 @@ export default function SettingsPage() {
                           ? match
                             ? "Signed in, but their App access is still None."
                             : "Signed in, but no person record carries that email. Add them in People first."
-                          : "Has access, but no lifegroup roster with a leader role."}
+                          : `Has access, but no ${terms.oneLower} roster with a leader role.`}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {r.kind === "no-access" && match && (

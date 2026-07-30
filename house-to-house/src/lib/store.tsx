@@ -309,6 +309,32 @@ interface DataApi {
   /** The church's display name (shown in the wordmark; editable by staff). */
   churchName: string;
   saveChurchName: (name: string) => Promise<string | null>;
+  /**
+   * What this church calls its groups, in the four forms a sentence needs.
+   * "Lifegroup" here, "House Church" somewhere else - one setting, and every
+   * label, heading, and email speaks the church's own language.
+   */
+  terms: GroupTerms;
+  saveGroupTerm: (term: string) => Promise<string | null>;
+}
+
+export interface GroupTerms {
+  /** "Lifegroup" - singular, as the church typed it. */
+  one: string;
+  /** "lifegroup" - singular, mid-sentence. */
+  oneLower: string;
+  /** "Lifegroups" - plural, capitalized. */
+  many: string;
+  /** "lifegroups" - plural, mid-sentence. */
+  manyLower: string;
+}
+
+/** The four grammatical forms of the church's word for its groups. */
+export function makeGroupTerms(raw: string): GroupTerms {
+  const one = raw.trim() || "Lifegroup";
+  // "House Church" pluralizes to "House Churches", not "House Churchs".
+  const many = /(s|x|z|ch|sh)$/i.test(one) ? `${one}es` : `${one}s`;
+  return { one, oneLower: one.toLowerCase(), many, manyLower: many.toLowerCase() };
 }
 
 const DataContext = createContext<DataApi | null>(null);
@@ -386,6 +412,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [reportEmails, setReportEmails] = useState<ReportEmailConfig>(DEFAULT_REPORT_EMAILS);
   // Demo shows the sample church; real mode overwrites this from the DB.
   const [churchName, setChurchName] = useState("Antioch Boone");
+  const [groupTerm, setGroupTerm] = useState("Lifegroup");
   const [accessAlerts, setAccessAlerts] = useState<AccessAlertConfig>(DEFAULT_ACCESS_ALERTS);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [accessRequestsError, setAccessRequestsError] = useState<string | null>(null);
@@ -504,6 +531,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     if (churchQ.data?.name) setChurchName(churchQ.data.name);
+    setGroupTerm(((churchQ.data?.settings?.groupTerm as string) || "Lifegroup").trim());
 
     const savedCategories = churchQ.data?.settings?.tagCategories as TagCategory[] | undefined;
     setTagCategories(savedCategories?.length ? savedCategories : DEFAULT_TAG_CATEGORIES);
@@ -1164,7 +1192,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .select("id");
       if (error) return error.message;
       if (!updated?.length)
-        return "You don't have permission to edit this person. Leaders can edit members of their own lifegroup; ask staff for anyone else.";
+        return `You don't have permission to edit this person. Leaders can edit members of their own ${groupTerm.toLowerCase()}; ask staff for anyone else.`;
 
       const groupChanged = (input.groupId ?? null) !== current.groupId;
       const roleChanged = (input.role ?? "member") !== current.role;
@@ -1200,7 +1228,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await refresh();
       return null;
     },
-    [people, realMode, refresh],
+    [people, realMode, refresh, groupTerm],
   );
 
   const deletePerson = useCallback(
@@ -1898,7 +1926,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           email: guest.email === " - " ? null : guest.email || null,
           phone: guest.phone === " - " ? null : guest.phone || null,
           discipleship_status: [],
-          notes: groupId ? null : "Graduated from follow-up - not in a lifegroup yet",
+          notes: groupId
+            ? null
+            : `Graduated from follow-up - not in a ${groupTerm.toLowerCase()} yet`,
         })
         .select("id")
         .single();
@@ -1924,7 +1954,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await refresh();
       return null;
     },
-    [guests, realMode, addPerson, refresh],
+    [guests, realMode, addPerson, refresh, groupTerm],
   );
 
   const archiveGuest = useCallback(
@@ -2429,6 +2459,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [realMode],
   );
 
+  const saveGroupTerm = useCallback(
+    async (term: string): Promise<string | null> => {
+      const clean = term.trim();
+      if (!clean) return "Type what your church calls its groups.";
+      setGroupTerm(clean);
+      if (!realMode) return null;
+      return patchSettings({ groupTerm: clean });
+    },
+    [realMode, patchSettings],
+  );
+
   const addTagCategory = useCallback(
     async (label: string, multi: boolean): Promise<string | null> => {
       const clean = label.trim();
@@ -2451,6 +2492,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [tagCategories, realMode, patchSettings],
   );
+
+  const terms = useMemo(() => makeGroupTerms(groupTerm), [groupTerm]);
 
   const leadershipRoleIds = useMemo(
     () => new Set(roles.filter((r) => r.leadership).map((r) => r.id)),
@@ -2557,8 +2600,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createChurch,
       churchName,
       saveChurchName,
+      terms,
+      saveGroupTerm,
     }),
-    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, accessRequestsError, staffMismatch, resolveAccessRequest, approveJoinRequest, reportStuck, createChurch, churchName, saveChurchName],
+    [ready, realMode, role, demoRole, userEmail, linked, mePersonId, realMyGroupIds, realMyLedGroupIds, oversightLeaders, setOversight, people, groups, wins, guests, lanes, tagCategories, refresh, addPerson, addGroup, addRelationship, setStatuses, setGroupTags, updatePerson, deletePerson, setAccess, sendInvite, endDiscipleship, endPeer, roadmapSteps, saveRoadmap, setRoadmapStep, dgroups, addDgroup, updateDgroup, deleteDgroup, updateGroup, saveReminder, deleteGroup, setGroupOrigin, addTagOption, submitCheckin, addGuest, updateGuest, setGuestMilestone, graduateGuest, archiveGuest, restoreGuest, recordGroupEvent, saveReadiness, checkinLog, pulseWords, savePulseWords, addTagCategory, milestones, saveMilestones, tierLabels, saveTierLabels, roles, saveRoles, roleLabel, isLeadershipRole, leadershipRoleIds, zones, sections, groupSections, saveZoning, reportEmails, saveReportEmails, accessAlerts, saveAccessAlerts, accessRequests, accessRequestsError, staffMismatch, resolveAccessRequest, approveJoinRequest, reportStuck, createChurch, churchName, saveChurchName, terms, saveGroupTerm],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

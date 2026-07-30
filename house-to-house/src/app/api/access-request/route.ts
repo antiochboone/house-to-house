@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
     kind,
     personName: match ? `${match.first_name} ${match.last_name}`.trim() : null,
     groupNames,
+    groupTerm: (churchQ.data?.settings?.groupTerm as string) || undefined,
     appUrl: new URL(request.url).origin,
   };
 

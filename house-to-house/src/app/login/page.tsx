@@ -15,6 +15,9 @@ export default function LoginPage() {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "reset-sent">("idle");
   const [error, setError] = useState<string | null>(null);
   const [linkError, setLinkError] = useState(false);
+  // On a single-church deployment the sign-in page greets you by your church's
+  // name (anon directory RPC); with several churches it stays neutral.
+  const [churchName, setChurchName] = useState<string | null>(null);
 
   useEffect(() => {
     // Surface a failed/expired sign-in link, and let the browser client pick up
@@ -25,6 +28,10 @@ export default function LoginPage() {
       const supabase = supabaseBrowser();
       void supabase.auth.getSession().then(({ data }) => {
         if (data.session) window.location.replace("/map");
+      });
+      void supabase.rpc("church_directory").then(({ data }) => {
+        const name = (data as { name?: string } | null)?.name;
+        if (name) setChurchName(name);
       });
     }
   }, []);
@@ -99,7 +106,9 @@ export default function LoginPage() {
         <LogoMark size={46} className="text-accent" />
         <div>
           <div className="font-display text-2xl leading-none">House to House</div>
-          <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Antioch Boone</div>
+          <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">
+            {churchName ?? "Shepherding house to house"}
+          </div>
         </div>
       </div>
 

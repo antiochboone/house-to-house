@@ -14,7 +14,7 @@ type MapMode = "cards" | "chart" | "timeline";
 type OpenModal = "group" | "person" | null;
 
 export default function MapPage() {
-  const { ready, realMode, role, people, groups, lanes, myGroupIds, leadershipRoleIds, churchName } = useData();
+  const { ready, realMode, role, people, groups, lanes, myGroupIds, leadershipRoleIds, churchName, terms } = useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const [mode, setMode] = useState<MapMode>("cards");
   // Lifegroups are few and worth seeing in full, so they default to expanded.
@@ -69,15 +69,15 @@ export default function MapPage() {
       <div className="mb-5 flex flex-wrap items-end gap-4 max-md:mb-3.5 max-md:flex-col max-md:items-stretch max-md:gap-2.5">
         <div className="max-w-[640px]">
           <h1 className="font-display mb-1 text-[27px] max-md:mb-0 max-md:text-[23px]">
-            {staff ? "Lifegroup Map" : `Lifegroups at ${churchName}`}
+            {staff ? `${terms.one} Map` : `${terms.many} at ${churchName}`}
           </h1>
           <p className="text-[14.5px] text-muted max-md:hidden">
             {staff
               ? showChart
-                ? "Everyone in every group, by engagement - and who hasn't found a lifegroup home yet."
+                ? `Everyone in every group, by engagement - and who hasn't found a ${terms.oneLower} home yet.`
                 : showTimeline
-                  ? "The web of lifegroups over time - every plant, merge, dormancy, and replant."
-                  : "Every lifegroup in the church - tap a house to step inside."
+                  ? `The web of ${terms.manyLower} over time - every plant, merge, dormancy, and replant.`
+                  : `Every ${terms.oneLower} in the church - tap a house to step inside.`
               : "Find a group, see who leads it, help someone land in the right home."}
           </p>
         </div>
@@ -87,7 +87,7 @@ export default function MapPage() {
               <div className="flex gap-[3px] rounded-[10px] bg-surface-2 p-[3px] max-md:order-2">
                 {(
                   [
-                    ["cards", "Lifegroups"],
+                    ["cards", terms.many],
                     ["chart", "Engagement"],
                     ["timeline", "Timeline"],
                   ] as const
@@ -129,7 +129,7 @@ export default function MapPage() {
                   onClick={() => setModal("group")}
                   className="rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-cta-ink max-md:flex-1 max-md:py-2.5 max-md:text-[14.5px]"
                 >
-                  ＋ Lifegroup
+                  ＋ {terms.one}
                 </button>
               )}
             </div>
@@ -142,7 +142,7 @@ export default function MapPage() {
           <p className="font-display mb-2 text-xl">Welcome home 🏡</p>
           <p className="mb-5 text-[14px] leading-relaxed text-muted">
             {realMode
-              ? "The church is connected and the map is empty - time to plant it. Add your first lifegroup, then add its people."
+              ? `The church is connected and the map is empty - time to plant it. Add your first ${terms.oneLower}, then add its people.`
               : "No groups yet in demo mode - add one to try the flow."}
           </p>
           {staff && (
@@ -150,7 +150,7 @@ export default function MapPage() {
               onClick={() => setModal("group")}
               className="rounded-xl bg-accent px-5 py-2.5 text-[14.5px] font-semibold text-cta-ink"
             >
-              ＋ Add your first lifegroup
+              ＋ Add your first {terms.oneLower}
             </button>
           )}
         </div>
@@ -231,10 +231,10 @@ export default function MapPage() {
               statsOpen ? "" : "max-md:hidden"
             }`}
           >
-            <Stat num={groups.length} label="lifegroups" />
+            <Stat num={groups.length} label={terms.manyLower} />
             <Stat num={placed.length} label="people in groups" />
             {staff && <Stat num={inD.length} label="in a discipleship relationship" />}
-            {staff && <Stat num={unplaced.length} label="not yet in a lifegroup" alert />}
+            {staff && <Stat num={unplaced.length} label={`not yet in a ${terms.oneLower}`} alert />}
             <div className="ml-auto flex flex-wrap items-center gap-3.5 text-xs text-muted max-md:hidden">
               {showTimeline ? null : showChart ? (
                 <>
@@ -285,7 +285,7 @@ export default function MapPage() {
       />
 
       {modal === "group" && (
-        <Modal title="New lifegroup" onClose={() => setModal(null)}>
+        <Modal title={`New ${terms.oneLower}`} onClose={() => setModal(null)}>
           <AddGroupForm onDone={() => setModal(null)} />
         </Modal>
       )}
@@ -515,7 +515,7 @@ function CardsView({
 }
 
 function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
-  const { people, tierLabels, leadershipRoleIds } = useData();
+  const { people, tierLabels, leadershipRoleIds, terms } = useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const unplaced = h.unplacedPeople();
 
@@ -597,13 +597,13 @@ function EngagementChart({ visibleGroups }: { visibleGroups: Group[] }) {
         );
       })}
       <div className="rise rounded-[14px] border border-dashed border-ember bg-surface p-4 shadow-card">
-        <h3 className="font-display text-[17px] text-ember">Not yet in a lifegroup</h3>
+        <h3 className="font-display text-[17px] text-ember">Not yet in a {terms.oneLower}</h3>
         <div className="mb-2 text-[11.5px] text-faint">
           {unplaced.length} people we know of - the shepherding edge of the whole church
         </div>
         {unplaced.length === 0 ? (
           <p className="text-[12.5px] italic text-muted">
-            Everyone we know of has a lifegroup home. 🎉
+            Everyone we know of has a {terms.oneLower} home. 🎉
           </p>
         ) : (
           unplaced.map((p) => (

@@ -135,6 +135,7 @@ export async function POST(request: NextRequest) {
     groupNames: [],
     groupWanted,
     hasMatch: !!req.matched_person_id,
+    groupTerm: (churchQ.data?.settings?.groupTerm as string) || undefined,
     appUrl: new URL(request.url).origin,
   };
 

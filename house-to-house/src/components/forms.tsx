@@ -280,7 +280,7 @@ export function TagEditor({
 }
 
 export function AddGroupForm({ onDone }: { onDone: () => void }) {
-  const { addGroup } = useData();
+  const { addGroup, terms } = useData();
   const [name, setName] = useState("");
   const [season, setSeason] = useState<Season>("start");
   const [day, setDay] = useState("");
@@ -354,7 +354,7 @@ export function AddGroupForm({ onDone }: { onDone: () => void }) {
       <div className="mt-3.5">
         <TagEditor tags={tags} setTags={setTags} />
       </div>
-      <SubmitRow busy={busy} error={error} label="Add lifegroup" />
+      <SubmitRow busy={busy} error={error} label={`Add ${terms.oneLower}`} />
     </form>
   );
 }
@@ -539,7 +539,7 @@ export function AddPersonForm({
   defaultGroupId?: string | null;
   onDone: () => void;
 }) {
-  const { addPerson, groups, guests, role: appRole, myGroupIds } = useData();
+  const { addPerson, groups, guests, role: appRole, myGroupIds, terms } = useData();
   const staff = appRole === "staff";
   // A leader adds people to the roster they actually shepherd - their own
   // lifegroup, and nowhere else. Staff place anyone anywhere, including
@@ -577,7 +577,7 @@ export function AddPersonForm({
     if (!staff && !groupId) {
       // Belt and braces: the entry points already hide this form from a leader
       // with no group, and the database would reject the membership anyway.
-      setError("Your login isn't connected to a lifegroup yet, so there's no roster to add to.");
+      setError(`Your login isn't connected to a ${terms.oneLower} yet, so there's no roster to add to.`);
       return;
     }
     setBusy(true);
@@ -660,10 +660,10 @@ export function AddPersonForm({
           Child
         </button>
       </div>
-      <label className={labelCls}>Lifegroup</label>
+      <label className={labelCls}>{terms.one}</label>
       {staff ? (
         <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
-          <option value="">Not in a lifegroup yet</option>
+          <option value="">Not in a {terms.oneLower} yet</option>
           {groups.map((g) => (
             <option key={g.id} value={g.id}>
               {g.name}
@@ -684,7 +684,7 @@ export function AddPersonForm({
         // one-option dropdown that pretends there's a decision to make.
         <div className="flex items-center justify-between rounded-xl border-[1.5px] border-line bg-surface-2 px-3 py-2 text-[14.5px]">
           <span className="font-medium">{placeable[0]?.name ?? "-"}</span>
-          <span className="text-[12px] text-muted">your lifegroup</span>
+          <span className="text-[12px] text-muted">your {terms.oneLower}</span>
         </div>
       )}
       {groupId && (
@@ -723,6 +723,7 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
     setAccess,
     sendInvite,
     role: appRole,
+    terms,
   } = useData();
   const staff = appRole === "staff";
   // Read the live record so roadmap/peer edits (which write to the store)
@@ -846,10 +847,10 @@ export function EditPersonForm({ person: personProp, onDone }: { person: Person;
           Child
         </button>
       </div>
-      <label className={labelCls}>Lifegroup</label>
+      <label className={labelCls}>{terms.one}</label>
       {staff ? (
         <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
-          <option value="">Not in a lifegroup</option>
+          <option value="">Not in a {terms.oneLower}</option>
           {groups.map((g) => (
             <option key={g.id} value={g.id}>
               {g.name}
@@ -1124,7 +1125,7 @@ function parseMeet(meet: string) {
 }
 
 export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => void }) {
-  const { groups, lanes, updateGroup, deleteGroup, setGroupOrigin, setGroupTags } = useData();
+  const { groups, lanes, updateGroup, deleteGroup, setGroupOrigin, setGroupTags, terms } = useData();
   const parsed = parseMeet(group.meet);
   const lane = lanes.find((l) => l.id === group.id);
   const [name, setName] = useState(group.name);
@@ -1245,7 +1246,7 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
       <div className="mt-3 text-center">
         {confirmDelete ? (
           <span className="text-[12.5px] text-muted">
-            Really delete {group.name}? Its people become &quot;not in a lifegroup.&quot;{" "}
+            Really delete {group.name}? Its people become &quot;not in a {terms.oneLower}.&quot;{" "}
             <button type="button" onClick={remove} className="font-semibold text-ember hover:underline">
               yes, delete
             </button>{" "}
@@ -1269,7 +1270,7 @@ export function EditGroupForm({ group, onDone }: { group: Group; onDone: () => v
 }
 
 export function GroupEventForm({ group, onDone }: { group: Group; onDone: () => void }) {
-  const { groups, recordGroupEvent } = useData();
+  const { groups, recordGroupEvent, terms } = useData();
   const [kind, setKind] = useState<import("@/lib/types").GroupEventKind>("milestone");
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [notes, setNotes] = useState("");
@@ -1343,7 +1344,7 @@ export function GroupEventForm({ group, onDone }: { group: Group; onDone: () => 
         <p className="mt-3 rounded-lg bg-ember-soft px-3 py-2 text-[12.5px] text-ember">
           {kind === "merged"
             ? "This moves everyone onto the receiving group's roster and closes this group's line on the timeline."
-            : "This ends the group - its people become “not in a lifegroup” and its line closes on the timeline. The history stays forever."}
+            : `This ends the group - its people become “not in a ${terms.oneLower}” and its line closes on the timeline. The history stays forever.`}
         </p>
       )}
       <SubmitRow busy={busy} error={error} label="Record it" />
@@ -1452,7 +1453,7 @@ export function GuestForm({
   guest?: import("@/lib/types").Guest;
   onDone: () => void;
 }) {
-  const { addGuest, updateGuest, groups, people } = useData();
+  const { addGuest, updateGuest, groups, people, terms } = useData();
   const [name, setName] = useState(guest?.name ?? "");
   const [gender, setGender] = useState<Gender>(guest?.gender ?? "M");
   const [desc, setDesc] = useState(guest?.desc ?? "");
@@ -1505,7 +1506,7 @@ export function GuestForm({
       {personMatch && (
         <p className="mb-2 rounded-lg bg-gold-soft px-3 py-2 text-[12.5px] text-gold">
           ⚠ <strong>{personMatch.name}</strong> is already in the directory
-          {matchGroup ? ` (${matchGroup})` : " (not in a lifegroup)"}. If it&apos;s the same
+          {matchGroup ? ` (${matchGroup})` : ` (not in a ${terms.oneLower})`}. If it&apos;s the same
           person, they may already be tracked - you might not need a guest entry.
         </p>
       )}
@@ -1565,7 +1566,7 @@ export function GuestForm({
           <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
         </div>
       </div>
-      <label className={labelCls}>Connected to lifegroup</label>
+      <label className={labelCls}>Connected to {terms.oneLower}</label>
       <select value={groupId ?? ""} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
         <option value="">Not connected yet</option>
         {groups.map((g) => (
@@ -1596,7 +1597,7 @@ export function DGroupForm({
   dgroup?: DGroup | null;
   onDone: () => void;
 }) {
-  const { people, groups, addDgroup, updateDgroup, deleteDgroup } = useData();
+  const { people, groups, addDgroup, updateDgroup, deleteDgroup, terms } = useData();
   const [gender, setGender] = useState<Gender>(dgroup?.gender ?? "M");
   const [kind, setKind] = useState<RelationshipKind>(dgroup?.kind ?? "mentoring");
   const [name, setName] = useState(dgroup?.name ?? "");
@@ -1615,7 +1616,7 @@ export function DGroupForm({
     (p) => !p.isChild && p.gender === gender && (group ? p.groupId === group.id : true),
   );
   const groupName = (id: string | null) =>
-    id ? groups.find((g) => g.id === id)?.name : "no lifegroup";
+    id ? groups.find((g) => g.id === id)?.name : `no ${terms.oneLower}`;
   const opt = (p: Person) => ({
     id: p.id,
     name: p.name,

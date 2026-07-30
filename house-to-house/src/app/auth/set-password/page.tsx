@@ -62,7 +62,9 @@ export default function SetPasswordPage() {
         <LogoMark size={46} className="text-accent" />
         <div>
           <div className="font-display text-2xl leading-none">House to House</div>
-          <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Antioch Boone</div>
+          <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">
+            Shepherding house to house
+          </div>
         </div>
       </div>
 

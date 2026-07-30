@@ -18,15 +18,17 @@ interface Slide {
   body: string;
 }
 
-const STAFF_SLIDES: Slide[] = [
+// Slides are functions of the church's group term, so a House Church network
+// gets a House Church tour.
+const staffSlides = (one: string, many: string): Slide[] => [
   {
     icon: "🏡",
     title: "Welcome to House to House",
-    body: "One home for your church's lifegroups and discipleship. Here's the 60-second tour. Skip anytime.",
+    body: `One home for your church's ${many} and discipleship. Here's the 60-second tour. Skip anytime.`,
   },
   {
     icon: "🗺️",
-    title: "The Lifegroup Map",
+    title: `The ${one} Map`,
     body: "Every group at a glance. Flip to the Engagement view to see who's leading, core, or on the fringe, or the Timeline to watch groups multiply over the years.",
   },
   {
@@ -37,7 +39,7 @@ const STAFF_SLIDES: Slide[] = [
   {
     icon: "👋",
     title: "Follow-up & MVPs",
-    body: "Walk newcomers from their first Sunday toward family. When someone's ready, you graduate them into the directory, whether or not they're in a lifegroup.",
+    body: `Walk newcomers from their first Sunday toward family. When someone's ready, you graduate them into the directory, whether or not they're in a ${one.toLowerCase()}.`,
   },
   {
     icon: "✅",
@@ -51,11 +53,11 @@ const STAFF_SLIDES: Slide[] = [
   },
 ];
 
-const LEADER_SLIDES: Slide[] = [
+const leaderSlides = (many: string): Slide[] => [
   {
     icon: "🏡",
     title: "Welcome to House to House",
-    body: "The tool your church uses to shepherd its lifegroups. Here's your corner of it. A quick look, then you're in.",
+    body: `The tool your church uses to shepherd its ${many}. Here's your corner of it. A quick look, then you're in.`,
   },
   {
     icon: "👥",
@@ -75,7 +77,7 @@ const LEADER_SLIDES: Slide[] = [
 ];
 
 export function WelcomeTour() {
-  const { ready, role } = useData();
+  const { ready, role, terms } = useData();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   useScrollLock(open);
@@ -102,7 +104,10 @@ export function WelcomeTour() {
 
   if (!open) return null;
 
-  const slides = role === "staff" ? STAFF_SLIDES : LEADER_SLIDES;
+  const staff = role === "staff";
+  const slides = staff
+    ? staffSlides(terms.one, terms.manyLower)
+    : leaderSlides(terms.manyLower);
   const s = slides[Math.min(step, slides.length - 1)];
   const last = step >= slides.length - 1;
 
@@ -123,7 +128,7 @@ export function WelcomeTour() {
           <div className="flex items-center gap-2">
             <LogoMark size={26} className="text-accent" />
             <span className="text-[11px] uppercase tracking-wider text-muted">
-              {slides === STAFF_SLIDES ? "Welcome, staff" : "Welcome, leader"}
+              {staff ? "Welcome, staff" : "Welcome, leader"}
             </span>
           </div>
           <button

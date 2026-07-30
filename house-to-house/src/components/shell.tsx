@@ -210,7 +210,9 @@ function AccessPending({
         <LogoMark size={46} className="text-accent" />
         <div>
           <div className="font-display text-2xl leading-none">House to House</div>
-          <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Antioch Boone</div>
+          <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">
+            Shepherding house to house
+          </div>
         </div>
       </div>
 
@@ -355,7 +357,7 @@ function StartAChurch() {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, myLedGroupIds, groups, churchName, accessRequests } =
+  const { ready, linked, refresh, reportStuck, role, demoRole, setDemoRole, realMode, userEmail, myGroupIds, myLedGroupIds, groups, churchName, accessRequests, terms } =
     useData();
   const flagStuck = useCallback(() => void reportStuck("no-access"), [reportStuck]);
   const pathname = usePathname();
@@ -400,7 +402,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const items =
     role === "staff"
       ? [
-          { href: "/map", label: "Lifegroup Map", icon: "map" },
+          { href: "/map", label: `${terms.one} Map`, icon: "map" },
           { href: "/people", label: "People", icon: "people" },
           { href: "/discipleship", label: "Discipleship", icon: "disc" },
           { href: "/follow-up", label: "Follow-up", icon: "guest" },
@@ -408,7 +410,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           { href: "/settings", label: "Settings", icon: "gear", badge: waiting },
         ]
       : [
-          { href: "/map", label: "Lifegroup Map", icon: "map" },
+          { href: "/map", label: `${terms.one} Map`, icon: "map" },
           ...(myGroupIds.length > 0 ? [{ href: "/follow-up", label: "MVPs", icon: "guest" }] : []),
           { href: "/check-in", label: "Check-in", icon: "checkin" },
         ];
@@ -625,10 +627,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
             .filter((it) => it.href !== "/settings")
             .map((it) => {
               const active = it.href === pathname;
+              // The map label carries the church's own group term, so key its
+              // short form by route, not by text.
               const short =
-                { "Lifegroup Map": "Map", Discipleship: "Tree", "Follow-up": "Guests" }[
-                  it.label
-                ] ?? it.label;
+                it.href === "/map"
+                  ? "Map"
+                  : ({ Discipleship: "Tree", "Follow-up": "Guests" }[it.label] ?? it.label);
               return (
                 <Link
                   key={it.href + it.label}

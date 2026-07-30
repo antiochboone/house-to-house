@@ -62,18 +62,23 @@ export interface AccessAlertPayload {
   groupWanted?: string | null;
   /** join only: whether an existing person already carries this email. */
   hasMatch?: boolean;
+  /** What this church calls its groups, lowercase ("lifegroup"). */
+  groupTerm?: string;
   appUrl: string;
 }
+
+/** The church's word for its groups, mid-sentence. */
+const term = (a: AccessAlertPayload) => (a.groupTerm ?? "Lifegroup").toLowerCase();
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function accessAlertSubject(a: AccessAlertPayload) {
   const who = a.personName ?? a.email;
-  if (a.kind === "join") return `${who} asked to join and lead a lifegroup`;
+  if (a.kind === "join") return `${who} asked to join and lead a ${term(a)}`;
   return a.kind === "no-access"
     ? `${who} is waiting on app access`
-    : `${who} can't check in yet - no lifegroup`;
+    : `${who} can't check in yet - no ${term(a)}`;
 }
 
 /** The one-line instruction that actually clears the block. */
@@ -112,7 +117,7 @@ function fixSteps(a: AccessAlertPayload): string[] {
         "Open them in People and set their Role in group to Leader.",
       ]
     : [
-        `${a.personName ?? a.email} has access but isn't on any lifegroup roster.`,
+        `${a.personName ?? a.email} has access but isn't on any ${term(a)} roster.`,
         "Add them to their group in People, with the role Leader.",
       ];
 }
@@ -142,7 +147,7 @@ export function accessAlertHtml(a: AccessAlertPayload) {
         ? "used your join link and is waiting to be approved."
         : a.kind === "no-access"
           ? "signed in and landed on an empty app - their access hasn't been turned on."
-          : "reached the check-in page with no lifegroup to check in for."}
+          : `reached the check-in page with no ${term(a)} to check in for.`}
     </p>
     <ol style="margin:0 0 20px;padding-left:20px">${steps}</ol>
     <a href="${esc(a.appUrl)}/people" style="display:inline-block;background:#7a8450;color:#fffdf8;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:12px">Open People</a>

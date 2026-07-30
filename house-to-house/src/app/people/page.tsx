@@ -12,7 +12,7 @@ type Filter = "all" | "unplaced" | "kids" | "staff" | "access";
 type SortBy = "name" | "lastName" | "role" | "group" | "discipleship";
 
 export default function PeoplePage() {
-  const { ready, role, people, groups, roles, roleLabel, isLeadershipRole, leadershipRoleIds } =
+  const { ready, role, people, groups, roles, roleLabel, isLeadershipRole, leadershipRoleIds, terms } =
     useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const [search, setSearch] = useState("");
@@ -141,7 +141,7 @@ export default function PeoplePage() {
       <div className="mb-5 flex flex-wrap gap-5 max-md:mb-4">
         <Stat num={adults.length} label="adults" />
         <Stat num={kids.length} label="kids" />
-        <Stat num={unplaced.length} label="not yet in a lifegroup" alert={unplaced.length > 0} />
+        <Stat num={unplaced.length} label={`not yet in a ${terms.oneLower}`} alert={unplaced.length > 0} />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -159,9 +159,9 @@ export default function PeoplePage() {
           value={groupFilter}
           onChange={(e) => setGroupFilter(e.target.value)}
           className="rounded-xl border-[1.5px] border-line bg-surface px-2.5 py-1.5 text-[12.5px] text-muted outline-none focus:border-accent"
-          aria-label="Filter by lifegroup"
+          aria-label={`Filter by ${terms.oneLower}`}
         >
-          <option value="">any lifegroup</option>
+          <option value="">any {terms.oneLower}</option>
           {groups.map((g) => (
             <option key={g.id} value={g.id}>
               {g.name}
@@ -179,7 +179,7 @@ export default function PeoplePage() {
             <option value="name">First name (A–Z)</option>
             <option value="lastName">Last name (A–Z)</option>
             <option value="role">Role (leaders first)</option>
-            <option value="group">Lifegroup</option>
+            <option value="group">{terms.one}</option>
             <option value="discipleship">Discipleship</option>
           </select>
         </label>

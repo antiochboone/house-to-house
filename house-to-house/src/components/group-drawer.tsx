@@ -47,7 +47,7 @@ export function GroupDrawer({
   onClose: () => void;
   onAddPerson?: () => void;
 }) {
-  const { people, groups, dgroups, role, checkinLog, sections, groupSections, roleLabel, isLeadershipRole, leadershipRoleIds, myGroupIds, saveReminder } =
+  const { people, groups, dgroups, role, checkinLog, sections, groupSections, roleLabel, isLeadershipRole, leadershipRoleIds, myGroupIds, saveReminder, terms } =
     useData();
   const h = makeHelpers(people, leadershipRoleIds);
   const roleName = (r: Person["role"]) =>
@@ -283,8 +283,8 @@ export function GroupDrawer({
                     {cfg.frequency !== "off" && (
                       <>
                         <p className="mt-1.5 px-1 text-[11.5px] text-faint">
-                          A &quot;how was lifegroup?&quot; email lands a couple hours after the
-                          meeting ({meetDay}).{" "}
+                          A &quot;how was {terms.oneLower}?&quot; email lands a couple hours
+                          after the meeting ({meetDay}).{" "}
                           {cfg.recipients.length === 0 &&
                             "No recipients listed - it goes to the group's leaders' emails."}
                         </p>

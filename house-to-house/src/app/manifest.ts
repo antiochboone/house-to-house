@@ -4,10 +4,12 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "House to House · Antioch Boone",
+    // Neutral on purpose: the manifest is baked at build time and one
+    // deployment can serve more than one church.
+    name: "House to House",
     short_name: "House to House",
     description:
-      "Stewarding lifegroups and discipleship at Antioch Boone - plant, lead, and multiply house to house community.",
+      "Stewarding groups and discipleship - plant, lead, and multiply house to house community.",
     start_url: "/map",
     scope: "/",
     display: "standalone",
@@ -28,7 +30,7 @@ export default function manifest(): MetadataRoute.Manifest {
     // Long-press the home-screen icon → jump straight to a task.
     shortcuts: [
       { name: "Do the check-in", short_name: "Check-in", url: "/check-in" },
-      { name: "Lifegroup Map", short_name: "Map", url: "/map" },
+      { name: "Group Map", short_name: "Map", url: "/map" },
     ],
   };
 }

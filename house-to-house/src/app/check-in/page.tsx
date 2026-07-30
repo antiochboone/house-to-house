@@ -59,7 +59,7 @@ const inputCls =
  * email about that, least of all the person who'd receive it.
  */
 function NoGroupYet({ staff }: { staff: boolean }) {
-  const { reportStuck } = useData();
+  const { reportStuck, terms } = useData();
   useEffect(() => {
     if (!staff) void reportStuck("no-group");
   }, [staff, reportStuck]);
@@ -67,20 +67,20 @@ function NoGroupYet({ staff }: { staff: boolean }) {
   return (
     <div className="mx-auto mt-20 max-w-md text-center">
       <h1 className="font-display mb-2 text-2xl">
-        {staff ? "No lifegroups yet" : "Almost there"}
+        {staff ? `No ${terms.manyLower} yet` : "Almost there"}
       </h1>
       <p className="text-[14.5px] leading-relaxed text-muted">
         {staff ? (
           <>
-            Check-ins run per lifegroup, and the church doesn&apos;t have one yet. Add
-            your first on the Lifegroup Map and this page comes to life.
+            Check-ins run per {terms.oneLower}, and the church doesn&apos;t have one yet.
+            Add your first on the {terms.one} Map and this page comes to life.
           </>
         ) : (
           <>
-            Your login isn&apos;t connected to a lifegroup yet, so there&apos;s nothing to
-            check in for. We&apos;ve let your staff know - they need your email on your
-            person record, and you on your group&apos;s roster with a leader role. Once
-            both are true, this page becomes your monthly check-in.
+            Your login isn&apos;t connected to a {terms.oneLower} yet, so there&apos;s
+            nothing to check in for. We&apos;ve let your staff know - they need your email
+            on your person record, and you on your group&apos;s roster with a leader role.
+            Once both are true, this page becomes your monthly check-in.
           </>
         )}
       </p>
@@ -90,7 +90,7 @@ function NoGroupYet({ staff }: { staff: boolean }) {
 
 export default function CheckInPage() {
   const data = useData();
-  const { ready, realMode, role, groups, people, mePersonId, myGroupIds, submitCheckin, pulseWords } = data;
+  const { ready, realMode, role, groups, people, mePersonId, myGroupIds, submitCheckin, pulseWords, terms } = data;
   const h = makeHelpers(people);
 
   const [step, setStep] = useState(0);
@@ -404,7 +404,7 @@ export default function CheckInPage() {
                         onClick={() => setNewFace(newFace === true ? null : true)}
                         className="w-full text-left text-[13.5px] font-medium text-accent-ink"
                       >
-                        ＋ Someone new joined lifegroup
+                        ＋ Someone new joined {terms.oneLower}
                       </button>
                       {newFace === true && (
                         <div className="mt-2 flex flex-col gap-2">

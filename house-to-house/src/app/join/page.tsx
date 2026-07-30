@@ -19,6 +19,8 @@ import { LogoMark } from "@/components/ui";
 interface Directory {
   name: string;
   slug: string;
+  /** What this church calls its groups; older deployments may not send it. */
+  groupTerm?: string;
   groups: { id: string; name: string }[];
 }
 
@@ -61,13 +63,18 @@ export default function JoinPage() {
     })();
   }, []);
 
+  // The church's own word for its groups, from the same anon directory call
+  // that supplies the group list. Falls back for deployments that haven't run
+  // migration-group-term.sql yet.
+  const term = (dir?.groupTerm ?? "Lifegroup").toLowerCase();
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!first.trim()) return setError("Tell us your first name.");
     if (!email.trim()) return setError("Add the email you'll sign in with.");
-    if (!groupId) return setError("Pick the lifegroup you lead.");
+    if (!groupId) return setError(`Pick the ${term} you lead.`);
     if (groupId === NOT_LISTED && !groupNote.trim())
-      return setError("Type the name of your lifegroup.");
+      return setError(`Type the name of your ${term}.`);
 
     setState("sending");
     setError(null);
@@ -112,7 +119,7 @@ export default function JoinPage() {
       <div>
         <div className="font-display text-2xl leading-none">House to House</div>
         <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">
-          {dir?.name ?? "Lifegroup leaders"}
+          {dir?.name ?? "Group leaders"}
         </div>
       </div>
     </div>
@@ -196,7 +203,7 @@ export default function JoinPage() {
       <form onSubmit={submit} className="rounded-[14px] border border-line bg-surface p-6 shadow-card">
         <p className="font-display mb-1 text-xl">Join {dir.name}</p>
         <p className="mb-4 text-[13px] leading-relaxed text-muted">
-          For lifegroup leaders. Tell us who you are and which group you lead — your church
+          For {term} leaders. Tell us who you are and which group you lead — your church
           approves you, then you&apos;re in.
         </p>
 
@@ -228,11 +235,11 @@ export default function JoinPage() {
           className={inputCls}
         />
 
-        <label className="label mb-1.5 block">Which lifegroup do you lead?</label>
+        <label className="label mb-1.5 block">Which {term} do you lead?</label>
         <select
           value={groupId}
           onChange={(e) => setGroupId(e.target.value)}
-          aria-label="Which lifegroup do you lead?"
+          aria-label={`Which ${term} do you lead?`}
           className={inputCls}
         >
           <option value="">Choose your group…</option>
@@ -248,8 +255,8 @@ export default function JoinPage() {
           <input
             value={groupNote}
             onChange={(e) => setGroupNote(e.target.value)}
-            placeholder="Your lifegroup's name"
-            aria-label="Your lifegroup's name"
+            placeholder={`Your ${term}'s name`}
+            aria-label={`Your ${term}'s name`}
             className={inputCls}
           />
         )}

@@ -5,10 +5,12 @@ import { ThemeProvider, THEME_INIT_SCRIPT } from "@/lib/theme";
 import { Shell } from "@/components/shell";
 import { PwaInstall } from "@/components/pwa-install";
 
+// Static metadata can't know which church is signing in, so it stays neutral -
+// the church's own name lives in the signed-in chrome (wordmark, map heading).
 export const metadata: Metadata = {
-  title: "House to House · Antioch Boone",
+  title: "House to House",
   description:
-    "Stewarding lifegroups and discipleship at Antioch Boone - plant, lead, and multiply house to house community.",
+    "Stewarding groups and discipleship - plant, lead, and multiply house to house community.",
   appleWebApp: { capable: true, title: "House to House", statusBarStyle: "default" },
 };
 

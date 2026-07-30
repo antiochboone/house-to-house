@@ -91,7 +91,7 @@ export function LineageTimeline({ lanes }: { lanes: Lane[] }) {
       </div>
       <div className="overflow-x-auto">
         <div className="relative min-w-[900px]">
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Lifegroup lineage timeline">
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Group lineage timeline">
             {years.map((y) => (
               <g key={y}>
                 <line
