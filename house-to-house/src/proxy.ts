@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "@/lib/supabase/config";
+import { cookieDomainFor } from "@/lib/supabase/cookie-domain";
 
 // Refreshes the Supabase session cookie and gates the app behind sign-in.
 // In demo mode (no env vars yet) it does nothing.
@@ -9,7 +10,13 @@ export async function proxy(request: NextRequest) {
 
   let response = NextResponse.next({ request });
 
+  // On a subdomain of the church's site the session is shared with Base Camp,
+  // so a refresh here must write the shared cookie rather than a host-only one
+  // that would shadow it.
+  const domain = cookieDomainFor(request.headers.get("host"));
+
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    ...(domain ? { cookieOptions: { domain } } : {}),
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -18,7 +25,7 @@ export async function proxy(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
+          response.cookies.set(name, value, domain ? { ...options, domain } : options),
         );
       },
     },
